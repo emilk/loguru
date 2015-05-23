@@ -31,15 +31,15 @@ Calling loguru::init is optional, but useful to timestamp the start of the log.
 
 namespace loguru
 {
-	enum class LogType // TODO: invert and name "Severity"?
+	enum class LogType
 	{
 		// Value is the verbosity level one must pass.
 		// Negative numbers go to stderr and cannot be skipped.
 		FATAL   = -3,
 		ERROR   = -2,
 		WARNING = -1,
-		INFO    =  0,
-		SPAM    = +1
+		INFO    =  0, // Normal messages.
+		SPAM    = +1  // Goes to file, but not to screen.
 	};
 
 	// Musn't throw!
@@ -107,11 +107,11 @@ namespace loguru
 
 
 #ifndef NDEBUG
-#  define DLOG(...)         LOG(INFO, __VA_ARGS__)
+#  define DLOG(level, ...)  LOG(level, __VA_ARGS__)
 #  define DCHECK(test, ...) CHECK(test, __VA_ARGS__)
 #  define DASSERT(test)     ASSERT(test)
 #else
-#  define DLOG(...)
+#  define DLOG(level, ...)
 #  define DCHECK(test, ...)
 #  define DASSERT(test)
 #endif
