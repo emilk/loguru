@@ -195,7 +195,7 @@ namespace loguru
 		free(buff);
 	}
 
-	void log(LogType type, const char* file, unsigned line, const char* format, va_list vlist)
+	void logv(LogType type, const char* file, unsigned line, const char* format, va_list vlist)
 	{
 		const char* prefix;
 		switch (type)
@@ -224,7 +224,7 @@ namespace loguru
 	{
 		va_list vlist;
 		va_start(vlist, format);
-		log(type, file, line, prefix, format, vlist);
+		log_with_prefix(type, file, line, prefix, format, vlist);
 		va_end(vlist);
 
 		if (type == LogType::FATAL) {
@@ -239,7 +239,7 @@ namespace loguru
 	{
 		va_list vlist;
 		va_start(vlist, format);
-		log(type, file, line, format, vlist);
+		logv(type, file, line, format, vlist);
 		va_end(vlist);
 	}
 
@@ -270,7 +270,7 @@ namespace loguru
 	{
 		va_list vlist;
 		va_start(vlist, format);
-		log(LogType::FATAL, file, line, expr, format, vlist);
+		log_with_prefix(LogType::FATAL, file, line, expr, format, vlist);
 		va_end(vlist);
 		if (s_fatal_handler) {
 			s_fatal_handler();
