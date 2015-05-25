@@ -209,7 +209,7 @@ namespace loguru
 				break;
 
 			case LogType::FATAL:
-				prefix = "🔴 CRITICAL: ";
+				prefix = "🔴 FATAL: ";
 				break;
 
 			default:
