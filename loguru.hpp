@@ -15,7 +15,6 @@ Calling loguru::init is optional, but useful to timestamp the start of the log.
 
 # TODO:
 * Set file output.
-* Customize log-level.
 * argc/argv parsing of verbosity.
 * Port to Windows.
 * Remove dependency on boost::posix_time.
@@ -33,7 +32,7 @@ Calling loguru::init is optional, but useful to timestamp the start of the log.
 
 namespace loguru
 {
-	enum class LogType
+	enum class Verbosity
 	{
 		// Value is the verbosity level one must pass.
 		// Negative numbers go to stderr and cannot be skipped.
@@ -44,11 +43,14 @@ namespace loguru
 		SPAM    = +1  // Goes to file, but not to screen.
 	};
 
+	extern int g_verbosity; // Anything higher than this is ignored.
+
 	// Musn't throw!
-	typedef void (*log_handler_t)(void* user_data, LogType type, const char* text);
+	typedef void (*log_handler_t)(void* user_data, Verbosity verbosity, const char* text);
 	typedef void (*fatal_handler_t)();
 
-	// Musn't be called, but it's nice if you do.
+	/* Musn't be called, but it's nice if you do.
+	   Required to heed environment variables, like GLOG_v. */
 	void init(int argc, char* argv[]);
 
 	/* Will be called right before abort().
@@ -63,13 +65,13 @@ namespace loguru
 	void remove_callback(const char* id);
 
 	// Actual logging function. Use the LOG macro instead of calling this directly.
-	void log(LogType type, const char* file, unsigned line, const char* format, ...) LOGURU_PRINTF_LIKE(4, 5);
+	void log(Verbosity verbosity, const char* file, unsigned line, const char* format, ...) LOGURU_PRINTF_LIKE(4, 5);
 
 	// Helper class for LOG_SCOPE
 	class LogScopeRAII
 	{
 	public:
-		LogScopeRAII(const char* file, unsigned line, const char* format, ...) LOGURU_PRINTF_LIKE(4, 5);
+		LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, const char* format, ...) LOGURU_PRINTF_LIKE(5, 6);
 		~LogScopeRAII();
 
 	private:
@@ -78,7 +80,8 @@ namespace loguru
 		LogScopeRAII& operator=(LogScopeRAII&);
 		LogScopeRAII& operator=(LogScopeRAII&&);
 
-		const char* _file;
+		Verbosity   _verbosity;
+		const char* _file; // Set to null if we are disabled due to verbosity
 		unsigned    _line;
 		long long   _start_time_ns;
 	};
@@ -91,12 +94,13 @@ namespace loguru
 // Macros!
 
 // LOG(INFO, "Foo: %d", some_number);
-#define LOG(level, ...) loguru::log(loguru::LogType:: level, __FILE__, __LINE__, __VA_ARGS__)
+#define VLOG(verbosity, ...) if ((int)verbosity > loguru::g_verbosity) {} else do { loguru::log(verbosity, __FILE__, __LINE__, __VA_ARGS__); } while (false)
+#define LOG(verbosity_name, ...) VLOG(loguru::Verbosity::verbosity_name, __VA_ARGS__)
 
 // Use to book-end a scope. Affects logging on all threads.
 #define JOIN_STRINGS(a, b) a ## b
-#define LOG_SCOPE(...) loguru::LogScopeRAII JOIN_STRINGS(error_context_RAII_, __LINE__)(__FILE__, __LINE__, __VA_ARGS__)
-#define LOG_SCOPE_FUNCTION() LOG_SCOPE(__PRETTY_FUNCTION__)
+#define LOG_SCOPE(verbosity_name, ...) loguru::LogScopeRAII JOIN_STRINGS(error_context_RAII_, __LINE__){loguru::Verbosity::verbosity_name, __FILE__, __LINE__, __VA_ARGS__}
+#define LOG_SCOPE_FUNCTION(verbosity_name) LOG_SCOPE(verbosity_name, __PRETTY_FUNCTION__)
 
 
 /* Checked at runtime too. Will print error, then call abort_handler (if any), then 'abort'.
@@ -117,7 +121,7 @@ namespace loguru
 #define CHECK_GE(a, b) CHECK((a) >= (b), "")
 
 #ifndef NDEBUG
-#  define DLOG(level, ...)  LOG(level, __VA_ARGS__)
+#  define DLOG(verbosity, ...)  LOG(verbosity, __VA_ARGS__)
 #  define DCHECK(test, ...) CHECK(test, __VA_ARGS__)
 #  define DCHECK_NOTNULL(x) CHECK_NOTNULL(x)
 #  define DCHECK_EQ(a, b)   CHECK_EQ(a, b)
@@ -128,7 +132,7 @@ namespace loguru
 #  define DCHECK_GE(a, b)   CHECK_GE(a, b)
 #  define DASSERT(test)     ASSERT(test)
 #else
-#  define DLOG(level, ...)
+#  define DLOG(verbosity, ...)
 #  define DCHECK(test, ...)
 #  define DCHECK_NOTNULL(x)
 #  define DCHECK_EQ(a, b)

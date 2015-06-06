@@ -12,6 +12,7 @@ I abhor logging libraries that `#include`'s everything from `iostream` to `windo
 ## Features:
 * Small, simple library.
 * Small header with no `#include`s for **fast compile times**.
+  * In a test of a medium-sized project, including `loguru.hpp` instead of `glog/logging.hpp` everywhere gave about 10% speedup in compilation times.
 * Minimal dependencies (just boost, and that will soon be removed).
 * Print using printf-style formatting or streams.
 * Compile-time checked printf-formating (on supported compilers).

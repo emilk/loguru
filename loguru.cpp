@@ -12,6 +12,34 @@
 
 namespace loguru
 {
+	struct Callback
+	{
+		log_handler_t callback;
+		void*         user_data;
+	};
+
+	using CallbackMap = std::unordered_map<std::string, Callback>;
+
+	using namespace std::chrono;
+	using Clock = std::chrono::high_resolution_clock;
+
+	const auto INDENTATION_WIDTH = 4;
+	const auto SCOPE_TIME_PRECISION = 3; // 3=ms, 6≈us, 9=ns
+
+
+	//const auto s_start_time = Clock::now();
+	int              g_verbosity       = INT_MAX;
+	std::mutex       s_mutex;
+	CallbackMap      s_callbacks;
+	FILE*            s_err             = stderr;
+	FILE*            s_out             = stdout;
+	FILE*            s_file            = nullptr;
+	fatal_handler_t  s_fatal_handler   = abort;
+	bool             s_strip_file_path = true;
+	std::atomic<int> s_indentation     { 0 };
+
+	const char* PREAMBLE_EXPLAIN = "date       time         ( uptime  ) [thread name     thread id]                 file:line   v| ";
+
 	// ------------------------------------------------------------------------------
 	// Helpers:
 
@@ -52,32 +80,6 @@ namespace loguru
 
 	// ------------------------------------------------------------------------------
 
-	struct Callback
-	{
-		log_handler_t callback;
-		void*         user_data;
-	};
-
-	using namespace std::chrono;
-	using Clock = std::chrono::high_resolution_clock;
-
-	const auto SCOPE_TYPE = LogType::SPAM;
-	const auto INDENTATION_WIDTH = 4;
-	const auto SCOPE_TIME_PRECISION = 3; // 3=ms, 6≈us, 9=ns
-
-	//const auto s_start_time = Clock::now();
-	std::mutex s_mutex;
-	std::unordered_map<std::string, Callback> s_callbacks;
-	FILE* s_err  = stderr;
-	FILE* s_out  = stdout;
-	FILE* s_file = nullptr;
-	fatal_handler_t s_fatal_handler = abort;
-	bool s_strip_file_path = true;
-	std::atomic<int> s_indentation { 0 };
-	int s_log_level = INT_MAX;
-
-	const char* PREAMBLE_EXPLAIN = "date       time         ( uptime  ) [thread name     thread id]                 file:line lvl| ";
-
 	void init(int argc, char* argv[])
 	{
 		// TODO: unique file name?
@@ -112,7 +114,7 @@ namespace loguru
 
 	// ------------------------------------------------------------------------
 
-	void log_preamble(FILE* out, LogType type, const char* file, unsigned line, const char* prefix)
+	void log_preamble(FILE* out, Verbosity verbosity, const char* file, unsigned line, const char* prefix)
 	{
 		// Date:
 		time_t rawtime;
@@ -159,56 +161,56 @@ namespace loguru
 		        date_buff, hours, minutes, seconds, milliseconds,
 		        uptime_sec,
 		        thread_name, thread_id_str, file, line,
-		        (int)type,
+		        (int)verbosity,
 		        indentation(s_indentation, INDENTATION_WIDTH), prefix);
 	}
 
-	void log_line(FILE* out, LogType type, const char* file, unsigned line, const char* prefix, const char* buff)
+	void log_line(FILE* out, Verbosity verbosity, const char* file, unsigned line, const char* prefix, const char* buff)
 	{
-		if (s_log_level < (int)type)
+		if (g_verbosity < (int)verbosity)
 		{
 			return;
 		}
 
-		log_preamble(out, type, file, line, prefix);
+		log_preamble(out, verbosity, file, line, prefix);
 		fprintf(out, "%s\n", buff);
 		fflush(out);
 	}
 
-	void log_with_prefix(LogType type, const char* file, unsigned line, const char* prefix, const char* format, va_list vlist)
+	void log_with_prefix(Verbosity verbosity, const char* file, unsigned line, const char* prefix, const char* format, va_list vlist)
 	{
 		std::lock_guard<std::mutex> lg(s_mutex);
 		auto buff = strprintf(format, vlist);
 
-		FILE* out = ((int)type <= (int)LogType::WARNING ? s_err : s_out);
-		log_line(out, type, file, line, prefix, buff);
+		FILE* out = ((int)verbosity <= (int)Verbosity::WARNING ? s_err : s_out);
+		log_line(out, verbosity, file, line, prefix, buff);
 
 		if (s_file) {
-			log_line(s_file, type, file, line, prefix, buff);
+			log_line(s_file, verbosity, file, line, prefix, buff);
 		}
 
 		for (auto& p : s_callbacks) {
-			//p.second(type, str.c_str());
-			p.second.callback(p.second.user_data, type, buff);
+			//p.second(verbosity, str.c_str());
+			p.second.callback(p.second.user_data, verbosity, buff);
 		}
 
 		free(buff);
 	}
 
-	void logv(LogType type, const char* file, unsigned line, const char* format, va_list vlist)
+	void logv(Verbosity verbosity, const char* file, unsigned line, const char* format, va_list vlist)
 	{
 		const char* prefix;
-		switch (type)
+		switch (verbosity)
 		{
-			case LogType::WARNING:
+			case Verbosity::WARNING:
 				prefix = "⚠ WARNING: ";
 				break;
 
-			case LogType::ERROR:
+			case Verbosity::ERROR:
 				prefix = "🔴 ERROR: ";
 				break;
 
-			case LogType::FATAL:
+			case Verbosity::FATAL:
 				prefix = "🔴 FATAL: ";
 				break;
 
@@ -217,17 +219,17 @@ namespace loguru
 				break;
 		}
 
-		log_with_prefix(type, file, line, prefix, format, vlist);
+		log_with_prefix(verbosity, file, line, prefix, format, vlist);
 	}
 
-	void log(LogType type, const char* file, unsigned line, const char* prefix, const char* format, ...)
+	void log(Verbosity verbosity, const char* file, unsigned line, const char* prefix, const char* format, ...)
 	{
 		va_list vlist;
 		va_start(vlist, format);
-		log_with_prefix(type, file, line, prefix, format, vlist);
+		log_with_prefix(verbosity, file, line, prefix, format, vlist);
 		va_end(vlist);
 
-		if (type == LogType::FATAL) {
+		if (verbosity == Verbosity::FATAL) {
 			if (s_fatal_handler) {
 				s_fatal_handler();
 			}
@@ -235,11 +237,11 @@ namespace loguru
 		}
 	}
 
-	void log(LogType type, const char* file, unsigned line, const char* format, ...)
+	void log(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
 	{
 		va_list vlist;
 		va_start(vlist, format);
-		logv(type, file, line, format, vlist);
+		logv(verbosity, file, line, format, vlist);
 		va_end(vlist);
 	}
 
@@ -248,29 +250,34 @@ namespace loguru
 		return duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count();
 	}
 
-	LogScopeRAII::LogScopeRAII(const char* file, unsigned line, const char* format, ...)
-		: _file(file), _line(line), _start_time_ns(now_ns())
+	LogScopeRAII::LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
+		: _verbosity(verbosity), _file(file), _line(line), _start_time_ns(now_ns())
 	{
-		va_list vlist;
-		va_start(vlist, format);
-		log_with_prefix(SCOPE_TYPE, file, line, "{ ", format, vlist);
-		va_end(vlist);
-		++s_indentation;
+		if ((int)verbosity <= g_verbosity) {
+			va_list vlist;
+			va_start(vlist, format);
+			log_with_prefix(_verbosity, file, line, "{ ", format, vlist);
+			va_end(vlist);
+			++s_indentation;
+		} else {
+			_file = nullptr;
+		}
 	}
 
 	LogScopeRAII::~LogScopeRAII()
 	{
-		--s_indentation;
-		//log_with_prefix(SCOPE_TYPE, _file, _line, "}", "");
-		auto duration_sec = (now_ns() - _start_time_ns) / 1e9;
-		log(SCOPE_TYPE, _file, _line, "} %.*f s", SCOPE_TIME_PRECISION, duration_sec);
+		if (_file) {
+			--s_indentation;
+			auto duration_sec = (now_ns() - _start_time_ns) / 1e9;
+			log(_verbosity, _file, _line, "} %.*f s", SCOPE_TIME_PRECISION, duration_sec);
+		}
 	}
 
 	void on_assertion_failed(const char* expr, const char* file, unsigned line, const char* format, ...)
 	{
 		va_list vlist;
 		va_start(vlist, format);
-		log_with_prefix(LogType::FATAL, file, line, expr, format, vlist);
+		log_with_prefix(Verbosity::FATAL, file, line, expr, format, vlist);
 		va_end(vlist);
 		if (s_fatal_handler) {
 			s_fatal_handler();
