@@ -59,7 +59,7 @@ namespace loguru
 	};
 
 	using namespace std::chrono;
-	typedef std::chrono::high_resolution_clock Clock;
+	using Clock = std::chrono::high_resolution_clock;
 
 	const auto SCOPE_TYPE = LogType::SPAM;
 	const auto INDENTATION_WIDTH = 4;

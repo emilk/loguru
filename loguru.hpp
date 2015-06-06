@@ -16,10 +16,12 @@ Calling loguru::init is optional, but useful to timestamp the start of the log.
 # TODO:
 * Set file output.
 * Customize log-level.
-* argc/argv parsing.
+* argc/argv parsing of verbosity.
 * Port to Windows.
 * Remove dependency on boost::posix_time.
 * Log on atexit?
+* Make drop-in replacement for GLOG?
+* getenv for GLOG-stuff like verbosity.
 */
 
 #pragma once
@@ -101,18 +103,40 @@ namespace loguru
    Note that the test must be boolean.
    CHECK(ptr, ...); will not compile, but CHECK(ptr != nullptr, ...); will.
 */
-#define CHECK(test, ...) if ((test) == true) {} else do { loguru::on_assertion_failed("ASSERTION FAILED: " #test, __FILE__, __LINE__, __VA_ARGS__); } while (false)
+#define CHECK(test, ...) if ((test) == true) {} else do { loguru::on_assertion_failed("ASSERTION FAILED:  " #test "   ", __FILE__, __LINE__, __VA_ARGS__); } while (false)
 
 #define ASSERT(test) CHECK(test, "(developer too lazy to add proper error message)")
 
+// TODO: print out the values involved using streams:
+#define CHECK_NOTNULL(x) CHECK((x) != nullptr, "")
+#define CHECK_EQ(a, b) CHECK((a) == (b), "")
+#define CHECK_NE(a, b) CHECK((a) != (b), "")
+#define CHECK_LT(a, b) CHECK((a) <  (b), "")
+#define CHECK_LE(a, b) CHECK((a) <= (b), "")
+#define CHECK_GT(a, b) CHECK((a) >  (b), "")
+#define CHECK_GE(a, b) CHECK((a) >= (b), "")
 
 #ifndef NDEBUG
 #  define DLOG(level, ...)  LOG(level, __VA_ARGS__)
 #  define DCHECK(test, ...) CHECK(test, __VA_ARGS__)
+#  define DCHECK_NOTNULL(x) CHECK_NOTNULL(x)
+#  define DCHECK_EQ(a, b)   CHECK_EQ(a, b)
+#  define DCHECK_NE(a, b)   CHECK_NE(a, b)
+#  define DCHECK_LT(a, b)   CHECK_LT(a, b)
+#  define DCHECK_LE(a, b)   CHECK_LE(a, b)
+#  define DCHECK_GT(a, b)   CHECK_GT(a, b)
+#  define DCHECK_GE(a, b)   CHECK_GE(a, b)
 #  define DASSERT(test)     ASSERT(test)
 #else
 #  define DLOG(level, ...)
 #  define DCHECK(test, ...)
+#  define DCHECK_NOTNULL(x)
+#  define DCHECK_EQ(a, b)
+#  define DCHECK_NE(a, b)
+#  define DCHECK_LT(a, b)
+#  define DCHECK_LE(a, b)
+#  define DCHECK_GT(a, b)
+#  define DCHECK_GE(a, b)
 #  define DASSERT(test)
 #endif
 
