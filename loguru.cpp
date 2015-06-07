@@ -179,22 +179,31 @@ namespace loguru
 
 	void log_with_prefix(Verbosity verbosity, const char* file, unsigned line, const char* prefix, const char* format, va_list vlist)
 	{
-		std::lock_guard<std::mutex> lg(s_mutex);
-		auto buff = strprintf(format, vlist);
+		{
+			std::lock_guard<std::mutex> lg(s_mutex);
+			auto buff = strprintf(format, vlist);
 
-		FILE* out = ((int)verbosity <= (int)Verbosity::WARNING ? s_err : s_out);
-		log_line(out, verbosity, file, line, prefix, buff);
+			FILE* out = ((int)verbosity <= (int)Verbosity::WARNING ? s_err : s_out);
+			log_line(out, verbosity, file, line, prefix, buff);
 
-		if (s_file) {
-			log_line(s_file, verbosity, file, line, prefix, buff);
+			if (s_file) {
+				log_line(s_file, verbosity, file, line, prefix, buff);
+			}
+
+			for (auto& p : s_callbacks) {
+				//p.second(verbosity, str.c_str());
+				p.second.callback(p.second.user_data, verbosity, buff);
+			}
+
+			free(buff);
 		}
 
-		for (auto& p : s_callbacks) {
-			//p.second(verbosity, str.c_str());
-			p.second.callback(p.second.user_data, verbosity, buff);
+		if (verbosity == Verbosity::FATAL) {
+			if (s_fatal_handler) {
+				s_fatal_handler();
+			}
+			abort();
 		}
-
-		free(buff);
 	}
 
 	void logv(Verbosity verbosity, const char* file, unsigned line, const char* format, va_list vlist)
@@ -228,13 +237,6 @@ namespace loguru
 		va_start(vlist, format);
 		log_with_prefix(verbosity, file, line, prefix, format, vlist);
 		va_end(vlist);
-
-		if (verbosity == Verbosity::FATAL) {
-			if (s_fatal_handler) {
-				s_fatal_handler();
-			}
-			abort();
-		}
 	}
 
 	void log(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)

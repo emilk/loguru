@@ -30,8 +30,8 @@ namespace loguru
 	#define LOG_STREAM(verbosity_name) StreamLogger(loguru::Verbosity::verbosity, __FILE__, __LINE__)
 
 #ifndef NDEBUG
-#  define LOG_STREAM(...) LOG_STREAM(__VA_ARGS__)
+#  define DLOG_STREAM(...) LOG_STREAM(__VA_ARGS__)
 #else
-#  define DLOG(...)
+#  define DLOG_STREAM(...)
 #endif
 }
