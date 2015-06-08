@@ -27,7 +27,7 @@ namespace loguru
 	const auto SCOPE_TIME_PRECISION = 3; // 3=ms, 6≈us, 9=ns
 
 
-	//const auto s_start_time = Clock::now();
+	const auto s_start_time = Clock::now();
 	int              g_verbosity       = INT_MAX;
 	std::mutex       s_mutex;
 	CallbackMap      s_callbacks;
@@ -131,15 +131,9 @@ namespace loguru
 		const long seconds      = td.seconds();
 		const long milliseconds = td.total_milliseconds() - ((hours * 3600 + minutes * 60 + seconds) * 1000);
 
-		// Uptime:
-		//auto end = Clock::now();
-		//auto uptime_ms = duration_cast<std::chrono::milliseconds>(end - s_start_time).count();
-		auto uptime_sec = (double)clock() / CLOCKS_PER_SEC;
-
-		// Thread id/name:
-		//std::stringstream ss;
-		//ss << std::this_thread::get_id(); // 64 bit hex :T
-		// thread_id_str = ss.str().c_str()
+		auto end = Clock::now();
+		auto uptime_ms = duration_cast<std::chrono::milliseconds>(end - s_start_time).count();
+		auto uptime_sec = uptime_ms / 1000.0;
 
 		uint64_t thread_id;
 		pthread_threadid_np(pthread_self(), &thread_id);
