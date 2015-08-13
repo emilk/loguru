@@ -27,7 +27,7 @@ namespace loguru
 	};
 
 	// usage:  LOG_STREAM(INFO) << "Foo " << std::setprecision(10) << some_value;
-	#define LOG_STREAM(verbosity_name) StreamLogger(loguru::Verbosity::verbosity, __FILE__, __LINE__)
+	#define LOG_STREAM(verbosity_name) StreamLogger(loguru::Verbosity::verbosity_name, __FILE__, __LINE__)
 
 #ifndef NDEBUG
 #  define DLOG_STREAM(...) LOG_STREAM(__VA_ARGS__)

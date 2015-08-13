@@ -23,7 +23,6 @@ namespace loguru
 	using namespace std::chrono;
 	using Clock = std::chrono::high_resolution_clock;
 
-	const auto INDENTATION_WIDTH = 4;
 	const auto SCOPE_TIME_PRECISION = 3; // 3=ms, 6≈us, 9=ns
 
 
@@ -60,22 +59,16 @@ namespace loguru
 #endif
 	}
 
-	// Returns a pointer to this many spaces (up to a reasonable max);
-	const char* spaces(unsigned count)
+	const char* indentation(unsigned depth)
 	{
 		static const char* buff =
-		"          " "          " "          " "          " "          "
-		"          " "          " "          " "          " "          "
-		"          " "          " "          " "          " "          "
-		"          " "          " "          " "          " "          ";
-		count = std::min<unsigned>(count, 200);
-		return buff + 200 - count;
-	}
-
-	// Returns a pointer to this many spaces (up to a reasonable max);
-	const char* indentation(unsigned depth, unsigned tw)
-	{
-		return spaces(depth * tw);
+		".  .  .  .  .  .  .  .  .  .  " ".  .  .  .  .  .  .  .  .  .  "
+		".  .  .  .  .  .  .  .  .  .  " ".  .  .  .  .  .  .  .  .  .  "
+		".  .  .  .  .  .  .  .  .  .  " ".  .  .  .  .  .  .  .  .  .  "
+		".  .  .  .  .  .  .  .  .  .  " ".  .  .  .  .  .  .  .  .  .  "
+		".  .  .  .  .  .  .  .  .  .  " ".  .  .  .  .  .  .  .  .  .  ";
+		depth = std::min<unsigned>(depth, 100);
+		return buff + 3 * (100 - depth);
 	}
 
 	// ------------------------------------------------------------------------------
@@ -152,11 +145,11 @@ namespace loguru
 		}
 
 		fprintf(out, "%s %02ld:%02ld:%02ld.%03ld (%8.3fs) [%-16s %-8s] %20s:%-5u % d| %s%s",
-		        date_buff, hours, minutes, seconds, milliseconds,
-		        uptime_sec,
-		        thread_name, thread_id_str, file, line,
-		        (int)verbosity,
-		        indentation(s_indentation, INDENTATION_WIDTH), prefix);
+			date_buff, hours, minutes, seconds, milliseconds,
+			uptime_sec,
+			thread_name, thread_id_str, file, line,
+			(int)verbosity,
+			indentation(s_indentation), prefix);
 	}
 
 	void log_line(FILE* out, Verbosity verbosity, const char* file, unsigned line, const char* prefix, const char* buff)

@@ -30,6 +30,8 @@ Calling loguru::init is optional, but useful to timestamp the start of the log.
 #define LOGURU_PRINTF_LIKE(fmtarg, firstvararg) \
 		__attribute__((__format__ (__printf__, fmtarg, firstvararg)))
 
+#define LOGURU_NORETURN __attribute__((noreturn))
+
 namespace loguru
 {
 	enum class Verbosity
@@ -87,7 +89,7 @@ namespace loguru
 	};
 
 	// Marked as 'noreturn' for the benefit of the static analyzer and optimizer.
-	void on_assertion_failed(const char* expr, const char* file, unsigned line, const char* format, ...) LOGURU_PRINTF_LIKE(4, 5) __attribute__((noreturn));
+	void on_assertion_failed(const char* expr, const char* file, unsigned line, const char* format, ...) LOGURU_PRINTF_LIKE(4, 5) LOGURU_NORETURN;
 } // namespace loguru
 
 // --------------------------------------------------------------------
