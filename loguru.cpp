@@ -25,7 +25,6 @@ namespace loguru
 
 	const auto SCOPE_TIME_PRECISION = 3; // 3=ms, 6≈us, 9=ns
 
-
 	const auto s_start_time = Clock::now();
 	int              g_verbosity       = INT_MAX;
 	std::mutex       s_mutex;

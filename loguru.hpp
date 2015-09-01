@@ -5,13 +5,11 @@ License: use, abuse, give credit if you like.
 
 * Version 0.1 - 2015-03-22 - Works great on Mac.
 
-
 # Usage:
 LOG(INFO, "I'm hungry for some %.3f!", 3.14159);
 CHECK(0 < x, "Expected positive integer, got %d", x);
 Use LOG_SCOPE for temporal grouping and to measure durations.
 Calling loguru::init is optional, but useful to timestamp the start of the log.
-
 
 # TODO:
 * Set file output.
@@ -103,7 +101,6 @@ namespace loguru
 #define JOIN_STRINGS(a, b) a ## b
 #define LOG_SCOPE(verbosity_name, ...) loguru::LogScopeRAII JOIN_STRINGS(error_context_RAII_, __LINE__){loguru::Verbosity::verbosity_name, __FILE__, __LINE__, __VA_ARGS__}
 #define LOG_SCOPE_FUNCTION(verbosity_name) LOG_SCOPE(verbosity_name, __PRETTY_FUNCTION__)
-
 
 /* Checked at runtime too. Will print error, then call abort_handler (if any), then 'abort'.
    Note that the test must be boolean.
