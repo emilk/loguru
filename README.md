@@ -6,6 +6,8 @@ Use, abuse, enjoy. Give credit if you like it!
 ## Why another logging library?
 I abhor logging libraries that `#include`'s everything from `iostream` to `windows.h` into every compilation unit in your project. Logging should be frequent in your source code, and thus as lightweight as possible. Loguru's header has *no #includes*. This means it will not slow down the compilation of your project.
 
+Also, I love the readable logs that indented scopes give you (see separate section).
+
 ## Versions
 * Version 0.1 - 2015-03-22 - Works great on Mac.
 
@@ -13,7 +15,7 @@ I abhor logging libraries that `#include`'s everything from `iostream` to `windo
 * Small, simple library.
 * Small header with no `#include`s for **fast compile times**.
   * In a test of a medium-sized project, including `loguru.hpp` instead of `glog/logging.hpp` everywhere gave about 10% speedup in compilation times.
-* Minimal dependencies (just boost, and that will soon be removed).
+* No dependencies.
 * Print using printf-style formatting or streams.
 * Compile-time checked printf-formating (on supported compilers).
 * Log to any combination of file, stdout and stderr.
@@ -59,13 +61,13 @@ This will output:
 ```
 date       time         [thread name     thread id]                 file:line lvl|
 2015-03-21 22:33:58.615 [main             396D9   ]             main.cpp:2      0| { main()
-2015-03-21 22:33:58.877 [main             396D9   ]             main.cpp:3      0|     Doing some stuff
-2015-03-21 22:33:58.960 [main             396D9   ]             main.cpp:5      0|     { Iteration 0
-2015-03-21 22:33:58.960 [main             396D9   ]             main.cpp:5      0|     } 0.302 s
-2015-03-21 22:33:58.960 [main             396D9   ]             main.cpp:5      0|     { Iteration 1
-2015-03-21 22:33:58.960 [main             396D9   ]             main.cpp:8     -1|         Bad result
-2015-03-21 22:33:58.960 [main             396D9   ]             main.cpp:5      0|     } 0.317 s
-2015-03-21 22:34:59.020 [main             396D9   ]             main.cpp:11     0|     Time to go!
+2015-03-21 22:33:58.877 [main             396D9   ]             main.cpp:3      0| .   Doing some stuff
+2015-03-21 22:33:58.960 [main             396D9   ]             main.cpp:5      0| .   { Iteration 0
+2015-03-21 22:33:58.960 [main             396D9   ]             main.cpp:5      0| .   } 0.302 s
+2015-03-21 22:33:58.960 [main             396D9   ]             main.cpp:5      0| .   { Iteration 1
+2015-03-21 22:33:58.960 [main             396D9   ]             main.cpp:8     -1| .   .   Bad result
+2015-03-21 22:33:58.960 [main             396D9   ]             main.cpp:5      0| .   } 0.317 s
+2015-03-21 22:34:59.020 [main             396D9   ]             main.cpp:11     0| .   Time to go!
 2015-03-21 22:34:59.020 [main             396D9   ]             main.cpp:2      0| } 0.619 s
 ```
 
