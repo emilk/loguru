@@ -97,6 +97,4 @@ Loguru allows you to use whatever style you prefer.
 * Severity not yet customizable.
 * Better cross-platform support (Clang + POSIX only at the moment).
 * Code needs cleanup.
-* Currently depends on boost::posix_time.
 * There is room for optimization.
-

@@ -4,6 +4,7 @@ www.github.com/emilk/loguru
 License: use, abuse, give credit if you like.
 
 * Version 0.1 - 2015-03-22 - Works great on Mac.
+* Version 0.2 - 2015-09-17 - Removed the only dependency.
 
 # Usage:
 LOG(INFO, "I'm hungry for some %.3f!", 3.14159);
@@ -15,7 +16,6 @@ Calling loguru::init is optional, but useful to timestamp the start of the log.
 * Set file output.
 * argc/argv parsing of verbosity.
 * Port to Windows.
-* Remove dependency on boost::posix_time.
 * Log on atexit?
 * Make drop-in replacement for GLOG?
 * getenv for GLOG-stuff like verbosity.
@@ -28,6 +28,7 @@ Calling loguru::init is optional, but useful to timestamp the start of the log.
 #define LOGURU_PRINTF_LIKE(fmtarg, firstvararg) \
 		__attribute__((__format__ (__printf__, fmtarg, firstvararg)))
 
+// Used to mark on_assertion_failed for the benefit of the static analyzer and optimizer.
 #define LOGURU_NORETURN __attribute__((noreturn))
 
 namespace loguru
@@ -93,19 +94,23 @@ namespace loguru
 // --------------------------------------------------------------------
 // Macros!
 
-// LOG(INFO, "Foo: %d", some_number);
+// LOG(2, "Only logged if verbosity is 2 or higher: %d", some_number);
 #define VLOG(verbosity, ...) if ((int)verbosity > loguru::g_verbosity) {} else do { loguru::log(verbosity, __FILE__, __LINE__, __VA_ARGS__); } while (false)
+
+// LOG(INFO, "Foo: %d", some_number);
 #define LOG(verbosity_name, ...) VLOG(loguru::Verbosity::verbosity_name, __VA_ARGS__)
 
+// Used for giving a unique name to a RAII-object
+#define LOGURU_GIVE_UNIQUE_NAME(arg1, arg2) LOGURU_STRING_JOIN(arg1, arg2)
+#define LOGURU_STRING_JOIN(arg1, arg2) arg1 ## arg2
+
 // Use to book-end a scope. Affects logging on all threads.
-#define JOIN_STRINGS(a, b) a ## b
-#define LOG_SCOPE(verbosity_name, ...) loguru::LogScopeRAII JOIN_STRINGS(error_context_RAII_, __LINE__){loguru::Verbosity::verbosity_name, __FILE__, __LINE__, __VA_ARGS__}
+#define LOG_SCOPE(verbosity_name, ...) loguru::LogScopeRAII LOGURU_GIVE_UNIQUE_NAME(error_context_RAII_, __LINE__){loguru::Verbosity::verbosity_name, __FILE__, __LINE__, __VA_ARGS__}
 #define LOG_SCOPE_FUNCTION(verbosity_name) LOG_SCOPE(verbosity_name, __PRETTY_FUNCTION__)
 
 /* Checked at runtime too. Will print error, then call abort_handler (if any), then 'abort'.
    Note that the test must be boolean.
-   CHECK(ptr, ...); will not compile, but CHECK(ptr != nullptr, ...); will.
-*/
+   CHECK(ptr, ...); will not compile, but CHECK(ptr != nullptr, ...); will. */
 #define CHECK(test, ...) if ((test) == true) {} else do { loguru::on_assertion_failed("ASSERTION FAILED:  " #test "   ", __FILE__, __LINE__, __VA_ARGS__); } while (false)
 
 #define ASSERT(test) CHECK(test, "(developer too lazy to add proper error message)")
