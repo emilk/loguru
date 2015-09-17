@@ -1,14 +1,16 @@
 #include "loguru.hpp"
 
 #include <chrono>
-#include <cstdio>
 #include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
 #include <mutex>
+#include <string>
 #include <unordered_map>
 
 #include <pthread.h>
 
-#include <boost/date_time/posix_time/posix_time.hpp> // TODO: remove dependency
+using namespace std::chrono;
 
 namespace loguru
 {
@@ -20,19 +22,16 @@ namespace loguru
 
 	using CallbackMap = std::unordered_map<std::string, Callback>;
 
-	using namespace std::chrono;
-	using Clock = std::chrono::high_resolution_clock;
-
 	const auto SCOPE_TIME_PRECISION = 3; // 3=ms, 6≈us, 9=ns
 
-	const auto s_start_time = Clock::now();
+	const auto s_start_time = system_clock::now();
 	int              g_verbosity       = INT_MAX;
 	std::mutex       s_mutex;
 	CallbackMap      s_callbacks;
 	FILE*            s_err             = stderr;
 	FILE*            s_out             = stdout;
 	FILE*            s_file            = nullptr;
-	fatal_handler_t  s_fatal_handler   = abort;
+	fatal_handler_t  s_fatal_handler   = ::abort;
 	bool             s_strip_file_path = true;
 	std::atomic<int> s_indentation     { 0 };
 
@@ -106,25 +105,20 @@ namespace loguru
 
 	// ------------------------------------------------------------------------
 
+	long long now_ns()
+	{
+		return duration_cast<nanoseconds>(high_resolution_clock::now().time_since_epoch()).count();
+	}
+
 	void log_preamble(FILE* out, Verbosity verbosity, const char* file, unsigned line, const char* prefix)
 	{
-		// Date:
-		time_t rawtime;
-		time(&rawtime);
-		auto timeinfo = localtime(&rawtime);
-		char date_buff[80];
-		strftime(date_buff, sizeof(date_buff), "%Y-%m-%d", timeinfo);
+		auto now = system_clock::now();
+		time_t ms_since_epoch = duration_cast<milliseconds>(now.time_since_epoch()).count();
+		time_t sec_since_epoch = ms_since_epoch / 1000;
+		tm time_info;
+		localtime_r(&sec_since_epoch, &time_info);
 
-		// Time: http://stackoverflow.com/questions/16077299/how-to-print-current-time-with-milliseconds-using-c-c11
-		auto now = boost::posix_time::microsec_clock::local_time();
-		auto td = now.time_of_day();
-		const long hours        = td.hours();
-		const long minutes      = td.minutes();
-		const long seconds      = td.seconds();
-		const long milliseconds = td.total_milliseconds() - ((hours * 3600 + minutes * 60 + seconds) * 1000);
-
-		auto end = Clock::now();
-		auto uptime_ms = duration_cast<std::chrono::milliseconds>(end - s_start_time).count();
+		auto uptime_ms = duration_cast<milliseconds>(now - s_start_time).count();
 		auto uptime_sec = uptime_ms / 1000.0;
 
 		uint64_t thread_id;
@@ -143,8 +137,9 @@ namespace loguru
 			}
 		}
 
-		fprintf(out, "%s %02ld:%02ld:%02ld.%03ld (%8.3fs) [%-16s %-8s] %20s:%-5u % d| %s%s",
-			date_buff, hours, minutes, seconds, milliseconds,
+		fprintf(out, "%04d-%02d-%02d %02d:%02d:%02d.%03ld (%8.3fs) [%-16s %-8s] %20s:%-5u % d| %s%s",
+			1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday,
+			time_info.tm_hour, time_info.tm_min, time_info.tm_sec, ms_since_epoch % 1000,
 			uptime_sec,
 			thread_name, thread_id_str, file, line,
 			(int)verbosity,
@@ -231,11 +226,6 @@ namespace loguru
 		va_start(vlist, format);
 		logv(verbosity, file, line, format, vlist);
 		va_end(vlist);
-	}
-
-	long long now_ns()
-	{
-		return duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count();
 	}
 
 	LogScopeRAII::LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
