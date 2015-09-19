@@ -8,7 +8,9 @@
 #include <string>
 #include <unordered_map>
 
-#include <pthread.h>
+#ifndef _MSC_VER
+	#include <pthread.h>
+#endif
 
 using namespace std::chrono;
 
@@ -35,24 +37,25 @@ namespace loguru
 	bool             s_strip_file_path = true;
 	std::atomic<int> s_indentation     { 0 };
 
-	const char* PREAMBLE_EXPLAIN = "date       time         ( uptime  ) [thread name     thread id]                 file:line   v| ";
+	const int THREAD_NAME_WIDTH = 16;
+	const char* PREAMBLE_EXPLAIN = "date       time         ( uptime  ) [ thread name/id ]                 file:line     v| ";
 
 	// ------------------------------------------------------------------------------
 	// Helpers:
 
 	// free after use
-	char* strprintf(const char* format, va_list vlist)
+	static char* strprintf(const char* format, va_list vlist)
 	{
-#if !defined(_MSC_VER)
-		char* buff = nullptr;
-		int result = vasprintf(&buff, format, vlist);
-		CHECK(result >= 0, "Bad string format: '%s'", format);
-		return buff;
-#else
+#ifdef _MSC_VER
 		int bytes_needed = vsnprintf(nullptr, 0, format, vlist);
 		CHECK(bytes_needed >= 0, "Bad string format: '%s'", format);
 		char* buff = (char*)malloc(bytes_needed + 1);
 		vsnprintf(str.data(), bytes_needed, format, vlist);
+		return buff;
+#else
+		char* buff = nullptr;
+		int result = vasprintf(&buff, format, vlist);
+		CHECK(result >= 0, "Bad string format: '%s'", format);
 		return buff;
 #endif
 	}
@@ -69,22 +72,70 @@ namespace loguru
 		return buff + 3 * (100 - depth);
 	}
 
+	static void parse_args(int& argc, char* argv[])
+	{
+		CHECK_GT(argc,       0,       "Expected proper argc/argv");
+		CHECK_EQ(argv[argc], nullptr, "Expected proper argc/argv");
+
+		int arg_dest = 1;
+		int out_argc = argc;
+
+		for (int arg_it = 1; arg_it < argc; ++arg_it)
+		{
+			auto cmd = argv[arg_it];
+			if (strncmp(cmd, "-v", 2) == 0 && !std::isalpha(cmd[2])) {
+				out_argc -= 1;
+				auto value_str = cmd + 2;
+				if (value_str[0] == '\0') {
+					// Value in separate argument
+					arg_it += 1;
+					value_str =  argv[arg_it];
+					out_argc -= 1;
+				}
+				if (*value_str == '=') { value_str += 1; }
+				g_verbosity = atoi(value_str);
+			} else {
+				argv[arg_dest++] = argv[arg_it];
+			}
+		}
+
+		argc = out_argc;
+		argv[argc] = nullptr;
+	}
+
+	static long long now_ns()
+	{
+		return duration_cast<nanoseconds>(high_resolution_clock::now().time_since_epoch()).count();
+	}
+
 	// ------------------------------------------------------------------------------
 
-	void init(int argc, char* argv[])
+	void init(int& argc, char* argv[])
 	{
+		parse_args(argc, argv);
+
+#ifndef _MSC_VER
+		// Set thread name, unless it is already set:
+		char old_thread_name[128] = {0};
+		pthread_getname_np(pthread_self(), old_thread_name, sizeof(old_thread_name));
+		if (old_thread_name[0] == 0)
+		{
+			pthread_setname_np("main thread");
+		}
+#endif
+
 		// TODO: unique file name?
 		//auto path = boost::filesystem::unique_path();
-		//g_file = fopen(path.c_str(), "w");
-
-		CHECK(argc > 0, "Expected proper argc/argv");
+		//s_file = fopen(path.c_str(), "w");
 
 		fprintf(stdout, "%s\n", PREAMBLE_EXPLAIN); fflush(stdout);
 		if (s_file) {
 			fprintf(s_file, "%s\n", PREAMBLE_EXPLAIN); fflush(s_file);
 		}
 
-		LOG(INFO, "argv[0]: %s", argv[0]);
+		LOG(INFO, "argv[0]:         %s", argv[0]);
+		LOG(INFO, "Verbosity level: %d", g_verbosity);
+		LOG(INFO, "-----------------------------------");
 	}
 
 	// Will be called right before abort().
@@ -103,14 +154,14 @@ namespace loguru
 		s_callbacks.erase(std::string(id));
 	}
 
-	// ------------------------------------------------------------------------
-
-	long long now_ns()
+	void set_thread_name(const char* name)
 	{
-		return duration_cast<nanoseconds>(high_resolution_clock::now().time_since_epoch()).count();
+		pthread_setname_np(name);
 	}
 
-	void log_preamble(FILE* out, Verbosity verbosity, const char* file, unsigned line, const char* prefix)
+	// ------------------------------------------------------------------------
+
+	static void log_line(FILE* out, Verbosity verbosity, const char* file, unsigned line, const char* prefix, const char* message)
 	{
 		auto now = system_clock::now();
 		time_t ms_since_epoch = duration_cast<milliseconds>(now.time_since_epoch()).count();
@@ -121,13 +172,19 @@ namespace loguru
 		auto uptime_ms = duration_cast<milliseconds>(now - s_start_time).count();
 		auto uptime_sec = uptime_ms / 1000.0;
 
-		uint64_t thread_id;
-		pthread_threadid_np(pthread_self(), &thread_id);
-		char thread_id_str[64];
-		snprintf(thread_id_str, sizeof(thread_id_str) - 1, "%X", (unsigned)thread_id);
+#ifdef _MSC_VER
+		const char* thread_name = ""; // TODO
+#else
+		auto thread = pthread_self();
+		char thread_name[THREAD_NAME_WIDTH + 1] = {0};
+		pthread_getname_np(thread, thread_name, sizeof(thread_name));
 
-		char thread_name[128] = {0};
-		pthread_getname_np(pthread_self(), thread_name, sizeof(thread_name));
+		if (thread_name[0] == 0) {
+			uint64_t thread_id;
+			pthread_threadid_np(thread, &thread_id);
+			snprintf(thread_name, sizeof(thread_name), "%16X", (unsigned)thread_id);
+		}
+#endif
 
 		if (s_strip_file_path) {
 			for (auto ptr = file; *ptr; ++ptr) {
@@ -137,49 +194,43 @@ namespace loguru
 			}
 		}
 
-		fprintf(out, "%04d-%02d-%02d %02d:%02d:%02d.%03ld (%8.3fs) [%-16s %-8s] %20s:%-5u % d| %s%s",
+		char level_buff[6];
+		if (verbosity <= NamedVerbosity::FATAL) {
+			strcpy(level_buff, "FATL");
+		} else if (verbosity == NamedVerbosity::ERROR) {
+			strcpy(level_buff, "ERR");
+		} else if (verbosity == NamedVerbosity::WARNING) {
+			strcpy(level_buff, "WARN");
+		} else {
+			snprintf(level_buff, sizeof(level_buff) - 1, "% 4d", verbosity);
+		}
+
+		fprintf(out, "%04d-%02d-%02d %02d:%02d:%02d.%03ld (%8.3fs) [%-*s] %20s:%-5u %4s| %s%s%s\n",
 			1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday,
 			time_info.tm_hour, time_info.tm_min, time_info.tm_sec, ms_since_epoch % 1000,
 			uptime_sec,
-			thread_name, thread_id_str, file, line,
-			(int)verbosity,
-			indentation(s_indentation), prefix);
-	}
-
-	void log_line(FILE* out, Verbosity verbosity, const char* file, unsigned line, const char* prefix, const char* buff)
-	{
-		if (g_verbosity < (int)verbosity)
-		{
-			return;
-		}
-
-		log_preamble(out, verbosity, file, line, prefix);
-		fprintf(out, "%s\n", buff);
+			THREAD_NAME_WIDTH, thread_name,
+			file, line, level_buff,
+			indentation(s_indentation), prefix, message);
 		fflush(out);
 	}
 
-	void log_with_prefix(Verbosity verbosity, const char* file, unsigned line, const char* prefix, const char* format, va_list vlist)
+	void log_to_everywhere(Verbosity verbosity, const char* file, unsigned line, const char* prefix, const char* buff)
 	{
-		{
-			std::lock_guard<std::mutex> lg(s_mutex);
-			auto buff = strprintf(format, vlist);
+		std::lock_guard<std::mutex> lg(s_mutex);
 
-			FILE* out = ((int)verbosity <= (int)Verbosity::WARNING ? s_err : s_out);
-			log_line(out, verbosity, file, line, prefix, buff);
+		FILE* out = ((int)verbosity <= (int)NamedVerbosity::WARNING ? s_err : s_out);
+		log_line(out, verbosity, file, line, prefix, buff);
 
-			if (s_file) {
-				log_line(s_file, verbosity, file, line, prefix, buff);
-			}
-
-			for (auto& p : s_callbacks) {
-				//p.second(verbosity, str.c_str());
-				p.second.callback(p.second.user_data, verbosity, buff);
-			}
-
-			free(buff);
+		if (s_file) {
+			log_line(s_file, verbosity, file, line, prefix, buff);
 		}
 
-		if (verbosity == Verbosity::FATAL) {
+		for (auto& p : s_callbacks) {
+			p.second.callback(p.second.user_data, verbosity, buff);
+		}
+
+		if (verbosity == (Verbosity)NamedVerbosity::FATAL) {
 			if (s_fatal_handler) {
 				s_fatal_handler();
 			}
@@ -187,37 +238,16 @@ namespace loguru
 		}
 	}
 
-	void logv(Verbosity verbosity, const char* file, unsigned line, const char* format, va_list vlist)
+	void log_to_everywhere_v(Verbosity verbosity, const char* file, unsigned line, const char* prefix, const char* format, va_list vlist)
 	{
-		const char* prefix;
-		switch (verbosity)
-		{
-			case Verbosity::WARNING:
-				prefix = "⚠ WARNING: ";
-				break;
-
-			case Verbosity::ERROR:
-				prefix = "🔴 ERROR: ";
-				break;
-
-			case Verbosity::FATAL:
-				prefix = "🔴 FATAL: ";
-				break;
-
-			default:
-				prefix = "";
-				break;
-		}
-
-		log_with_prefix(verbosity, file, line, prefix, format, vlist);
+		auto buff = strprintf(format, vlist);
+		log_to_everywhere(verbosity, file, line, prefix, buff);
+		free(buff);
 	}
 
-	void log(Verbosity verbosity, const char* file, unsigned line, const char* prefix, const char* format, ...)
+	void logv(Verbosity verbosity, const char* file, unsigned line, const char* format, va_list vlist)
 	{
-		va_list vlist;
-		va_start(vlist, format);
-		log_with_prefix(verbosity, file, line, prefix, format, vlist);
-		va_end(vlist);
+		log_to_everywhere_v(verbosity, file, line, "", format, vlist);
 	}
 
 	void log(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
@@ -234,7 +264,8 @@ namespace loguru
 		if ((int)verbosity <= g_verbosity) {
 			va_list vlist;
 			va_start(vlist, format);
-			log_with_prefix(_verbosity, file, line, "{ ", format, vlist);
+			vsnprintf(_name, sizeof(_name), format, vlist);
+			log_to_everywhere(_verbosity, file, line, "{ ", _name);
 			va_end(vlist);
 			++s_indentation;
 		} else {
@@ -247,7 +278,7 @@ namespace loguru
 		if (_file) {
 			--s_indentation;
 			auto duration_sec = (now_ns() - _start_time_ns) / 1e9;
-			log(_verbosity, _file, _line, "} %.*f s", SCOPE_TIME_PRECISION, duration_sec);
+			log(_verbosity, _file, _line, "} %.*f s: %s", SCOPE_TIME_PRECISION, duration_sec, _name);
 		}
 	}
 
@@ -255,11 +286,16 @@ namespace loguru
 	{
 		va_list vlist;
 		va_start(vlist, format);
-		log_with_prefix(Verbosity::FATAL, file, line, expr, format, vlist);
+		log_to_everywhere_v(NamedVerbosity::FATAL, file, line, expr, format, vlist);
 		va_end(vlist);
 		if (s_fatal_handler) {
 			s_fatal_handler();
 		}
 		abort();
+	}
+
+	void on_assertion_failed(const char* expr, const char* file, unsigned line)
+	{
+		on_assertion_failed(expr, file, line, "");
 	}
 } // namespace loguru

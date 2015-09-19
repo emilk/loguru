@@ -13,12 +13,12 @@ Use LOG_SCOPE for temporal grouping and to measure durations.
 Calling loguru::init is optional, but useful to timestamp the start of the log.
 
 # TODO:
-* Set file output.
-* argc/argv parsing of verbosity.
-* Port to Windows.
+* Set file output with cutoff for verbosity.
+* Test on Windows.
+* Color print to terminal.
 * Log on atexit?
 * Make drop-in replacement for GLOG?
-* getenv for GLOG-stuff like verbosity.
+* Print arguments of failed CHECK_GE etc (stream only?)
 */
 
 #pragma once
@@ -33,7 +33,9 @@ Calling loguru::init is optional, but useful to timestamp the start of the log.
 
 namespace loguru
 {
-	enum class Verbosity
+	using Verbosity = int;
+
+	enum NamedVerbosity : Verbosity
 	{
 		// Value is the verbosity level one must pass.
 		// Negative numbers go to stderr and cannot be skipped.
@@ -44,20 +46,22 @@ namespace loguru
 		SPAM    = +1  // Goes to file, but not to screen.
 	};
 
-	extern int g_verbosity; // Anything higher than this is ignored.
+	extern Verbosity g_verbosity; // Anything higher than this is ignored.
 
 	// Musn't throw!
 	typedef void (*log_handler_t)(void* user_data, Verbosity verbosity, const char* text);
 	typedef void (*fatal_handler_t)();
 
-	/* Musn't be called, but it's nice if you do.
-	   Required to heed environment variables, like GLOG_v. */
-	void init(int argc, char* argv[]);
+	/*  Should be called from the main thread.
+		Musn't be called, but it's nice if you do.
+	    This will look for arguments meant for loguru and remove them.
+	    Arguments meant for loguru are:
+			-v n   Set verbosity level */
+	void init(int& argc, char* argv[]);
 
-	/* Will be called right before abort().
-	   This can be used to print a callstack.
-	   Feel free to call LOG:ing function from this, but not FATAL ones!
-	*/
+	/*  Will be called right before abort().
+	    This can be used to print a callstack.
+	    Feel free to call LOG:ing function from this, but not FATAL ones! */
 	void set_fatal_handler(fatal_handler_t handler);
 
 	/* Will be called on each log messages that passes verbocity tests etc.
@@ -85,68 +89,79 @@ namespace loguru
 		const char* _file; // Set to null if we are disabled due to verbosity
 		unsigned    _line;
 		long long   _start_time_ns;
+		char        _name[64];
 	};
 
 	// Marked as 'noreturn' for the benefit of the static analyzer and optimizer.
 	void on_assertion_failed(const char* expr, const char* file, unsigned line, const char* format, ...) LOGURU_PRINTF_LIKE(4, 5) LOGURU_NORETURN;
+	void on_assertion_failed(const char* expr, const char* file, unsigned line) LOGURU_NORETURN;
+
+	// Convenience:
+	void set_thread_name(const char* name);
 } // namespace loguru
 
 // --------------------------------------------------------------------
 // Macros!
 
 // LOG(2, "Only logged if verbosity is 2 or higher: %d", some_number);
-#define VLOG(verbosity, ...) if ((int)verbosity > loguru::g_verbosity) {} else do { loguru::log(verbosity, __FILE__, __LINE__, __VA_ARGS__); } while (false)
+#define VLOG(verbosity, ...) if (verbosity > loguru::g_verbosity) {} else do { loguru::log(verbosity, __FILE__, __LINE__, __VA_ARGS__); } while (false)
 
 // LOG(INFO, "Foo: %d", some_number);
-#define LOG(verbosity_name, ...) VLOG(loguru::Verbosity::verbosity_name, __VA_ARGS__)
+#define LOG(verbosity_name, ...) VLOG((loguru::Verbosity)loguru::NamedVerbosity::verbosity_name, __VA_ARGS__)
 
 // Used for giving a unique name to a RAII-object
 #define LOGURU_GIVE_UNIQUE_NAME(arg1, arg2) LOGURU_STRING_JOIN(arg1, arg2)
 #define LOGURU_STRING_JOIN(arg1, arg2) arg1 ## arg2
 
+#define VLOG_SCOPE(verbosity, ...) loguru::LogScopeRAII LOGURU_GIVE_UNIQUE_NAME(error_context_RAII_, __LINE__){verbosity, __FILE__, __LINE__, __VA_ARGS__}
+
 // Use to book-end a scope. Affects logging on all threads.
-#define LOG_SCOPE(verbosity_name, ...) loguru::LogScopeRAII LOGURU_GIVE_UNIQUE_NAME(error_context_RAII_, __LINE__){loguru::Verbosity::verbosity_name, __FILE__, __LINE__, __VA_ARGS__}
+#define LOG_SCOPE(verbosity_name, ...) VLOG_SCOPE((loguru::Verbosity)loguru::NamedVerbosity::verbosity_name, __VA_ARGS__)
 #define LOG_SCOPE_FUNCTION(verbosity_name) LOG_SCOPE(verbosity_name, __PRETTY_FUNCTION__)
+
+#define CHECK_WITH_INFO(test, info, ...) ((test) == true) ? (void)0 :  \
+    loguru::on_assertion_failed("CHECK FAILED:  " info "  ",           \
+                                __FILE__, __LINE__, ##__VA_ARGS__)
 
 /* Checked at runtime too. Will print error, then call abort_handler (if any), then 'abort'.
    Note that the test must be boolean.
-   CHECK(ptr, ...); will not compile, but CHECK(ptr != nullptr, ...); will. */
-#define CHECK(test, ...) if ((test) == true) {} else do { loguru::on_assertion_failed("ASSERTION FAILED:  " #test "   ", __FILE__, __LINE__, __VA_ARGS__); } while (false)
+   CHECK(ptr); will not compile, but CHECK(ptr != nullptr); will. */
+#define CHECK(test, ...) CHECK_WITH_INFO(test, #test, ##__VA_ARGS__)
 
-#define ASSERT(test) CHECK(test, "(developer too lazy to add proper error message)")
+#define CHECK_NOTNULL(x, ...) CHECK_WITH_INFO((x) != nullptr, #x " != nullptr", ##__VA_ARGS__)
 
-// TODO: print out the values involved using streams:
-#define CHECK_NOTNULL(x) CHECK((x) != nullptr, "")
-#define CHECK_EQ(a, b) CHECK((a) == (b), "")
-#define CHECK_NE(a, b) CHECK((a) != (b), "")
-#define CHECK_LT(a, b) CHECK((a) <  (b), "")
-#define CHECK_LE(a, b) CHECK((a) <= (b), "")
-#define CHECK_GT(a, b) CHECK((a) >  (b), "")
-#define CHECK_GE(a, b) CHECK((a) >= (b), "")
+#define CHECK_EQ(a, b, ...) CHECK_WITH_INFO((a) == (b), #a " == " #b, ##__VA_ARGS__)
+#define CHECK_NE(a, b, ...) CHECK_WITH_INFO((a) != (b), #a " != " #b, ##__VA_ARGS__)
+#define CHECK_LT(a, b, ...) CHECK_WITH_INFO((a) <  (b), #a " < "  #b, ##__VA_ARGS__)
+#define CHECK_GT(a, b, ...) CHECK_WITH_INFO((a) >  (b), #a " > "  #b, ##__VA_ARGS__)
+#define CHECK_LE(a, b, ...) CHECK_WITH_INFO((a) <= (b), #a " <= " #b, ##__VA_ARGS__)
+#define CHECK_GE(a, b, ...) CHECK_WITH_INFO((a) >= (b), #a " >= " #b, ##__VA_ARGS__)
 
 #ifndef NDEBUG
 #  define DLOG(verbosity, ...)  LOG(verbosity, __VA_ARGS__)
-#  define DCHECK(test, ...) CHECK(test, __VA_ARGS__)
-#  define DCHECK_NOTNULL(x) CHECK_NOTNULL(x)
-#  define DCHECK_EQ(a, b)   CHECK_EQ(a, b)
-#  define DCHECK_NE(a, b)   CHECK_NE(a, b)
-#  define DCHECK_LT(a, b)   CHECK_LT(a, b)
-#  define DCHECK_LE(a, b)   CHECK_LE(a, b)
-#  define DCHECK_GT(a, b)   CHECK_GT(a, b)
-#  define DCHECK_GE(a, b)   CHECK_GE(a, b)
-#  define DASSERT(test)     ASSERT(test)
+#  define DCHECK(test, ...)     CHECK(test, ##__VA_ARGS__)
+#  define DCHECK_NOTNULL(x)     CHECK_NOTNULL(x, ##__VA_ARGS__)
+#  define DCHECK_EQ(a, b, ...)  CHECK_EQ(a, b, ##__VA_ARGS__)
+#  define DCHECK_NE(a, b, ...)  CHECK_NE(a, b, ##__VA_ARGS__)
+#  define DCHECK_LT(a, b, ...)  CHECK_LT(a, b, ##__VA_ARGS__)
+#  define DCHECK_LE(a, b, ...)  CHECK_LE(a, b, ##__VA_ARGS__)
+#  define DCHECK_GT(a, b, ...)  CHECK_GT(a, b, ##__VA_ARGS__)
+#  define DCHECK_GE(a, b, ...)  CHECK_GE(a, b, ##__VA_ARGS__)
 #else
 #  define DLOG(verbosity, ...)
 #  define DCHECK(test, ...)
-#  define DCHECK_NOTNULL(x)
-#  define DCHECK_EQ(a, b)
-#  define DCHECK_NE(a, b)
-#  define DCHECK_LT(a, b)
-#  define DCHECK_LE(a, b)
-#  define DCHECK_GT(a, b)
-#  define DCHECK_GE(a, b)
-#  define DASSERT(test)
+#  define DCHECK_NOTNULL(x, ...)
+#  define DCHECK_EQ(a, b, ...)
+#  define DCHECK_NE(a, b, ...)
+#  define DCHECK_LT(a, b, ...)
+#  define DCHECK_LE(a, b, ...)
+#  define DCHECK_GT(a, b, ...)
+#  define DCHECK_GE(a, b, ...)
 #endif
 
-#undef assert
-#define assert(test) ASSERT(test) // HACK
+#ifndef NDEBUG
+	#undef assert
+	#define assert(test) CHECK_WITH_INFO(!!(test), #test) // HACK
+#else
+   #define assert(test)
+#endif
