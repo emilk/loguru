@@ -44,7 +44,7 @@ The library supports scopes for indenting the log-file. Here's an example:
 int main(int argc, char* argv[])
 {
 	loguru::init(argc, argv);
-	LOG_SCOPE_FUNCTION(INFO);
+	LOG_SCOPE_FUNCTION_F(INFO);
 	LOG(INFO, "Doing some stuff...");
 	for (int i=0; i<2; ++i) {
 		VLOG_SCOPE(1, "Iteration %d", i);
@@ -94,8 +94,14 @@ Loguru allows you to use whatever style you prefer.
 
 
 ### Limitations and TODO
-* Only prints to a single file.
 * Better cross-platform support (only tested with clang + POSIX at the moment).
 * Code needs cleanup.
-* There is room for optimization.
+* Bench against GLOG.
 * `LOG_GT(foo, bar)` does not print values of `foo` and `bar` on failure like GLOG would.
+* Color print to terminal?
+* Is writing WARN/ERR/FATL to stderr the right thing to do?
+* Log on atexit?
+* Make drop-in replacement for GLOG
+* Add LOGURU_OVERRIDE_ASSERT_AND_ABORT for #define abort etc
+* __builtin_expect
+* raw logging
