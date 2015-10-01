@@ -16,7 +16,11 @@ In particular, I want logging that produces logs that are both human-readable an
 * Print using printf-style formatting or streams.
 * Compile-time checked printf-formating (on supported compilers).
 * Assertion failures are marked with 'noreturn' for the benefit of the static analyzer and optimizer.
+* Verbosity levels
 * Log to any combination of file, stdout and stderr.
+* Support flexible multiple file outputs
+	* e.g. a logfile with just the latest run at low verbosity (high readability).
+	* e.g. a full logfile at highest verbosity which is appended to
 * Thread-safe.
 * Flushes output on each call so you won't miss anything even on hard crashes.
 * Prefixes each line with:
@@ -26,11 +30,16 @@ In particular, I want logging that produces logs that are both human-readable an
   * File and line.
   * Log level.
   * Indentation (see *Scopes*).
-* Supports assertions: `CHECK(test, msg_fmt, ...)`
-* Supports abort: `LOG(FATAL, ...)`.
+* Supports assertions: `CHECK(fp != nullptr, "Failed to open '%s'", filename)`
+* Supports abort: `ABORT("Something went wrong, debug value is %d", value)`.
 * Scopes (see separate heading).
 * User can install callbacks for logging (e.g. to draw log messages on screen in a game).
 * User can install callbacks for fatal error (e.g. to print stack traces).
+* Human-readable logs which include, date/time, uptime, thread name, file/line and loglevel.
+* grep:able logs:
+	* Each line has all the info you need (e.g. date).
+	* You can easily filter out high verbosity levels after the fact.
+
 
 ## No includes in loguru.h
 I abhor logging libraries that `#include`'s everything from `iostream` to `windows.h` into every compilation unit in your project. Logging should be frequent in your source code, and thus as lightweight as possible. Loguru's header has *no #includes*. This means it will not slow down the compilation of your project.
@@ -102,6 +111,6 @@ Loguru allows you to use whatever style you prefer.
 * Log on atexit?
 * Make drop-in replacement for GLOG.
 * Add LOGURU_OVERRIDE_ASSERT_AND_ABORT for #define abort etc.
-* __builtin_expect.
+* Use __builtin_expect.
 * Raw logging (no preamble or indentation).
-* File logging with arguments for log-level cutoff and apped yes/no.
+* File logging should start with PREAMBLE_EXPLAIN etc.

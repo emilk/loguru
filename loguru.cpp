@@ -21,6 +21,7 @@ namespace loguru
 		std::string     id;
 		log_handler_t   callback;
 		void*           user_data;
+		Verbosity       verbosity;
 		close_handler_t close;
 	};
 
@@ -29,7 +30,7 @@ namespace loguru
 	const auto SCOPE_TIME_PRECISION = 3; // 3=ms, 6≈us, 9=ns
 
 	const auto s_start_time = system_clock::now();
-	int                  g_verbosity       = 9;
+	int                  g_verbosity       = NamedVerbosity::MAX;
 	std::recursive_mutex s_mutex;
 	std::string          s_file_arguments;
 	CallbackVec          s_callbacks;
@@ -173,15 +174,16 @@ namespace loguru
 		LOG_F(INFO, "-----------------------------------");
 	}
 
-	bool add_file(const char* path)
+	bool add_file(const char* path, FileMode mode, Verbosity verbosity)
 	{
-		auto file = fopen(path, "wa");
+		const char* mode_str = (mode == FileMode::Truncate ? "w" : "a");
+		auto file = fopen(path, mode_str);
 		if (!file) {
 			LOG_F(ERROR, "Failed to open '%s'", path);
 			return false;
 		}
-		add_callback(path, file_log, file, file_close);
-		LOG_F(INFO, "Logging to '%s'", path);
+		add_callback(path, file_log, file, verbosity, file_close);
+		LOG_F(INFO, "Logging to '%s', mode: '%s', verbosity: %d", path, mode_str, verbosity);
 		return true;
 	}
 
@@ -192,10 +194,10 @@ namespace loguru
 	}
 
 	void add_callback(const char* id, log_handler_t callback, void* user_data,
-					  close_handler_t on_close)
+					  Verbosity verbosity, close_handler_t on_close)
 	{
 		std::lock_guard<std::recursive_mutex> lock(s_mutex);
-		s_callbacks.push_back(Callback{id, callback, user_data, on_close});
+		s_callbacks.push_back(Callback{id, callback, user_data, verbosity, on_close});
 	}
 
 	void remove_callback(const char* id)
@@ -286,7 +288,9 @@ namespace loguru
 		fflush(out);
 
 		for (auto& p : s_callbacks) {
-			p.callback(p.user_data, message);
+			if (verbosity <= p.verbosity) {
+				p.callback(p.user_data, message);
+			}
 		}
 
 		if (verbosity == static_cast<Verbosity>(NamedVerbosity::FATAL)) {

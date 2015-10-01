@@ -123,7 +123,8 @@ int main(int argc, char* argv[])
 
 	if (argc == 1)
 	{
-		loguru::add_file("test.log");
+		loguru::add_file("latest_readable.log", loguru::Truncate, loguru::INFO);
+		loguru::add_file("everything.log",      loguru::Append);
 		print_args("Arguments after loguru: ", argc, argv);
 
 		LOG_F(INFO, "Loguru test");

@@ -59,7 +59,8 @@ namespace loguru
 		ERROR   = -2,
 		WARNING = -1,
 		INFO    =  0, // Normal messages.
-		SPAM    = +1  // Goes to file, but not to screen.
+		SPAM    = +1, // Goes to file, but not to screen.
+		MAX     = +9
 	};
 
 	struct Message
@@ -87,18 +88,24 @@ namespace loguru
 			-v n   Set verbosity level */
 	void init(int& argc, char* argv[]);
 
-	/*  Will log to a file at the given path. */
-	bool add_file(const char* dir);
+	enum FileMode { Truncate, Append };
+
+	/*  Will log to a file at the given path.
+	    `verbosity` is the cutoff, but this is applied *after* g_verbosity.
+	*/
+	bool add_file(const char* dir, FileMode mode, Verbosity verbosity = NamedVerbosity::MAX);
 
 	/*  Will be called right before abort().
 		This can be used to print a callstack.
 		Feel free to call LOG:ing function from this, but not FATAL ones! */
 	void set_fatal_handler(fatal_handler_t handler);
 
-	/* Will be called on each log messages that passes verbocity tests etc.
-	   Useful for displaying messages on-screen in a game, for eample. */
+	/*  Will be called on each log messages that passes verbocity tests etc.
+	    Useful for displaying messages on-screen in a game, for eample.
+	    `verbosity` is the cutoff, but this is applied *after* g_verbosity.
+	*/
 	void add_callback(const char* id, log_handler_t callback, void* user_data,
-					  close_handler_t on_close = nullptr);
+	                  Verbosity verbosity = NamedVerbosity::MAX, close_handler_t on_close = nullptr);
 	void remove_callback(const char* id);
 
 	// Actual logging function. Use the LOG macro instead of calling this directly.
