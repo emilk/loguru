@@ -75,6 +75,8 @@ void test_stream()
 	LOG_IF_S(INFO, false) << "SHOULD NOT BE VISIBLE";
 	VLOG_IF_S(1, true) << "Should be visible if verbosity is at least 1";
 	VLOG_IF_S(1, false) << "SHOULD NOT BE VISIBLE";
+	CHECK_LT_S(1, 2);
+	CHECK_GT_S(3, 2) << "Weird";
 }
 
 void print_args(const char* prefix, int argc, char* argv[])
@@ -97,6 +99,8 @@ void print_args(const char* prefix, int argc, char* argv[])
 int some_expensive_operation() { static int r=31; return r++; }
 int BAD = 32;
 
+int always_increasing() { static int x = 0; return x++; }
+
 int main3(int argc, char* argv[])
 {
 	loguru::init(argc, argv);
@@ -116,21 +120,53 @@ int main3(int argc, char* argv[])
 int main(int argc, char* argv[])
 {
 	loguru::init(argc, argv);
-	loguru::add_file("test.log");
-	print_args("Arguments after loguru: ", argc, argv);
 
-	LOG_F(INFO, "Loguru test");
+	if (argc == 1)
+	{
+		loguru::add_file("test.log");
+		print_args("Arguments after loguru: ", argc, argv);
 
-	test_thread_names();
-	test_scopes();
-	test_levels();
-	test_stream();
+		LOG_F(INFO, "Loguru test");
+		test_thread_names();
 
-	const char* ptr = 0;
-	assert(ptr && "Error that was unexpected");
-	CHECK_NOTNULL_F(ptr);
-	CHECK_F(1 > 2, "Oh, no?");
-	CHECK_EQ_F(3, 4, "Oh, no?");
-	LOG_F(FATAL, "This is the end, beautiful friend");
-	return 0;
+		test_scopes();
+		test_levels();
+		test_stream();
+	}
+	else
+	{
+		std::string test = argv[1];
+		if (test == "ABORT_F") {
+			ABORT_F("This is the end, beautiful friend");
+		} else if (test == "assert") {
+			const char* ptr = 0;
+			assert(ptr && "Error that was unexpected");
+		} else if (test == "CHECK_NOTNULL_F") {
+			const char* ptr = 0;
+			CHECK_NOTNULL_F(ptr);
+		} else if (test == "CHECK_F") {
+			CHECK_F(1 > 2);
+		} else if (test == "CHECK_EQ_F") {
+			CHECK_EQ_F(always_increasing(),  0);
+			CHECK_EQ_F(always_increasing(),  1);
+			CHECK_EQ_F(always_increasing(), 42);
+		} else if (test == "CHECK_EQ_F_message") {
+			CHECK_EQ_F(always_increasing(),  0, "Should pass");
+			CHECK_EQ_F(always_increasing(),  1, "Should pass");
+			CHECK_EQ_F(always_increasing(), 42, "Should fail");
+		} else if (test == "CHECK_EQ_S") {
+			std::string str = "right";
+			CHECK_EQ_S(str, "wrong") << "Expected to fail, since `str` isn't \"wrong\" but \"" << str << "\"";
+		} else if (test == "CHECK_LT_S") {
+			CHECK_EQ_S(always_increasing(), 0);
+			CHECK_EQ_S(always_increasing(), 1);
+			CHECK_EQ_S(always_increasing(), 42);
+		} else if (test == "CHECK_LT_S_message") {
+			CHECK_EQ_S(always_increasing(),  0) << "Should pass";
+			CHECK_EQ_S(always_increasing(),  1) << "Should pass";
+			CHECK_EQ_S(always_increasing(), 42) << "Should fail!";
+		} else {
+			LOG_F(ERROR, "Unknown test: '%s'", test.c_str());
+		}
+	}
 }

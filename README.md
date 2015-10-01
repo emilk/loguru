@@ -97,11 +97,11 @@ Loguru allows you to use whatever style you prefer.
 * Better cross-platform support (only tested with clang + POSIX at the moment).
 * Code needs cleanup.
 * Bench against GLOG.
-* `LOG_GT(foo, bar)` does not print values of `foo` and `bar` on failure like GLOG would.
 * Color print to terminal?
 * Is writing WARN/ERR/FATL to stderr the right thing to do?
 * Log on atexit?
-* Make drop-in replacement for GLOG
-* Add LOGURU_OVERRIDE_ASSERT_AND_ABORT for #define abort etc
-* __builtin_expect
-* raw logging
+* Make drop-in replacement for GLOG.
+* Add LOGURU_OVERRIDE_ASSERT_AND_ABORT for #define abort etc.
+* __builtin_expect.
+* Raw logging (no preamble or indentation).
+* File logging with arguments for log-level cutoff and apped yes/no.
