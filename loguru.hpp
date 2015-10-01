@@ -16,16 +16,30 @@ Calling loguru::init is optional, but useful to timestamp the start of the log.
 
 #pragma once
 
-// Helper macro for declaring functions as having similar signature to printf.
-// This allows the compiler to catch format errors at compile-time.
-#define LOGURU_PRINTF_LIKE(fmtarg, firstvararg) \
-		__attribute__((__format__ (__printf__, fmtarg, firstvararg)))
+#if defined(__clang__) || defined(__GNUC__)
+	// Helper macro for declaring functions as having similar signature to printf.
+	// This allows the compiler to catch format errors at compile-time.
+	#define LOGURU_PRINTF_LIKE(fmtarg, firstvararg) __attribute__((__format__ (__printf__, fmtarg, firstvararg)))
+	#define LOGURU_FORMAT_STRING_TYPE const char*
+#elif defined(_MSC_VER)
+	#define LOGURU_PRINTF_LIKE(fmtarg, firstvararg)
+	#define LOGURU_FORMAT_STRING_TYPE _In_z_ _Printf_format_string_ const char*
+#else
+	#define LOGURU_PRINTF_LIKE(fmtarg, firstvararg)
+	#define LOGURU_FORMAT_STRING_TYPE const char*
+#endif
 
 // Used to mark log_and_abort for the benefit of the static analyzer and optimizer.
 #define LOGURU_NORETURN __attribute__((noreturn))
 
 namespace loguru
 {
+	// free after use
+	char* strprintf(LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(1, 2);
+
+	// Overloaded for variadic template matching.
+	char* strprintf();
+
 	using Verbosity = int;
 
 	enum NamedVerbosity : Verbosity
@@ -79,13 +93,13 @@ namespace loguru
 	void remove_callback(const char* id);
 
 	// Actual logging function. Use the LOG macro instead of calling this directly.
-	void log(Verbosity verbosity, const char* file, unsigned line, const char* format, ...) LOGURU_PRINTF_LIKE(4, 5);
+	void log(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(4, 5);
 
 	// Helper class for LOG_SCOPE_F
 	class LogScopeRAII
 	{
 	public:
-		LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, const char* format, ...) LOGURU_PRINTF_LIKE(5, 6);
+		LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(5, 6);
 		~LogScopeRAII();
 
 	private:
@@ -102,8 +116,18 @@ namespace loguru
 	};
 
 	// Marked as 'noreturn' for the benefit of the static analyzer and optimizer.
-	void log_and_abort(const char* expr, const char* file, unsigned line, const char* format, ...) LOGURU_PRINTF_LIKE(4, 5) LOGURU_NORETURN;
+	void log_and_abort(const char* expr, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(4, 5) LOGURU_NORETURN;
 	void log_and_abort(const char* expr, const char* file, unsigned line) LOGURU_NORETURN;
+
+	// Free after use!
+	template<class T> inline char* format_value(const T&)                    { return strprintf("N/A");     }
+	template<>        inline char* format_value(const char& v)               { return strprintf("%c",   v); }
+	template<>        inline char* format_value(const int& v)                { return strprintf("%d",   v); }
+	template<>        inline char* format_value(const unsigned& v)           { return strprintf("%u",   v); }
+	template<>        inline char* format_value(const unsigned long& v)      { return strprintf("%lu",  v); }
+	template<>        inline char* format_value(const unsigned long long& v) { return strprintf("%llu", v); }
+	template<>        inline char* format_value(const float& v)              { return strprintf("%f",   v); }
+	template<>        inline char* format_value(const double& v)             { return strprintf("%f",   v); }
 
 	// Convenience:
 	void set_thread_name(const char* name);
@@ -148,33 +172,53 @@ namespace loguru
 
 #define CHECK_NOTNULL_F(x, ...) CHECK_WITH_INFO_F((x) != nullptr, #x " != nullptr", ##__VA_ARGS__)
 
-#define CHECK_EQ_F(a, b, ...) CHECK_WITH_INFO_F((a) == (b), #a " == " #b, ##__VA_ARGS__)
-#define CHECK_NE_F(a, b, ...) CHECK_WITH_INFO_F((a) != (b), #a " != " #b, ##__VA_ARGS__)
-#define CHECK_LT_F(a, b, ...) CHECK_WITH_INFO_F((a) <  (b), #a " < "  #b, ##__VA_ARGS__)
-#define CHECK_GT_F(a, b, ...) CHECK_WITH_INFO_F((a) >  (b), #a " > "  #b, ##__VA_ARGS__)
-#define CHECK_LE_F(a, b, ...) CHECK_WITH_INFO_F((a) <= (b), #a " <= " #b, ##__VA_ARGS__)
-#define CHECK_GE_F(a, b, ...) CHECK_WITH_INFO_F((a) >= (b), #a " >= " #b, ##__VA_ARGS__)
+#define CHECK_OP_F(expr_left, expr_right, op, ...)                                                 \
+    do                                                                                             \
+    {                                                                                              \
+        auto val_left = expr_left;                                                                 \
+        auto val_right = expr_right;                                                               \
+        if (!(val_left op val_right))                                                              \
+        {                                                                                          \
+            char* str_left = loguru::format_value(val_left);                                       \
+            char* str_right = loguru::format_value(val_right);                                     \
+            char* fail_info = loguru::strprintf("CHECK FAILED:  %s %s %s  (%s %s %s)  ",           \
+                #expr_left, #op, #expr_right, str_left, #op, str_right);                           \
+            char* user_msg = loguru::strprintf(__VA_ARGS__);                                       \
+            loguru::log_and_abort(fail_info, __FILE__, __LINE__, "%s", user_msg);                  \
+            /* free(user_msg);  // no need - we never get here anyway! */                          \
+            /* free(fail_info); // no need - we never get here anyway! */                          \
+            /* free(str_right); // no need - we never get here anyway! */                          \
+            /* free(str_left);  // no need - we never get here anyway! */                          \
+        }                                                                                          \
+    } while (false)
+
+#define CHECK_EQ_F(a, b, ...) CHECK_OP_F(a, b, ==, ##__VA_ARGS__)
+#define CHECK_NE_F(a, b, ...) CHECK_OP_F(a, b, !=, ##__VA_ARGS__)
+#define CHECK_LT_F(a, b, ...) CHECK_OP_F(a, b, < , ##__VA_ARGS__)
+#define CHECK_GT_F(a, b, ...) CHECK_OP_F(a, b, > , ##__VA_ARGS__)
+#define CHECK_LE_F(a, b, ...) CHECK_OP_F(a, b, <=, ##__VA_ARGS__)
+#define CHECK_GE_F(a, b, ...) CHECK_OP_F(a, b, >=, ##__VA_ARGS__)
 
 #ifndef NDEBUG
-#  define DLOG_F(verbosity, ...)  LOG_F(verbosity, __VA_ARGS__)
-#  define DCHECK_F(test, ...)     CHECK_F(test, ##__VA_ARGS__)
-#  define DCHECK_NOTNULL_F(x)     CHECK_NOTNULL_F(x, ##__VA_ARGS__)
-#  define DCHECK_EQ_F(a, b, ...)  CHECK_EQ_F(a, b, ##__VA_ARGS__)
-#  define DCHECK_NE_F(a, b, ...)  CHECK_NE_F(a, b, ##__VA_ARGS__)
-#  define DCHECK_LT_F(a, b, ...)  CHECK_LT_F(a, b, ##__VA_ARGS__)
-#  define DCHECK_LE_F(a, b, ...)  CHECK_LE_F(a, b, ##__VA_ARGS__)
-#  define DCHECK_GT_F(a, b, ...)  CHECK_GT_F(a, b, ##__VA_ARGS__)
-#  define DCHECK_GE_F(a, b, ...)  CHECK_GE_F(a, b, ##__VA_ARGS__)
+	#define DLOG_F(verbosity, ...)  LOG_F(verbosity, __VA_ARGS__)
+	#define DCHECK_F(test, ...)     CHECK_F(test, ##__VA_ARGS__)
+	#define DCHECK_NOTNULL_F(x)     CHECK_NOTNULL_F(x, ##__VA_ARGS__)
+	#define DCHECK_EQ_F(a, b, ...)  CHECK_EQ_F(a, b, ##__VA_ARGS__)
+	#define DCHECK_NE_F(a, b, ...)  CHECK_NE_F(a, b, ##__VA_ARGS__)
+	#define DCHECK_LT_F(a, b, ...)  CHECK_LT_F(a, b, ##__VA_ARGS__)
+	#define DCHECK_LE_F(a, b, ...)  CHECK_LE_F(a, b, ##__VA_ARGS__)
+	#define DCHECK_GT_F(a, b, ...)  CHECK_GT_F(a, b, ##__VA_ARGS__)
+	#define DCHECK_GE_F(a, b, ...)  CHECK_GE_F(a, b, ##__VA_ARGS__)
 #else
-#  define DLOG_F(verbosity, ...)
-#  define DCHECK_F(test, ...)
-#  define DCHECK_NOTNULL_F(x, ...)
-#  define DCHECK_EQ_F(a, b, ...)
-#  define DCHECK_NE_F(a, b, ...)
-#  define DCHECK_LT_F(a, b, ...)
-#  define DCHECK_LE_F(a, b, ...)
-#  define DCHECK_GT_F(a, b, ...)
-#  define DCHECK_GE_F(a, b, ...)
+	#define DLOG_F(verbosity, ...)
+	#define DCHECK_F(test, ...)
+	#define DCHECK_NOTNULL_F(x, ...)
+	#define DCHECK_EQ_F(a, b, ...)
+	#define DCHECK_NE_F(a, b, ...)
+	#define DCHECK_LT_F(a, b, ...)
+	#define DCHECK_LE_F(a, b, ...)
+	#define DCHECK_GT_F(a, b, ...)
+	#define DCHECK_GE_F(a, b, ...)
 #endif
 
 #ifndef NDEBUG
@@ -242,17 +286,32 @@ namespace loguru
 // Logging macros:
 
 // usage:  LOG_STREAM(INFO) << "Foo " << std::setprecision(10) << some_value;
-#define VLOG_IF_S(verbosity, cond)                                       \
-	(verbosity > loguru::g_verbosity || (cond) == false) ?                    \
-	(void)0 : loguru::Voidify() & loguru::StreamLogger(verbosity, __FILE__, __LINE__)
+#define VLOG_IF_S(verbosity, cond)                                                                 \
+	(verbosity > loguru::g_verbosity || (cond) == false)                                           \
+		? (void)0                                                                                  \
+		: loguru::Voidify() & loguru::StreamLogger(verbosity, __FILE__, __LINE__)
 #define LOG_IF_S(verbosity_name, cond) VLOG_IF_S(loguru::NamedVerbosity::verbosity_name, cond)
 #define VLOG_S(verbosity) loguru::StreamLogger(verbosity, __FILE__, __LINE__)
 #define LOG_S(verbosity_name) VLOG_S(loguru::NamedVerbosity::verbosity_name)
 
+#define CHECK_WITH_INFO_S(test, info) ((test) == true) ? (void)0 :                                 \
+		loguru::Voidify() & loguru::AbortLogger("CHECK FAILED:  " info "  ", __FILE__, __LINE__)
+
+#define CHECK_S(test) CHECK_WITH_INFO_S(test, #test)
+
+#define CHECK_NOTNULL_S(x) CHECK_WITH_INFO_S((x) != nullptr, #x " != nullptr")
+
+#define CHECK_EQ_S(a, b) CHECK_WITH_INFO_S((a) == (b), #a " == " #b)
+#define CHECK_NE_S(a, b) CHECK_WITH_INFO_S((a) != (b), #a " != " #b)
+#define CHECK_LT_S(a, b) CHECK_WITH_INFO_S((a) <  (b), #a " < "  #b)
+#define CHECK_GT_S(a, b) CHECK_WITH_INFO_S((a) >  (b), #a " > "  #b)
+#define CHECK_LE_S(a, b) CHECK_WITH_INFO_S((a) <= (b), #a " <= " #b)
+#define CHECK_GE_S(a, b) CHECK_WITH_INFO_S((a) >= (b), #a " >= " #b)
+
 #ifndef NDEBUG
-#  define DLOG_S(...) LOG_S(__VA_ARGS__)
+	#define DLOG_S(...) LOG_S(__VA_ARGS__)
 #else
-#  define DLOG_S(...)
+	#define DLOG_S(...)
 #endif
 
 // -----------------------------------------------

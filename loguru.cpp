@@ -63,7 +63,7 @@ namespace loguru
 	// Helpers:
 
 	// free after use
-	static char* strprintf(const char* format, va_list vlist)
+	static char* strprintfv(const char* format, va_list vlist)
 	{
 #ifdef _MSC_VER
 		int bytes_needed = vsnprintf(nullptr, 0, format, vlist);
@@ -77,6 +77,22 @@ namespace loguru
 		CHECK_F(result >= 0, "Bad string format: '%s'", format);
 		return buff;
 #endif
+	}
+
+	// free after use
+	char* strprintf(const char* format, ...)
+	{
+		va_list vlist;
+		va_start(vlist, format);
+		char* result = strprintfv(format, vlist);
+		va_end(vlist);
+		return result;
+	}
+
+	// Overloaded for variadic template matching.
+	char* strprintf()
+	{
+		return (char*)calloc(1, 1);
 	}
 
 	const char* indentation(unsigned depth)
@@ -107,6 +123,7 @@ namespace loguru
 				if (value_str[0] == '\0') {
 					// Value in separate argument
 					arg_it += 1;
+					CHECK_LT_F(arg_it, argc, "Missing verbosiy level after -v");
 					value_str =  argv[arg_it];
 					out_argc -= 1;
 				}
@@ -282,7 +299,7 @@ namespace loguru
 
 	void log_to_everywhere_v(Verbosity verbosity, const char* file, unsigned line, const char* prefix, const char* format, va_list vlist)
 	{
-		auto buff = strprintf(format, vlist);
+		auto buff = strprintfv(format, vlist);
 		log_to_everywhere(verbosity, file, line, prefix, buff);
 		free(buff);
 	}
