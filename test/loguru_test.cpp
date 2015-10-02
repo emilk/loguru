@@ -3,6 +3,7 @@
 #include <thread>
 
 #define LOGURU_WITH_STREAMS 1
+#define LOGURU_REDEFINE_ASSERT 1
 #include "../loguru.hpp"
 
 void sleep_ms(int ms)

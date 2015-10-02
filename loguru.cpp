@@ -125,7 +125,7 @@ namespace loguru
 					// Value in separate argument
 					arg_it += 1;
 					CHECK_LT_F(arg_it, argc, "Missing verbosiy level after -v");
-					value_str =  argv[arg_it];
+					value_str = argv[arg_it];
 					out_argc -= 1;
 				}
 				if (*value_str == '=') { value_str += 1; }

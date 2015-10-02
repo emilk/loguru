@@ -109,7 +109,6 @@ Loguru allows you to use whatever style you prefer.
 * Color print to terminal?
 * Is writing WARN/ERR/FATL to stderr the right thing to do?
 * Log on atexit?
-* Make drop-in replacement for GLOG.
 * Add LOGURU_OVERRIDE_ASSERT_AND_ABORT for #define abort etc.
 * Use __builtin_expect.
 * Raw logging (no preamble or indentation).
