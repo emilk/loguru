@@ -1,9 +1,12 @@
 #include "loguru.hpp"
 
+#include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -161,9 +164,14 @@ namespace loguru
 #ifndef _MSC_VER
 		// Set thread name, unless it is already set:
 		char old_thread_name[128] = {0};
-		pthread_getname_np(pthread_self(), old_thread_name, sizeof(old_thread_name));
+		auto this_thread = pthread_self();
+		pthread_getname_np(this_thread, old_thread_name, sizeof(old_thread_name));
 		if (old_thread_name[0] == 0) {
-			pthread_setname_np("main thread");
+			#ifdef __APPLE__
+				pthread_setname_np("main thread");
+			#else
+				pthread_setname_np(this_thread, "main thread");
+			#endif
 		}
 #endif
 
@@ -214,7 +222,11 @@ namespace loguru
 
 	void set_thread_name(const char* name)
 	{
-		pthread_setname_np(name);
+		#ifdef __APPLE__
+			pthread_setname_np(name);
+		#else
+			pthread_setname_np(pthread_self(), name);
+		#endif
 	}
 
 	// ------------------------------------------------------------------------
@@ -238,8 +250,12 @@ namespace loguru
 		pthread_getname_np(thread, thread_name, sizeof(thread_name));
 
 		if (thread_name[0] == 0) {
-			uint64_t thread_id;
-			pthread_threadid_np(thread, &thread_id);
+			#ifdef __APPLE__
+				uint64_t thread_id;
+				pthread_threadid_np(thread, &thread_id);
+			#else
+				uint64_t thread_id = thread;
+			#endif
 			snprintf(thread_name, sizeof(thread_name), "%16X", (unsigned)thread_id);
 		}
 #endif
