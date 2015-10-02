@@ -33,7 +33,11 @@ namespace loguru
 	const auto SCOPE_TIME_PRECISION = 3; // 3=ms, 6≈us, 9=ns
 
 	const auto s_start_time = system_clock::now();
-	int                  g_verbosity       = NamedVerbosity::MAX;
+
+	int  g_verbosity        = 0;
+	bool g_alsologtostderr  = false;
+	bool g_colorlogtostderr = false;
+
 	std::recursive_mutex s_mutex;
 	std::string          s_file_arguments;
 	CallbackVec          s_callbacks;
@@ -44,7 +48,7 @@ namespace loguru
 	std::atomic<int>     s_indentation     { 0 };
 
 	const int THREAD_NAME_WIDTH = 16;
-	const char* PREAMBLE_EXPLAIN = "date       time         ( uptime  ) [ thread name/id ]                 file:line     v| ";
+	const char* PREAMBLE_EXPLAIN = "date       time         ( uptime  ) [ thread name/id ]                   file:line     v| ";
 
 	// ------------------------------------------------------------------------------
 
@@ -279,7 +283,7 @@ namespace loguru
 			snprintf(level_buff, sizeof(level_buff) - 1, "% 4d", verbosity);
 		}
 
-		snprintf(out_buff, out_buff_size, "%04d-%02d-%02d %02d:%02d:%02d.%03ld (%8.3fs) [%-*s] %20s:%-5u %4s| ",
+		snprintf(out_buff, out_buff_size, "%04d-%02d-%02d %02d:%02d:%02d.%03ld (%8.3fs) [%-*s]%23s:%-5u %4s| ",
 			1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday,
 			time_info.tm_hour, time_info.tm_min, time_info.tm_sec, ms_since_epoch % 1000,
 			uptime_sec,
@@ -370,6 +374,6 @@ namespace loguru
 
 	void log_and_abort(const char* expr, const char* file, unsigned line)
 	{
-		log_and_abort(expr, file, line, "");
+		log_and_abort(expr, file, line, " ");
 	}
 } // namespace loguru

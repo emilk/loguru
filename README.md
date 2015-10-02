@@ -113,3 +113,5 @@ Loguru allows you to use whatever style you prefer.
 * Use __builtin_expect.
 * Raw logging (no preamble or indentation).
 * File logging should start with PREAMBLE_EXPLAIN etc.
+* Replicate InstallFailureSignalHandler
+* Default log-file with good path and name
