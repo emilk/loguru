@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-# Create the project and build flags if they are not cached
+
 project(loguru)
 
 add_compile_options(-std=c++11 -Wall -Wextra)
@@ -11,7 +11,7 @@ file(GLOB headers
     "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
 )
 
-add_library(loguru ${source})
+add_library(loguru STATIC ${source})
 
 target_link_libraries(loguru)
 
