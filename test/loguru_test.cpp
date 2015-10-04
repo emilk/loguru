@@ -50,7 +50,7 @@ void test_scopes()
 		sleep_ms(123);
 	}
 
-	sleep_ms(200);
+	sleep_ms(64);
 }
 
 void test_levels()
@@ -97,12 +97,12 @@ void print_args(const char* prefix, int argc, char* argv[])
 	LOG_F(INFO, "%s%s", prefix, arguments.c_str());
 }
 
-int some_expensive_operation() { static int r=31; return r++; }
+int some_expensive_operation() { static int r=31; sleep_ms(132); return r++; }
 int BAD = 32;
 
 int always_increasing() { static int x = 0; return x++; }
 
-int main3(int argc, char* argv[])
+int main_test(int argc, char* argv[])
 {
 	loguru::init(argc, argv);
 	LOG_SCOPE_FUNCTION_F(INFO);
@@ -110,9 +110,7 @@ int main3(int argc, char* argv[])
 	for (int i=0; i<2; ++i) {
 		VLOG_SCOPE_F(1, "Iteration %d", i);
 		auto result = some_expensive_operation();
-		if (result == BAD) {
-			LOG_F(WARNING, "Bad result");
-		}
+		LOG_IF_F(WARNING, result == BAD, "Bad result");
 	}
 	LOG_F(INFO, "Time to go!");
 	return 0;
@@ -120,6 +118,11 @@ int main3(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
+	if (argv[1] == std::string("test"))
+	{
+		return main_test(argc, argv);
+	}
+
 	loguru::init(argc, argv);
 
 	if (argc == 1)

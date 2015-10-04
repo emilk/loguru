@@ -42,14 +42,8 @@ LOGURU_REPLACE_GLOG:
 // Used to mark log_and_abort for the benefit of the static analyzer and optimizer.
 #define LOGURU_NORETURN __attribute__((noreturn))
 
-// GCC can be told that a certain branch is not likely to be taken (for
-// instance, a CHECK failure), and use that information in static analysis.
-// Giving it this information can help it optimize for the common case in
-// the absence of better information (ie. -fprofile-arcs).
-//
-#define LOGURU_PREDICT_BRANCH_NOT_TAKEN(x) (__builtin_expect(x, 0))
-#define LOGURU_PREDICT_FALSE(x) (__builtin_expect(x, 0))
-#define LOGURU_PREDICT_TRUE(x) (__builtin_expect(!!(x), 1))
+#define LOGURU_PREDICT_FALSE(x) (__builtin_expect(x,     0))
+#define LOGURU_PREDICT_TRUE(x)  (__builtin_expect(!!(x), 1))
 
 namespace loguru
 {
@@ -94,31 +88,31 @@ namespace loguru
 	typedef void (*fatal_handler_t)();
 
 	/*  Should be called from the main thread.
-	    You don't need to call this, but it's nice if you do.
-	    This will look for arguments meant for loguru and remove them.
-	    Arguments meant for loguru are:
-	        -v n   Set verbosity level */
+		You don't need to call this, but it's nice if you do.
+		This will look for arguments meant for loguru and remove them.
+		Arguments meant for loguru are:
+			-v n   Set verbosity level */
 	void init(int& argc, char* argv[]);
 
 	enum FileMode { Truncate, Append };
 
 	/*  Will log to a file at the given path.
-	    `verbosity` is the cutoff, but this is applied *after* g_verbosity.
+		`verbosity` is the cutoff, but this is applied *after* g_verbosity.
 	*/
 	bool add_file(const char* dir, FileMode mode, Verbosity verbosity = NamedVerbosity::MAX);
 
 	/*  Will be called right before abort().
-	    This can be used to print a callstack.
-	    Feel free to call LOG:ing function from this, but not FATAL ones! */
+		This can be used to print a callstack.
+		Feel free to call LOG:ing function from this, but not FATAL ones! */
 	void set_fatal_handler(fatal_handler_t handler);
 
 	/*  Will be called on each log messages that passes verbocity tests etc.
-	    Useful for displaying messages on-screen in a game, for eample.
-	    `verbosity` is the cutoff, but this is applied *after* g_verbosity.
+		Useful for displaying messages on-screen in a game, for eample.
+		`verbosity` is the cutoff, but this is applied *after* g_verbosity.
 	*/
 	void add_callback(const char* id, log_handler_t callback, void* user_data,
-	                  Verbosity verbosity = NamedVerbosity::MAX,
-	                  close_handler_t on_close = nullptr);
+					  Verbosity verbosity = NamedVerbosity::MAX,
+					  close_handler_t on_close = nullptr);
 	void remove_callback(const char* id);
 
 	// Actual logging function. Use the LOG macro instead of calling this directly.
@@ -173,15 +167,30 @@ namespace loguru
 // Logging macros
 
 // LOG_F(2, "Only logged if verbosity is 2 or higher: %d", some_number);
-#define VLOG_F(verbosity, ...) if (verbosity > loguru::g_verbosity) {} else do { loguru::log(verbosity, __FILE__, __LINE__, __VA_ARGS__); } while (false)
+#define VLOG_F(verbosity, ...)                                                                     \
+	(verbosity > loguru::g_verbosity) ? (void)0                                                    \
+									  : loguru::log(verbosity, __FILE__, __LINE__, __VA_ARGS__)
 
 // LOG_F(INFO, "Foo: %d", some_number);
-#define LOG_F(verbosity_name, ...) VLOG_F((loguru::Verbosity)loguru::NamedVerbosity::verbosity_name, __VA_ARGS__)
+#define LOG_F(verbosity_name, ...) VLOG_F(loguru::NamedVerbosity::verbosity_name, __VA_ARGS__)
 
-#define VLOG_SCOPE_F(verbosity, ...) loguru::LogScopeRAII LOGURU_GIVE_UNIQUE_NAME(error_context_RAII_, __LINE__){verbosity, __FILE__, __LINE__, __VA_ARGS__}
+#define VLOG_IF_F(verbosity, cond, ...)                                                            \
+	(verbosity > loguru::g_verbosity || (cond) == false)                                           \
+		? (void)0                                                                                  \
+		: loguru::log(verbosity, __FILE__, __LINE__, __VA_ARGS__)
+
+#define LOG_IF_F(verbosity_name, cond, ...)                                                        \
+	VLOG_IF_F(loguru::NamedVerbosity::verbosity_name > loguru::g_verbosity, cond, __VA_ARGS__)
+
+#define VLOG_SCOPE_F(verbosity, ...)                                                               \
+	loguru::LogScopeRAII LOGURU_GIVE_UNIQUE_NAME(error_context_RAII_, __LINE__)                    \
+	{                                                                                              \
+		verbosity, __FILE__, __LINE__, __VA_ARGS__                                                 \
+	}
 
 // Use to book-end a scope. Affects logging on all threads.
-#define LOG_SCOPE_F(verbosity_name, ...) VLOG_SCOPE_F((loguru::Verbosity)loguru::NamedVerbosity::verbosity_name, __VA_ARGS__)
+#define LOG_SCOPE_F(verbosity_name, ...)                                                           \
+	VLOG_SCOPE_F(loguru::NamedVerbosity::verbosity_name, __VA_ARGS__)
 #define LOG_SCOPE_FUNCTION_F(verbosity_name) LOG_SCOPE_F(verbosity_name, __PRETTY_FUNCTION__)
 
 // --------------------------------------------------------------------
@@ -191,8 +200,8 @@ namespace loguru
 #define ABORT_F(...) loguru::log_and_abort("ABORT: ", __FILE__, __LINE__, __VA_ARGS__)
 
 #define CHECK_WITH_INFO_F(test, info, ...)                                                         \
-    ((test) == true) ? (void)0 : loguru::log_and_abort("CHECK FAILED:  " info "  ", __FILE__,      \
-                                                       __LINE__, ##__VA_ARGS__)
+	LOGURU_PREDICT_TRUE((test) == true) ? (void)0 : loguru::log_and_abort("CHECK FAILED:  " info "  ", __FILE__,      \
+													   __LINE__, ##__VA_ARGS__)
 
 /* Checked at runtime too. Will print error, then call abort_handler (if any), then 'abort'.
    Note that the test must be boolean.
@@ -206,7 +215,7 @@ namespace loguru
 	{                                                                                              \
 		auto val_left = expr_left;                                                                 \
 		auto val_right = expr_right;                                                               \
-		if (!(val_left op val_right))                                                              \
+		if (! LOGURU_PREDICT_TRUE(val_left op val_right))                                          \
 		{                                                                                          \
 			char* str_left = loguru::format_value(val_left);                                       \
 			char* str_right = loguru::format_value(val_right);                                     \
@@ -229,22 +238,22 @@ namespace loguru
 #define CHECK_GE_F(a, b, ...) CHECK_OP_F(a, b, >=, ##__VA_ARGS__)
 
 #ifndef NDEBUG
-	#define DLOG_F(verbosity, ...)     LOG_F(verbosity, __VA_ARGS__)
-	#define DVLOG_F(verbosity, ...)    VLOG_F(verbosity, __VA_ARGS__)
-	#define DLOG_IF_F(verbosity, ...)  LOG_IF_F(verbosity, __VA_ARGS__)
-	#define DVLOG_IF_F(verbosity, ...) VLOG_IF_F(verbosity, __VA_ARGS__)
-	#define DCHECK_F(test, ...)        CHECK_F(test, ##__VA_ARGS__)
-	#define DCHECK_NOTNULL_F(x, ...)   CHECK_NOTNULL_F(x, ##__VA_ARGS__)
-	#define DCHECK_EQ_F(a, b, ...)     CHECK_EQ_F(a, b, ##__VA_ARGS__)
-	#define DCHECK_NE_F(a, b, ...)     CHECK_NE_F(a, b, ##__VA_ARGS__)
-	#define DCHECK_LT_F(a, b, ...)     CHECK_LT_F(a, b, ##__VA_ARGS__)
-	#define DCHECK_LE_F(a, b, ...)     CHECK_LE_F(a, b, ##__VA_ARGS__)
-	#define DCHECK_GT_F(a, b, ...)     CHECK_GT_F(a, b, ##__VA_ARGS__)
-	#define DCHECK_GE_F(a, b, ...)     CHECK_GE_F(a, b, ##__VA_ARGS__)
+	#define DLOG_F(verbosity_name, ...)    LOG_F(verbosity_name, __VA_ARGS__)
+	#define DVLOG_F(verbosity, ...)        VLOG_F(verbosity, __VA_ARGS__)
+	#define DLOG_IF_F(verbosity_name, ...) LOG_IF_F(verbosity_name, __VA_ARGS__)
+	#define DVLOG_IF_F(verbosity, ...)     VLOG_IF_F(verbosity, __VA_ARGS__)
+	#define DCHECK_F(test, ...)            CHECK_F(test, ##__VA_ARGS__)
+	#define DCHECK_NOTNULL_F(x, ...)       CHECK_NOTNULL_F(x, ##__VA_ARGS__)
+	#define DCHECK_EQ_F(a, b, ...)         CHECK_EQ_F(a, b, ##__VA_ARGS__)
+	#define DCHECK_NE_F(a, b, ...)         CHECK_NE_F(a, b, ##__VA_ARGS__)
+	#define DCHECK_LT_F(a, b, ...)         CHECK_LT_F(a, b, ##__VA_ARGS__)
+	#define DCHECK_LE_F(a, b, ...)         CHECK_LE_F(a, b, ##__VA_ARGS__)
+	#define DCHECK_GT_F(a, b, ...)         CHECK_GT_F(a, b, ##__VA_ARGS__)
+	#define DCHECK_GE_F(a, b, ...)         CHECK_GE_F(a, b, ##__VA_ARGS__)
 #else
-	#define DLOG_F(verbosity, ...)
+	#define DLOG_F(verbosity_name, ...)
 	#define DVLOG_F(verbosity, ...)
-	#define DLOG_IF_F(verbosity, ...)
+	#define DLOG_IF_F(verbosity_name, ...)
 	#define DVLOG_IF_F(verbosity, ...)
 	#define DCHECK_F(test, ...)
 	#define DCHECK_NOTNULL_F(x, ...)
@@ -319,8 +328,8 @@ namespace loguru
 	};
 
 	/*  Helper functions for CHECK_OP_S macro.
-	    GLOG trick: The (int, int) specialization works around the issue that the compiler
-	    will not instantiate the template version of the function on values of unnamed enum type. */
+		GLOG trick: The (int, int) specialization works around the issue that the compiler
+		will not instantiate the template version of the function on values of unnamed enum type. */
 	#define DEFINE_CHECK_OP_IMPL(name, op)                                                             \
 		template <typename T1, typename T2>                                                            \
 		inline std::string* name(const char* expr, const T1& v1, const char* op_str, const T2& v2)     \
@@ -344,7 +353,7 @@ namespace loguru
 	#undef DEFINE_CHECK_OP_IMPL
 
 	/*  GLOG trick: Function is overloaded for integral types to allow static const integrals
-	    declared in classes and not defined to be used as arguments to CHECK* macros. */
+		declared in classes and not defined to be used as arguments to CHECK* macros. */
 	template <class T>
 	inline const T&           referenceable_value(const T&           t) { return t; }
 	inline char               referenceable_value(char               t) { return t; }
@@ -365,9 +374,9 @@ namespace loguru
 
 // usage:  LOG_STREAM(INFO) << "Foo " << std::setprecision(10) << some_value;
 #define VLOG_IF_S(verbosity, cond)                                                                 \
-    (verbosity > loguru::g_verbosity || (cond) == false)                                           \
-        ? (void)0                                                                                  \
-        : loguru::Voidify() & loguru::StreamLogger(verbosity, __FILE__, __LINE__)
+	(verbosity > loguru::g_verbosity || (cond) == false)                                           \
+		? (void)0                                                                                  \
+		: loguru::Voidify() & loguru::StreamLogger(verbosity, __FILE__, __LINE__)
 #define LOG_IF_S(verbosity_name, cond) VLOG_IF_S(loguru::NamedVerbosity::verbosity_name, cond)
 #define VLOG_S(verbosity)              VLOG_IF_S(verbosity, true)
 #define LOG_S(verbosity_name)          VLOG_S(loguru::NamedVerbosity::verbosity_name)
@@ -376,18 +385,18 @@ namespace loguru
 // CHECKS:
 
 #define CHECK_WITH_INFO_S(cond, info)                                                              \
-    ((cond) == true)                                                                               \
-        ? (void)0                                                                                  \
-        : loguru::Voidify() & loguru::AbortLogger("CHECK FAILED:  " info "  ", __FILE__, __LINE__)
+	LOGURU_PREDICT_TRUE((cond) == true)                                                            \
+		? (void)0                                                                                  \
+		: loguru::Voidify() & loguru::AbortLogger("CHECK FAILED:  " info "  ", __FILE__, __LINE__)
 
 #define CHECK_S(cond) CHECK_WITH_INFO_S(cond, #cond)
 #define CHECK_NOTNULL_S(x) CHECK_WITH_INFO_S((x) != nullptr, #x " != nullptr")
 
 #define CHECK_OP_S(function_name, expr1, op, expr2)                                                \
-    while (auto error_string = loguru::function_name(#expr1 " " #op " " #expr2,                    \
-                                                     loguru::referenceable_value(expr1), #op,      \
-                                                     loguru::referenceable_value(expr2)))          \
-        loguru::AbortLogger(error_string->c_str(), __FILE__, __LINE__)
+	while (auto error_string = loguru::function_name(#expr1 " " #op " " #expr2,                    \
+													 loguru::referenceable_value(expr1), #op,      \
+													 loguru::referenceable_value(expr2)))          \
+		loguru::AbortLogger(error_string->c_str(), __FILE__, __LINE__)
 
 #define CHECK_EQ_S(expr1, expr2) CHECK_OP_S(check_EQ_impl, expr1, ==, expr2)
 #define CHECK_NE_S(expr1, expr2) CHECK_OP_S(check_NE_impl, expr1, !=, expr2)
@@ -411,9 +420,9 @@ namespace loguru
 	#define DCHECK_GE_S(a, b)               CHECK_GE_S(a, b)
 #else
 	#define DVLOG_IF_S(verbosity, cond)                                                     \
-	    (true || verbosity > loguru::g_verbosity || (cond) == false)                        \
-	        ? (void)0                                                                       \
-	        : loguru::Voidify() & loguru::StreamLogger(verbosity, __FILE__, __LINE__)
+		(true || verbosity > loguru::g_verbosity || (cond) == false)                        \
+			? (void)0                                                                       \
+			: loguru::Voidify() & loguru::StreamLogger(verbosity, __FILE__, __LINE__)
 
 	#define DLOG_IF_S(verbosity_name, cond) DVLOG_IF_S(loguru::NamedVerbosity::verbosity_name, cond)
 	#define DVLOG_S(verbosity)              DVLOG_IF_S(verbosity, true)

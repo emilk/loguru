@@ -153,6 +153,11 @@ namespace loguru
 
 	// ------------------------------------------------------------------------------
 
+	static void on_atexit()
+	{
+		LOG_F(INFO, "atexit");
+	}
+
 	void init(int& argc, char* argv[])
 	{
 		s_file_arguments = "";
@@ -184,6 +189,8 @@ namespace loguru
 		LOG_F(INFO, "arguments:       %s", s_file_arguments.c_str());
 		LOG_F(INFO, "Verbosity level: %d", g_verbosity);
 		LOG_F(INFO, "-----------------------------------");
+
+		atexit(on_atexit);
 	}
 
 	bool add_file(const char* path, FileMode mode, Verbosity verbosity)

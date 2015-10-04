@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 
-project(loguru)
+project(loguru_bench)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING
@@ -9,18 +9,11 @@ endif(NOT CMAKE_BUILD_TYPE)
 
 MESSAGE(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
-add_compile_options(-std=c++11 -Wall -Wextra -Wextra)
+add_compile_options(-std=c++14)
 
 file(GLOB source
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
-)
-file(GLOB headers
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../*.cpp"
 )
 
-add_library(loguru STATIC ${source})
-
-target_link_libraries(loguru)
-
-install(TARGETS loguru     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
-install(FILES   ${headers} DESTINATION ${CMAKE_INSTALL_PREFIX}/include/loguru)
+add_executable(loguru_bench ${source})
