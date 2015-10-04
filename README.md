@@ -12,7 +12,7 @@ In particular, I want logging that produces logs that are both human-readable an
 * Small, simple library.
 	* Small header with no `#include`s for **fast compile times** (see separate heading).
 	* No dependencies.
-	* Cross-platform - but only tested on Mac so far :)
+	* Cross-platform (but not tested on Windows yet...)
 * Fast - about 25%-75% faster than GLOG at logging things.
 * Drop-in replacement for GLOG (except for setup code).
 * Chose between using printf-style formatting or streams.
@@ -105,10 +105,9 @@ Loguru allows you to use whatever style you prefer.
 
 
 ### Limitations and TODO
-* Better cross-platform support (only tested with clang/osx and gcc/ubuntu at the moment).
+* Test on Windows.
 * Color print to terminal?
 * Is writing WARN/ERR/FATL to stderr the right thing to do?
-* Raw logging (no preamble or indentation).
 * File logging should start with PREAMBLE_EXPLAIN etc.
 * Replicate InstallFailureSignalHandler.
 * Default log-file with good path and name.

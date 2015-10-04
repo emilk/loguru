@@ -82,6 +82,13 @@ void stream_float()
 	}
 }
 
+void raw_string_float()
+{
+	for (size_t i = 0; i < kNumIterations; ++i) {
+		RAW_LOG_F(WARNING, "Some long, complex message.");
+	}
+}
+
 int main(int argc, char* argv[])
 {
 	loguru::init(argc, argv);
@@ -91,4 +98,5 @@ int main(int argc, char* argv[])
 	bench("LOG_F float  (unbuffered):", format_float);
     bench("LOG_S string (unbuffered):", stream_strings);
     bench("LOG_S float  (unbuffered):", stream_float);
+    bench("RAW_LOG_F    (unbuffered):", raw_string_float);
 }

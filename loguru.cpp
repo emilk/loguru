@@ -298,15 +298,9 @@ namespace loguru
 			file, line, level_buff);
 	}
 
-	void log_to_everywhere(Verbosity verbosity, const char* file, unsigned line, const char* prefix,
-						   const char* buff)
+	static void log_message(const Message& message)
 	{
-		char preamble_buff[128];
-		print_preamble(preamble_buff, sizeof(preamble_buff), verbosity, file, line);
-
-		auto message =
-			Message{verbosity, preamble_buff, indentation(s_indentation), prefix, buff};
-
+		const auto verbosity = message.verbosity;
 		std::lock_guard<std::recursive_mutex> lock(s_mutex);
 
 		FILE* out = (verbosity <= static_cast<Verbosity>(NamedVerbosity::WARNING) ? s_err : s_out);
@@ -328,6 +322,18 @@ namespace loguru
 		}
 	}
 
+	void log_to_everywhere(Verbosity verbosity, const char* file, unsigned line, const char* prefix,
+						   const char* buff)
+	{
+		char preamble_buff[128];
+		print_preamble(preamble_buff, sizeof(preamble_buff), verbosity, file, line);
+
+		auto message =
+			Message{verbosity, file, line, preamble_buff, indentation(s_indentation), prefix, buff};
+
+		log_message(message);
+	}
+
 	void log_to_everywhere_v(Verbosity verbosity, const char* file, unsigned line, const char* prefix, const char* format, va_list vlist)
 	{
 		auto buff = strprintfv(format, vlist);
@@ -340,6 +346,16 @@ namespace loguru
 		va_list vlist;
 		va_start(vlist, format);
 		log_to_everywhere_v(verbosity, file, line, "", format, vlist);
+	}
+
+	void raw_log(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
+	{
+		va_list vlist;
+		va_start(vlist, format);
+		auto buff = strprintfv(format, vlist);
+		auto message = Message{verbosity, file, line, "", "", "", buff};
+		log_message(message);
+		free(buff);
 		va_end(vlist);
 	}
 

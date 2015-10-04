@@ -71,7 +71,9 @@ namespace loguru
 	{
 		// You would generally print a Message by just concating the buffers without spacing.
 		// Optionally, ignore preamble and indentation.
-		Verbosity   verbosity;
+		Verbosity   verbosity;   // Already part of preamble
+		const char* filename;    // Already part of preamble
+		unsigned    line;        // Already part of preamble
 		const char* preamble;    // Date, time, uptime, thread, file:line, verbosity.
 		const char* indentation; // Just a bunch of spacing.
 		const char* prefix;      // Assertion failure info goes here (or "").
@@ -117,6 +119,9 @@ namespace loguru
 
 	// Actual logging function. Use the LOG macro instead of calling this directly.
 	void log(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(4, 5);
+
+	// Log without any preamble or indentation.
+	void raw_log(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(4, 5);
 
 	// Helper class for LOG_SCOPE_F
 	class LogScopeRAII
@@ -188,6 +193,12 @@ namespace loguru
 		verbosity, __FILE__, __LINE__, __VA_ARGS__                                                 \
 	}
 
+// Raw logging - no preamble, no indentation. Slightly faster than full logging.
+#define RAW_VLOG_F(verbosity, ...)                                                                  \
+	(verbosity > loguru::g_verbosity) ? (void)0                                                     \
+									  : loguru::raw_log(verbosity, __FILE__, __LINE__, __VA_ARGS__)
+#define RAW_LOG_F(verbosity_name, ...) RAW_VLOG_F(loguru::NamedVerbosity::verbosity_name, __VA_ARGS__)
+
 // Use to book-end a scope. Affects logging on all threads.
 #define LOG_SCOPE_F(verbosity_name, ...)                                                           \
 	VLOG_SCOPE_F(loguru::NamedVerbosity::verbosity_name, __VA_ARGS__)
@@ -238,23 +249,27 @@ namespace loguru
 #define CHECK_GE_F(a, b, ...) CHECK_OP_F(a, b, >=, ##__VA_ARGS__)
 
 #ifndef NDEBUG
-	#define DLOG_F(verbosity_name, ...)    LOG_F(verbosity_name, __VA_ARGS__)
-	#define DVLOG_F(verbosity, ...)        VLOG_F(verbosity, __VA_ARGS__)
-	#define DLOG_IF_F(verbosity_name, ...) LOG_IF_F(verbosity_name, __VA_ARGS__)
-	#define DVLOG_IF_F(verbosity, ...)     VLOG_IF_F(verbosity, __VA_ARGS__)
-	#define DCHECK_F(test, ...)            CHECK_F(test, ##__VA_ARGS__)
-	#define DCHECK_NOTNULL_F(x, ...)       CHECK_NOTNULL_F(x, ##__VA_ARGS__)
-	#define DCHECK_EQ_F(a, b, ...)         CHECK_EQ_F(a, b, ##__VA_ARGS__)
-	#define DCHECK_NE_F(a, b, ...)         CHECK_NE_F(a, b, ##__VA_ARGS__)
-	#define DCHECK_LT_F(a, b, ...)         CHECK_LT_F(a, b, ##__VA_ARGS__)
-	#define DCHECK_LE_F(a, b, ...)         CHECK_LE_F(a, b, ##__VA_ARGS__)
-	#define DCHECK_GT_F(a, b, ...)         CHECK_GT_F(a, b, ##__VA_ARGS__)
-	#define DCHECK_GE_F(a, b, ...)         CHECK_GE_F(a, b, ##__VA_ARGS__)
+	#define DLOG_F(verbosity_name, ...)     LOG_F(verbosity_name, __VA_ARGS__)
+	#define DVLOG_F(verbosity, ...)         VLOG_F(verbosity, __VA_ARGS__)
+	#define DLOG_IF_F(verbosity_name, ...)  LOG_IF_F(verbosity_name, __VA_ARGS__)
+	#define DVLOG_IF_F(verbosity, ...)      VLOG_IF_F(verbosity, __VA_ARGS__)
+	#define DRAW_LOG_F(verbosity_name, ...) RAW_LOG_F(verbosity_name, __VA_ARGS__)
+	#define DRAW_VLOG_F(verbosity, ...)     RAW_VLOG_F(verbosity, __VA_ARGS__)
+	#define DCHECK_F(test, ...)             CHECK_F(test, ##__VA_ARGS__)
+	#define DCHECK_NOTNULL_F(x, ...)        CHECK_NOTNULL_F(x, ##__VA_ARGS__)
+	#define DCHECK_EQ_F(a, b, ...)          CHECK_EQ_F(a, b, ##__VA_ARGS__)
+	#define DCHECK_NE_F(a, b, ...)          CHECK_NE_F(a, b, ##__VA_ARGS__)
+	#define DCHECK_LT_F(a, b, ...)          CHECK_LT_F(a, b, ##__VA_ARGS__)
+	#define DCHECK_LE_F(a, b, ...)          CHECK_LE_F(a, b, ##__VA_ARGS__)
+	#define DCHECK_GT_F(a, b, ...)          CHECK_GT_F(a, b, ##__VA_ARGS__)
+	#define DCHECK_GE_F(a, b, ...)          CHECK_GE_F(a, b, ##__VA_ARGS__)
 #else
 	#define DLOG_F(verbosity_name, ...)
 	#define DVLOG_F(verbosity, ...)
 	#define DLOG_IF_F(verbosity_name, ...)
 	#define DVLOG_IF_F(verbosity, ...)
+	#define DRAW_LOG_F(verbosity_name, ...)
+	#define DRAW_VLOG_F(verbosity, ...)
 	#define DCHECK_F(test, ...)
 	#define DCHECK_NOTNULL_F(x, ...)
 	#define DCHECK_EQ_F(a, b, ...)

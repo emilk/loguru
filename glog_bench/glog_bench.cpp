@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include <glog/logging.h>
+#include <glog/raw_logging.h>
 
 const size_t kNumIterations = 100 * 1000;
 const size_t kNumRuns = 10;
@@ -62,7 +63,15 @@ void stream_strings()
 void stream_float()
 {
 	for (size_t i = 0; i < kNumIterations; ++i) {
-		LOG(WARNING) << std::setfill('0') << std::setw(5) << std::setprecision(3) << kPi;
+		LOG(WARNING) << std::setfill('0') << std::setw(6) << std::setprecision(3) << kPi;
+	}
+	google::FlushLogFiles(google::GLOG_INFO);
+}
+
+void raw_string_float()
+{
+	for (size_t i = 0; i < kNumIterations; ++i) {
+		RAW_LOG(WARNING, "Some long, complex message.");
 	}
 	google::FlushLogFiles(google::GLOG_INFO);
 }
@@ -75,8 +84,10 @@ int main(int argc, char* argv[])
 
     bench("LOG(WARNING) << string (buffered):", stream_strings);
     bench("LOG(WARNING) << float  (buffered):", stream_float);
+    bench("RAW_LOG(WARNING)       (buffered):", raw_string_float);
 
     FLAGS_logbufsecs = 0; // Flush all output in realtime
     bench("LOG(WARNING) << string (unbuffered):", stream_strings);
     bench("LOG(WARNING) << float  (unbuffered):", stream_float);
+    bench("RAW_LOG(WARNING)       (unbuffered):", raw_string_float);
 }
