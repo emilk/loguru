@@ -318,19 +318,14 @@ namespace loguru
 		void operator&(const std::ostream&) {}
 	};
 
-	// Helper functions for CHECK_OP_S macro.
-	// The (int, int) specialization works around the issue that the compiler
-	// will not instantiate the template version of the function on values of
-	// unnamed enum type - see comment below.
+	/*  Helper functions for CHECK_OP_S macro.
+	    GLOG trick: The (int, int) specialization works around the issue that the compiler
+	    will not instantiate the template version of the function on values of unnamed enum type. */
 	#define DEFINE_CHECK_OP_IMPL(name, op)                                                             \
 		template <typename T1, typename T2>                                                            \
-		inline std::string* name(                                                                      \
-			const char* expr, const T1& v1, const char* op_str, const T2& v2)                          \
+		inline std::string* name(const char* expr, const T1& v1, const char* op_str, const T2& v2)     \
 		{                                                                                              \
-			if (LOGURU_PREDICT_TRUE(v1 op v2))                                                         \
-			{                                                                                          \
-				return NULL;                                                                           \
-			}                                                                                          \
+			if (LOGURU_PREDICT_TRUE(v1 op v2)) { return NULL; }                                        \
 			std::ostringstream ss;                                                                     \
 			ss << "CHECK FAILED:  " << expr << "  (" << v1 << " " << op_str << " " << v2 << ")  ";     \
 			return new std::string(ss.str());                                                          \
@@ -348,6 +343,21 @@ namespace loguru
 	DEFINE_CHECK_OP_IMPL(check_GT_impl, > )
 	#undef DEFINE_CHECK_OP_IMPL
 
+	/*  GLOG trick: Function is overloaded for integral types to allow static const integrals
+	    declared in classes and not defined to be used as arguments to CHECK* macros. */
+	template <class T>
+	inline const T&           referenceable_value(const T&           t) { return t; }
+	inline char               referenceable_value(char               t) { return t; }
+	inline unsigned char      referenceable_value(unsigned char      t) { return t; }
+	inline signed char        referenceable_value(signed char        t) { return t; }
+	inline short              referenceable_value(short              t) { return t; }
+	inline unsigned short     referenceable_value(unsigned short     t) { return t; }
+	inline int                referenceable_value(int                t) { return t; }
+	inline unsigned int       referenceable_value(unsigned int       t) { return t; }
+	inline long               referenceable_value(long               t) { return t; }
+	inline unsigned long      referenceable_value(unsigned long      t) { return t; }
+	inline long long          referenceable_value(long long          t) { return t; }
+	inline unsigned long long referenceable_value(unsigned long long t) { return t; }
 } // namespace loguru
 
 // -----------------------------------------------
@@ -374,8 +384,9 @@ namespace loguru
 #define CHECK_NOTNULL_S(x) CHECK_WITH_INFO_S((x) != nullptr, #x " != nullptr")
 
 #define CHECK_OP_S(function_name, expr1, op, expr2)                                                \
-    while (auto error_string =                                                                     \
-               loguru::function_name(#expr1 " " #op " " #expr2, expr1, #op, expr2))                \
+    while (auto error_string = loguru::function_name(#expr1 " " #op " " #expr2,                    \
+                                                     loguru::referenceable_value(expr1), #op,      \
+                                                     loguru::referenceable_value(expr2)))          \
         loguru::AbortLogger(error_string->c_str(), __FILE__, __LINE__)
 
 #define CHECK_EQ_S(expr1, expr2) CHECK_OP_S(check_EQ_impl, expr1, ==, expr2)
