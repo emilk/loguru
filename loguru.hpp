@@ -1,30 +1,88 @@
 /*
 Loguru logging library for C++, by Emil Ernerfeldt.
 www.github.com/emilk/loguru
-License: use, abuse, give credit if you like.
+If you find Loguru useful, please let me know on twitter or in a mail!
+Twitter: @ernerfeldt
+Mail:    emil.ernerfeldt@gmail.com
+Website: www.ilikebigbits.com
 
-* Version 0.1 - 2015-03-22 - Works great on Mac.
-* Version 0.2 - 2015-09-17 - Removed the only dependency.
-* Version 0.3 - 2015-10-02 - Drop-in replacement for most of GLOG
+# License
+	This software is in the public domain. Where that dedication is not
+	recognized, you are granted a perpetual, irrevocable license to copy
+	and modify this file as you see fit.
 
-# Usage:
-LOG_F(INFO, "I'm hungry for some %.3f!", 3.14159);
-CHECK_GT_F(x, 0);
-Use LOG_SCOPE_F for temporal grouping and to measure durations.
-Calling loguru::init is optional, but useful to timestamp the start of the log.
+# Inspiration
+	Much of Loguru was inspired by GLOG, https://code.google.com/p/google-glog/.
+	The whole "single header" and public domain is fully due Sean T. Barrett
+	and his wonderful stb libraries at https://github.com/nothings/stb
 
-Before including <loguru.hpp> you can optionally define:
+# Version history
+	* Version 0.1 - 2015-03-22 - Works great on Mac.
+	* Version 0.2 - 2015-09-17 - Removed the only dependency.
+	* Version 0.3 - 2015-10-02 - Drop-in replacement for most of GLOG
+	* Version 0.4 - 2015-10-07 - Single-file!
 
-LOGURU_REDEFINE_ASSERT:
-	Redefine "assert" call loguru version (!NDEBUG).
-LOGURU_WITH_STREAMS:
-	add support for _S versions for logging using std::ostreams.
-LOGURU_REPLACE_GLOG:
-	Make Loguru act like GLOG as close as possible.
-	Imlies LOGURU_WITH_STREAMS.
+# Compiling
+	Just include <loguru/loguru.hpp> where you want to use Loguru.
+	Then, in one .cpp file:
+		#define LOGURU_IMPLEMENTATION
+		#include <loguru/loguru.hpp>
+	Make sure you compile with -std=c++11.
+
+# Usage
+	#include <loguru/loguru.hpp>
+
+	// Optional, but useful to timestamp the start of the log.
+	// Will also detect verbosity level on comamnd line as -v.
+	loguru::init(argc, argv);
+
+	// Put every log message in "everything.log":
+	loguru::add_file("everything.log", loguru::Append);
+
+	// Only log INFO, WARNING, ERROR and FATAL to "latest_readable.log":
+	loguru::add_file("latest_readable.log", loguru::Truncate, loguru::INFO);
+
+	LOG_SCOPE_F(INFO, "Will indent all log messages withing this scope.");
+	LOG_F(INFO, "I'm hungry for some %.3f!", 3.14159);
+	VLOG_F(2, "Will only show if verbosity is 2 or higher");
+	LOG_IF_F(ERROR, badness, "Will only show if badness happens");
+	auto fp = fopen(filename, "r");
+	CHECK_F(fp != nullptr, "Failed to open file '%s'", filename);
+	CHECK_GT_F(length, 0); // Will print the value of `length` on failure.
+	CHECK_EQ_F(a, b, "You can also supply a custom message, like to print something: %d", a + b);
+	LOG_SCOPE_F(INFO, "Will indent all log messages withing this scope.");
+
+	// Each function also comes with a version prefixed with D for Debug:
+	DCHECK_F(expensive_check(x)); // Only checked #if !NDEBUG
+	DLOG_F("Only written in debug-builds");
+
+	If you prefer logging with streams:
+
+	#define LOGURU_WITH_STREAMS 1
+	#include <loguru/loguru.hpp>
+	...
+	LOG_S(INFO) << "Look at my custom object: " << a.cross(b);
+	CHECK_EQ_S(pi, 3.14) << "Maybe it is closer to " << M_PI;
+
+	Before including <loguru/loguru.hpp> you may optionally want to define the following to 1:
+
+	LOGURU_REDEFINE_ASSERT:
+		Redefine "assert" call loguru version (!NDEBUG only).
+
+	LOGURU_WITH_STREAMS:
+		Add support for _S versions for all LOG and CHECK functions:
+			LOG_S(INFO) << "My vec3: " << x.cross(y);
+			CHECK_EQ_S(a, b) << "I expected a and b to be the same!";
+		This is off by default to keep down compilation times.
+
+	LOGURU_REPLACE_GLOG:
+		Make Loguru mimic GLOG as close as possible,
+		including #defining LOG, CHECK, FLAGS_v etc.
+		LOGURU_REPLACE_GLOG imlies LOGURU_WITH_STREAMS.
 */
 
-#pragma once
+#ifndef LOGURU_HEADER_HPP
+#define LOGURU_HEADER_HPP
 
 #if defined(__clang__) || defined(__GNUC__)
 	// Helper macro for declaring functions as having similar signature to printf.
@@ -263,7 +321,7 @@ namespace loguru
 	#define DCHECK_LE_F(a, b, ...)          CHECK_LE_F(a, b, ##__VA_ARGS__)
 	#define DCHECK_GT_F(a, b, ...)          CHECK_GT_F(a, b, ##__VA_ARGS__)
 	#define DCHECK_GE_F(a, b, ...)          CHECK_GE_F(a, b, ##__VA_ARGS__)
-#else
+#else // NDEBUG
 	#define DLOG_F(verbosity_name, ...)
 	#define DVLOG_F(verbosity, ...)
 	#define DLOG_IF_F(verbosity_name, ...)
@@ -278,7 +336,7 @@ namespace loguru
 	#define DCHECK_LE_F(a, b, ...)
 	#define DCHECK_GT_F(a, b, ...)
 	#define DCHECK_GE_F(a, b, ...)
-#endif
+#endif // NDEBUG
 
 #ifdef LOGURU_REDEFINE_ASSERT
 	#undef assert
@@ -433,7 +491,7 @@ namespace loguru
 	#define DCHECK_LE_S(a, b)               CHECK_LE_S(a, b)
 	#define DCHECK_GT_S(a, b)               CHECK_GT_S(a, b)
 	#define DCHECK_GE_S(a, b)               CHECK_GE_S(a, b)
-#else
+#else // NDEBUG
 	#define DVLOG_IF_S(verbosity, cond)                                                     \
 		(true || verbosity > loguru::g_verbosity || (cond) == false)                        \
 			? (void)0                                                                       \
@@ -450,7 +508,7 @@ namespace loguru
 	#define DCHECK_LE_S(a, b)               while (false) CHECK_LE_S(a, b)
 	#define DCHECK_GT_S(a, b)               while (false) CHECK_GT_S(a, b)
 	#define DCHECK_GE_S(a, b)               while (false) CHECK_GE_S(a, b)
-#endif
+#endif // NDEBUG
 
 #if LOGURU_REPLACE_GLOG
 	#define LOG            LOG_S
@@ -486,3 +544,419 @@ namespace loguru
 #endif // LOGURU_REPLACE_GLOG
 
 #endif // LOGURU_WITH_STREAMS || LOGURU_REPLACE_GLOG
+
+#endif // LOGURU_HEADER_HPP
+
+// ----------------------------------------------------------------------------
+/* In one of your .cpp files you need to do the following:
+
+#define LOGURU_IMPLEMENTATION
+#include <loguru/loguru.hpp>
+
+This will define all the Loguru functions so that the linker may find them.
+*/
+
+#ifdef LOGURU_IMPLEMENTATION
+
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <mutex>
+#include <string>
+#include <vector>
+
+#ifndef _MSC_VER
+	#include <pthread.h>
+#endif
+
+using namespace std::chrono;
+
+namespace loguru
+{
+	struct Callback
+	{
+		std::string     id;
+		log_handler_t   callback;
+		void*           user_data;
+		Verbosity       verbosity;
+		close_handler_t close;
+	};
+
+	using CallbackVec = std::vector<Callback>;
+
+	const auto SCOPE_TIME_PRECISION = 3; // 3=ms, 6≈us, 9=ns
+
+	const auto s_start_time = system_clock::now();
+
+	int  g_verbosity        = 0;
+	bool g_alsologtostderr  = false;
+	bool g_colorlogtostderr = false;
+
+	std::recursive_mutex s_mutex;
+	std::string          s_file_arguments;
+	CallbackVec          s_callbacks;
+	FILE*                s_err             = stderr;
+	FILE*                s_out             = stdout;
+	fatal_handler_t      s_fatal_handler   = ::abort;
+	bool                 s_strip_file_path = true;
+	std::atomic<int>     s_indentation     { 0 };
+
+	const int THREAD_NAME_WIDTH = 16;
+	const char* PREAMBLE_EXPLAIN = "date       time         ( uptime  ) [ thread name/id ]                   file:line     v| ";
+
+	// ------------------------------------------------------------------------------
+
+	void file_log(void* user_data, const Message& message)
+	{
+		FILE* file = reinterpret_cast<FILE*>(user_data);
+		fprintf(file, "%s%s%s%s\n",
+			message.preamble, message.indentation, message.prefix, message.message);
+		fflush(file);
+	}
+
+	void file_close(void* user_data)
+	{
+		FILE* file = reinterpret_cast<FILE*>(user_data);
+		fclose(file);
+	}
+
+	// ------------------------------------------------------------------------------
+
+	// Helpers:
+
+	// free after use
+	static char* strprintfv(const char* format, va_list vlist)
+	{
+#ifdef _MSC_VER
+		int bytes_needed = vsnprintf(nullptr, 0, format, vlist);
+		CHECK_F(bytes_needed >= 0, "Bad string format: '%s'", format);
+		char* buff = (char*)malloc(bytes_needed + 1);
+		vsnprintf(str.data(), bytes_needed, format, vlist);
+		return buff;
+#else
+		char* buff = nullptr;
+		int result = vasprintf(&buff, format, vlist);
+		CHECK_F(result >= 0, "Bad string format: '%s'", format);
+		return buff;
+#endif
+	}
+
+	// free after use
+	char* strprintf(const char* format, ...)
+	{
+		va_list vlist;
+		va_start(vlist, format);
+		char* result = strprintfv(format, vlist);
+		va_end(vlist);
+		return result;
+	}
+
+	// Overloaded for variadic template matching.
+	char* strprintf()
+	{
+		return (char*)calloc(1, 1);
+	}
+
+	const char* indentation(unsigned depth)
+	{
+		static const char* buff =
+		".   .   .   .   .   .   .   .   .   .   " ".   .   .   .   .   .   .   .   .   .   "
+		".   .   .   .   .   .   .   .   .   .   " ".   .   .   .   .   .   .   .   .   .   "
+		".   .   .   .   .   .   .   .   .   .   " ".   .   .   .   .   .   .   .   .   .   "
+		".   .   .   .   .   .   .   .   .   .   " ".   .   .   .   .   .   .   .   .   .   "
+		".   .   .   .   .   .   .   .   .   .   " ".   .   .   .   .   .   .   .   .   .   ";
+		depth = std::min<unsigned>(depth, 100);
+		return buff + 4 * (100 - depth);
+	}
+
+	static void parse_args(int& argc, char* argv[])
+	{
+		CHECK_GT_F(argc,       0,       "Expected proper argc/argv");
+		CHECK_EQ_F(argv[argc], nullptr, "Expected proper argc/argv");
+
+		int arg_dest = 1;
+		int out_argc = argc;
+
+		for (int arg_it = 1; arg_it < argc; ++arg_it) {
+			auto cmd = argv[arg_it];
+			if (strncmp(cmd, "-v", 2) == 0 && !std::isalpha(cmd[2])) {
+				out_argc -= 1;
+				auto value_str = cmd + 2;
+				if (value_str[0] == '\0') {
+					// Value in separate argument
+					arg_it += 1;
+					CHECK_LT_F(arg_it, argc, "Missing verbosiy level after -v");
+					value_str = argv[arg_it];
+					out_argc -= 1;
+				}
+				if (*value_str == '=') { value_str += 1; }
+				g_verbosity = atoi(value_str);
+			} else {
+				argv[arg_dest++] = argv[arg_it];
+			}
+		}
+
+		argc = out_argc;
+		argv[argc] = nullptr;
+	}
+
+	static long long now_ns()
+	{
+		return duration_cast<nanoseconds>(high_resolution_clock::now().time_since_epoch()).count();
+	}
+
+	// ------------------------------------------------------------------------------
+
+	static void on_atexit()
+	{
+		LOG_F(INFO, "atexit");
+	}
+
+	void init(int& argc, char* argv[])
+	{
+		s_file_arguments = "";
+		for (int i = 0; i < argc; ++i) {
+			s_file_arguments += argv[i];
+			if (i + 1 < argc) {
+				s_file_arguments += " ";
+			}
+		}
+
+		parse_args(argc, argv);
+
+#ifndef _MSC_VER
+		// Set thread name, unless it is already set:
+		char old_thread_name[128] = {0};
+		auto this_thread = pthread_self();
+		pthread_getname_np(this_thread, old_thread_name, sizeof(old_thread_name));
+		if (old_thread_name[0] == 0) {
+			#ifdef __APPLE__
+				pthread_setname_np("main thread");
+			#else
+				pthread_setname_np(this_thread, "main thread");
+			#endif
+		}
+#endif
+
+		fprintf(stdout, "%s\n", PREAMBLE_EXPLAIN); fflush(stdout);
+
+		LOG_F(INFO, "arguments:       %s", s_file_arguments.c_str());
+		LOG_F(INFO, "Verbosity level: %d", g_verbosity);
+		LOG_F(INFO, "-----------------------------------");
+
+		atexit(on_atexit);
+	}
+
+	bool add_file(const char* path, FileMode mode, Verbosity verbosity)
+	{
+		const char* mode_str = (mode == FileMode::Truncate ? "w" : "a");
+		auto file = fopen(path, mode_str);
+		if (!file) {
+			LOG_F(ERROR, "Failed to open '%s'", path);
+			return false;
+		}
+		add_callback(path, file_log, file, verbosity, file_close);
+		LOG_F(INFO, "Logging to '%s', mode: '%s', verbosity: %d", path, mode_str, verbosity);
+		return true;
+	}
+
+	// Will be called right before abort().
+	void set_fatal_handler(fatal_handler_t handler)
+	{
+		s_fatal_handler = handler;
+	}
+
+	void add_callback(const char* id, log_handler_t callback, void* user_data,
+					  Verbosity verbosity, close_handler_t on_close)
+	{
+		std::lock_guard<std::recursive_mutex> lock(s_mutex);
+		s_callbacks.push_back(Callback{id, callback, user_data, verbosity, on_close});
+	}
+
+	void remove_callback(const char* id)
+	{
+		std::lock_guard<std::recursive_mutex> lock(s_mutex);
+		auto it = std::find_if(begin(s_callbacks), end(s_callbacks), [&](const Callback& c) { return c.id == id; });
+		if (it != s_callbacks.end()) {
+			if (it->close) { it->close(it->user_data); }
+			s_callbacks.erase(it);
+		} else {
+			LOG_F(ERROR, "Failed to locate callback with id '%s'", id);
+		}
+	}
+
+	void set_thread_name(const char* name)
+	{
+		#ifdef __APPLE__
+			pthread_setname_np(name);
+		#else
+			pthread_setname_np(pthread_self(), name);
+		#endif
+	}
+
+	// ------------------------------------------------------------------------
+
+	static void print_preamble(char* out_buff, size_t out_buff_size, Verbosity verbosity, const char* file, unsigned line)
+	{
+		auto now = system_clock::now();
+		time_t ms_since_epoch = duration_cast<milliseconds>(now.time_since_epoch()).count();
+		time_t sec_since_epoch = ms_since_epoch / 1000;
+		tm time_info;
+		localtime_r(&sec_since_epoch, &time_info);
+
+		auto uptime_ms = duration_cast<milliseconds>(now - s_start_time).count();
+		auto uptime_sec = uptime_ms / 1000.0;
+
+#ifdef _MSC_VER
+		const char* thread_name = ""; // TODO
+#else
+		auto thread = pthread_self();
+		char thread_name[THREAD_NAME_WIDTH + 1] = {0};
+		pthread_getname_np(thread, thread_name, sizeof(thread_name));
+
+		if (thread_name[0] == 0) {
+			#ifdef __APPLE__
+				uint64_t thread_id;
+				pthread_threadid_np(thread, &thread_id);
+			#else
+				uint64_t thread_id = thread;
+			#endif
+			snprintf(thread_name, sizeof(thread_name), "%16X", (unsigned)thread_id);
+		}
+#endif
+
+		if (s_strip_file_path) {
+			for (auto ptr = file; *ptr; ++ptr) {
+				if (*ptr == '/' || *ptr == '\\') {
+					file = ptr + 1;
+				}
+			}
+		}
+
+		char level_buff[6];
+		if (verbosity <= NamedVerbosity::FATAL) {
+			strcpy(level_buff, "FATL");
+		} else if (verbosity == NamedVerbosity::ERROR) {
+			strcpy(level_buff, "ERR");
+		} else if (verbosity == NamedVerbosity::WARNING) {
+			strcpy(level_buff, "WARN");
+		} else {
+			snprintf(level_buff, sizeof(level_buff) - 1, "% 4d", verbosity);
+		}
+
+		snprintf(out_buff, out_buff_size, "%04d-%02d-%02d %02d:%02d:%02d.%03ld (%8.3fs) [%-*s]%23s:%-5u %4s| ",
+			1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday,
+			time_info.tm_hour, time_info.tm_min, time_info.tm_sec, ms_since_epoch % 1000,
+			uptime_sec,
+			THREAD_NAME_WIDTH, thread_name,
+			file, line, level_buff);
+	}
+
+	static void log_message(const Message& message)
+	{
+		const auto verbosity = message.verbosity;
+		std::lock_guard<std::recursive_mutex> lock(s_mutex);
+
+		FILE* out = (verbosity <= static_cast<Verbosity>(NamedVerbosity::WARNING) ? s_err : s_out);
+		fprintf(out, "%s%s%s%s\n",
+			message.preamble, message.indentation, message.prefix, message.message);
+		fflush(out);
+
+		for (auto& p : s_callbacks) {
+			if (verbosity <= p.verbosity) {
+				p.callback(p.user_data, message);
+			}
+		}
+
+		if (verbosity == static_cast<Verbosity>(NamedVerbosity::FATAL)) {
+			if (s_fatal_handler) {
+				s_fatal_handler();
+			}
+			abort();
+		}
+	}
+
+	void log_to_everywhere(Verbosity verbosity, const char* file, unsigned line, const char* prefix,
+						   const char* buff)
+	{
+		char preamble_buff[128];
+		print_preamble(preamble_buff, sizeof(preamble_buff), verbosity, file, line);
+
+		auto message =
+			Message{verbosity, file, line, preamble_buff, indentation(s_indentation), prefix, buff};
+
+		log_message(message);
+	}
+
+	void log_to_everywhere_v(Verbosity verbosity, const char* file, unsigned line, const char* prefix, const char* format, va_list vlist)
+	{
+		auto buff = strprintfv(format, vlist);
+		log_to_everywhere(verbosity, file, line, prefix, buff);
+		free(buff);
+	}
+
+	void log(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
+	{
+		va_list vlist;
+		va_start(vlist, format);
+		log_to_everywhere_v(verbosity, file, line, "", format, vlist);
+	}
+
+	void raw_log(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
+	{
+		va_list vlist;
+		va_start(vlist, format);
+		auto buff = strprintfv(format, vlist);
+		auto message = Message{verbosity, file, line, "", "", "", buff};
+		log_message(message);
+		free(buff);
+		va_end(vlist);
+	}
+
+	LogScopeRAII::LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
+		: _verbosity(verbosity), _file(file), _line(line), _start_time_ns(now_ns())
+	{
+		if ((int)verbosity <= g_verbosity) {
+			va_list vlist;
+			va_start(vlist, format);
+			vsnprintf(_name, sizeof(_name), format, vlist);
+			log_to_everywhere(_verbosity, file, line, "{ ", _name);
+			va_end(vlist);
+			++s_indentation;
+		} else {
+			_file = nullptr;
+		}
+	}
+
+	LogScopeRAII::~LogScopeRAII()
+	{
+		if (_file) {
+			--s_indentation;
+			auto duration_sec = (now_ns() - _start_time_ns) / 1e9;
+			log(_verbosity, _file, _line, "} %.*f s: %s", SCOPE_TIME_PRECISION, duration_sec, _name);
+		}
+	}
+
+	void log_and_abort(const char* expr, const char* file, unsigned line, const char* format, ...)
+	{
+		va_list vlist;
+		va_start(vlist, format);
+		log_to_everywhere_v(NamedVerbosity::FATAL, file, line, expr, format, vlist);
+		va_end(vlist);
+		if (s_fatal_handler) {
+			s_fatal_handler();
+		}
+		abort();
+	}
+
+	void log_and_abort(const char* expr, const char* file, unsigned line)
+	{
+		log_and_abort(expr, file, line, " ");
+	}
+} // namespace loguru
+
+#endif // LOGURU_IMPLEMENTATION

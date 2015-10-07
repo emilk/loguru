@@ -1,7 +1,10 @@
-# Loguru: a simple C++ logging library
+# Loguru: a header-only C++ logging library.
 
 ## License
-Use, abuse, enjoy. Give credit if you like it!
+This software is in the public domain. Where that dedication is not recognized, you are granted a perpetual, irrevocable license to copy and modify this file as you see fit.
+
+That being said, I would appreciate credit!
+If you find Loguru useful, tweet me at @ernerfeldt mail me at emil.ernerfeldt@gmail.com.
 
 ## Why another logging library?
 I have yet to come accross a nice, light-weight logging library for C++ that does everything I want. So I made one!
@@ -9,22 +12,30 @@ I have yet to come accross a nice, light-weight logging library for C++ that doe
 In particular, I want logging that produces logs that are both human-readable and easily grep:ed. I also want to be able to hook into the logging process to print some of the more severe messages on-screen in my app (for dev-purposes).
 
 ## Features:
+* Header only
+	* No linking woes! Just include and enjoy.
 * Small, simple library.
 	* Small header with no `#include`s for **fast compile times** (see separate heading).
 	* No dependencies.
 	* Cross-platform (but not tested on Windows yet...)
+* Flexible:
+	* User can install callbacks for logging (e.g. to draw log messages on screen in a game).
+	* User can install callbacks for fatal error (e.g. to print stack traces).
+* Support multiple file outputs, either trunc or append:
+	* e.g. a logfile with just the latest run at low verbosity (high readability).
+	* e.g. a full logfile at highest verbosity which is appended to.
+* Full featured:
+	* Verbosity levels.
+	* Supports assertions: `CHECK_F(fp != nullptr, "Failed to open '%s'", filename)`
+	* Supports abort: `ABORT_F("Something went wrong, debug value is %d", value)`.
 * Fast - about 25%-75% faster than GLOG at logging things.
-* Drop-in replacement for GLOG (except for setup code).
+* Drop-in replacement for most of GLOG (except for setup code).
 * Chose between using printf-style formatting or streams.
 * Compile-time checked printf-formating (on supported compilers).
-* Assertion failures are marked with 'noreturn' for the benefit of the static analyzer and optimizer.
-* Verbosity levels.
+* Assertion failures are marked with `noreturn` for the benefit of the static analyzer and optimizer.
 * Log to any combination of file, stdout and stderr.
-* Support flexible multiple file outputs
-	* e.g. a logfile with just the latest run at low verbosity (high readability).
-	* e.g. a full logfile at highest verbosity which is appended to
 * Thread-safe.
-* Flushes output on each call so you won't miss anything even on hard crashes.
+* Flushes output on each call so you won't miss anything even on hard crashes (and still faster than buffered GLOG!).
 * Prefixes each log line with:
   * Date and time to millisecond precision.
   * Application uptime to millisecond precision.
@@ -32,14 +43,60 @@ In particular, I want logging that produces logs that are both human-readable an
   * File and line.
   * Log level.
   * Indentation (see *Scopes*).
-* Supports assertions: `CHECK_F(fp != nullptr, "Failed to open '%s'", filename)`
-* Supports abort: `ABORT_F("Something went wrong, debug value is %d", value)`.
-* Scopes (see separate heading).
-* User can install callbacks for logging (e.g. to draw log messages on screen in a game).
-* User can install callbacks for fatal error (e.g. to print stack traces).
+* Scopes (see *Scopes*).
 * grep:able logs:
 	* Each line has all the info you need (e.g. date).
 	* You can easily filter out high verbosity levels after the fact.
+
+## Compiling
+
+Just include <loguru/loguru.hpp> where you want to use Loguru.
+Then, in one .cpp file:
+``` C++
+	#define LOGURU_IMPLEMENTATION
+	#include <loguru/loguru.hpp>
+```
+Make sure you compile with -std=c++11.
+
+## Usage
+
+``` C++
+#include <loguru/loguru.hpp>
+...
+// Optional, but useful to timestamp the start of the log.
+// Will also detect verbosity level on comamnd line as -v.
+loguru::init(argc, argv);
+
+// Put every log message in "everything.log":
+loguru::add_file("everything.log", loguru::Append);
+
+// Only log INFO, WARNING, ERROR and FATAL to "latest_readable.log":
+loguru::add_file("latest_readable.log", loguru::Truncate, loguru::INFO);
+
+LOG_SCOPE_F(INFO, "Will indent all log messages within this scope.");
+LOG_F(INFO, "I'm hungry for some %.3f!", 3.14159);
+VLOG_F(2, "Will only show if verbosity is 2 or higher");
+LOG_IF_F(ERROR, badness, "Will only show if badness happens");
+auto fp = fopen(filename, "r");
+CHECK_F(fp != nullptr, "Failed to open file '%s'", filename);
+CHECK_GT_F(length, 0); // Will print the value of `length` on failure.
+CHECK_EQ_F(a, b, "You can also supply a custom message, like to print something: %d", a + b);
+LOG_SCOPE_F(INFO, "Will indent all log messages withing this scope.");
+
+// Each function also comes with a version prefixed with D for Debug:
+DCHECK_F(expensive_check(x)); // Only checked #if !NDEBUG
+DLOG_F("Only written in debug-builds");
+```
+
+If you prefer logging with streams:
+
+``` C++
+#define LOGURU_WITH_STREAMS 1
+#include <loguru/loguru.hpp>
+...
+LOG_S(INFO) << "Look at my custom object: " << a.cross(b);
+CHECK_EQ_S(pi, 3.14) << "Maybe it is closer to " << M_PI;
+```
 
 
 ## No includes in loguru.h
@@ -47,7 +104,9 @@ I abhor logging libraries that `#include`'s everything from `iostream` to `windo
 
 In a test of a medium-sized project, including `loguru.hpp` instead of `glog/logging.hpp` everywhere gave about 10% speedup in compilation times.
 
-### Scopes
+Note, however, that this gives you the bare-bones version of Louru with printf-style logging. If you want std::ostream style logging (or GLOG functionality) you need to `#define LOGURU_WITH_STREAMS 1` before `#include <loguru/loguru.hpp>`, and that will make loguru.hpp include `<sstream>`. No away around it!
+
+## Scopes
 The library supports scopes for indenting the log-file. Here's an example:
 
 ``` C++
@@ -87,24 +146,23 @@ date       time         ( uptime  ) [ thread name/id ]                   file:li
 Scopes affects logging on all threads.
 
 
-### Streams vs printf#
-Some logging libraries only supports stream style logging, not printf-style. This means that what should be:
+## Streams vs printf#
+Some logging libraries only supports stream style logging, not printf-style. This means that what in Loguru is:
 
-```
-LOG(INFO, "Some float: %+05.3f", number);
+``` C++
+LOG_F(INFO, "Some float: %+05.3f", number);
 ```
 
 in Glog becomes something along the lines of:
 
-```
+``` C++
 LOG(INFO) << "Some float: " << std::setfill('0') << std::setw(5) << std::setprecision(3) << number;
-// Plus whatever else is needed to reset the stream after this.
 ```
 
 Loguru allows you to use whatever style you prefer.
 
 
-### Limitations and TODO
+## Limitations and TODO
 * Test on Windows.
 * Color print to terminal?
 * Is writing WARN/ERR/FATL to stderr the right thing to do?
