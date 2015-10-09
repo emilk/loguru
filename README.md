@@ -98,6 +98,20 @@ LOG_S(INFO) << "Look at my custom object: " << a.cross(b);
 CHECK_EQ_S(pi, 3.14) << "Maybe it is closer to " << M_PI;
 ```
 
+## Grep:able logs
+``` bash
+# Only show warnings, errors and fatal messages:
+cat logfile.txt | egrep "[^0-9]\|"
+
+# Ignore verbosity-levels 4 and above:
+cat logfile.txt | egrep "[^4-9]\|"
+
+# Only show verbosity-level 6:
+cat logfile.txt | egrep "6\|"
+
+# Only show messages from the main thread:
+cat logfile.txt | egrep "\[main thread     \]"
+```
 
 ## No includes in loguru.h
 I abhor logging libraries that `#include`'s everything from `iostream` to `windows.h` into every compilation unit in your project. Logging should be frequent in your source code, and thus as lightweight as possible. Loguru's header has *no #includes*. This means it will not slow down the compilation of your project.

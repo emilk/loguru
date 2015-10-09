@@ -6,6 +6,7 @@
 
 #define LOGURU_WITH_STREAMS 1
 #define LOGURU_REDEFINE_ASSERT 1
+#define LOGURU_IMPLEMENTATION 1
 #include "../loguru.hpp"
 
 const size_t kNumIterations = 100 * 1000;

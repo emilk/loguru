@@ -198,7 +198,7 @@ namespace loguru
 		const char* _file; // Set to null if we are disabled due to verbosity
 		unsigned    _line;
 		long long   _start_time_ns;
-		char        _name[64];
+		char        _name[128]; // Long enough to get most things, short enough not to clutter the stack.
 	};
 
 	// Marked as 'noreturn' for the benefit of the static analyzer and optimizer.

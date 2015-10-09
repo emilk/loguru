@@ -4,6 +4,7 @@
 
 #define LOGURU_WITH_STREAMS 1
 #define LOGURU_REDEFINE_ASSERT 1
+#define LOGURU_IMPLEMENTATION 1
 #include "../loguru.hpp"
 
 void sleep_ms(int ms)
@@ -80,23 +81,6 @@ void test_stream()
 	CHECK_GT_S(3, 2) << "Weird";
 }
 
-void print_args(const char* prefix, int argc, char* argv[])
-{
-	CHECK_EQ_F(argv[argc], nullptr);
-
-	std::string arguments;
-	for (int i = 0; i < argc; ++i)
-	{
-		arguments += argv[i];
-		if (i + 1 < argc)
-		{
-			arguments += " ";
-		}
-	}
-
-	LOG_F(INFO, "%s%s", prefix, arguments.c_str());
-}
-
 int some_expensive_operation() { static int r=31; sleep_ms(132); return r++; }
 int BAD = 32;
 
@@ -118,7 +102,7 @@ int main_test(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
-	if (argv[1] == std::string("test"))
+	if (argc > 1 && argv[1] == std::string("test"))
 	{
 		return main_test(argc, argv);
 	}
@@ -129,7 +113,6 @@ int main(int argc, char* argv[])
 	{
 		loguru::add_file("latest_readable.log", loguru::Truncate, loguru::INFO);
 		loguru::add_file("everything.log",      loguru::Append);
-		print_args("Arguments after loguru: ", argc, argv);
 
 		LOG_F(INFO, "Loguru test");
 		test_thread_names();
