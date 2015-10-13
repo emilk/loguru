@@ -113,6 +113,12 @@ namespace loguru
 
 	using Verbosity = int;
 
+#undef FATAL
+#undef ERROR
+#undef WARNING
+#undef INFO
+#undef MAX
+
 	enum NamedVerbosity : Verbosity
 	{
 		// Value is the verbosity level one must pass.
@@ -121,7 +127,6 @@ namespace loguru
 		ERROR   = -2,
 		WARNING = -1,
 		INFO    =  0, // Normal messages.
-		SPAM    = +1, // Goes to file, but not to screen.
 		MAX     = +9
 	};
 
@@ -260,7 +265,7 @@ namespace loguru
 // Use to book-end a scope. Affects logging on all threads.
 #define LOG_SCOPE_F(verbosity_name, ...)                                                           \
 	VLOG_SCOPE_F(loguru::NamedVerbosity::verbosity_name, __VA_ARGS__)
-#define LOG_SCOPE_FUNCTION_F(verbosity_name) LOG_SCOPE_F(verbosity_name, __PRETTY_FUNCTION__)
+#define LOG_SCOPE_FUNCTION(verbosity_name) LOG_SCOPE_F(verbosity_name, __PRETTY_FUNCTION__)
 
 // --------------------------------------------------------------------
 // Check/Abort macros
