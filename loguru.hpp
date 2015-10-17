@@ -21,6 +21,7 @@ Website: www.ilikebigbits.com
 	* Version 0.2 - 2015-09-17 - Removed the only dependency.
 	* Version 0.3 - 2015-10-02 - Drop-in replacement for most of GLOG
 	* Version 0.4 - 2015-10-07 - Single-file!
+	* Version 0.5 - 2015-10-17 - Improved file logging
 
 # Compiling
 	Just include <loguru/loguru.hpp> where you want to use Loguru.
@@ -41,6 +42,11 @@ Website: www.ilikebigbits.com
 
 	// Only log INFO, WARNING, ERROR and FATAL to "latest_readable.log":
 	loguru::add_file("latest_readable.log", loguru::Truncate, loguru::INFO);
+
+	// Or just go with what Loguru suggests:
+	char log_path[1024];
+	loguru::suggest_log_path("~/loguru/", log_path, sizeof(log_path));
+	loguru::add_file(log_path, loguru::FileMode::Truncate);
 
 	LOG_SCOPE_F(INFO, "Will indent all log messages withing this scope.");
 	LOG_F(INFO, "I'm hungry for some %.3f!", 3.14159);
@@ -159,12 +165,20 @@ namespace loguru
 			-v n   Set verbosity level */
 	void init(int& argc, char* argv[]);
 
+	/* Given a prefix of e.g. "~/loguru/" this might return
+	   "/home/your_username/loguru/app_name/20151017_161503.123.log"
+
+	   where "app_name" is a sanatized version of argv[0].
+	*/
+	void suggest_log_path(const char* prefix, char* buff, unsigned buff_size);
+
 	enum FileMode { Truncate, Append };
 
 	/*  Will log to a file at the given path.
 		`verbosity` is the cutoff, but this is applied *after* g_verbosity.
+		add_file will also create all directories in 'path' if needed.
 	*/
-	bool add_file(const char* dir, FileMode mode, Verbosity verbosity = NamedVerbosity::MAX);
+	bool add_file(const char* path, FileMode mode, Verbosity verbosity = NamedVerbosity::MAX);
 
 	/*  Will be called right before abort().
 		This can be used to print a callstack.
@@ -214,14 +228,17 @@ namespace loguru
 	template<class T> inline char* format_value(const T&)                    { return strprintf("N/A");     }
 	template<>        inline char* format_value(const char& v)               { return strprintf("%c",   v); }
 	template<>        inline char* format_value(const int& v)                { return strprintf("%d",   v); }
-	template<>        inline char* format_value(const unsigned& v)           { return strprintf("%u",   v); }
-	template<>        inline char* format_value(const unsigned long& v)      { return strprintf("%lu",  v); }
-	template<>        inline char* format_value(const unsigned long long& v) { return strprintf("%llu", v); }
+	template<>        inline char* format_value(const unsigned int& v)       { return strprintf("%u",   v); }
+	template<>        inline char* format_value(const long& v)               { return strprintf("%lu",  v); }
+	template<>        inline char* format_value(const unsigned long& v)      { return strprintf("%ld",  v); }
+	template<>        inline char* format_value(const long long& v)          { return strprintf("%llu", v); }
+	template<>        inline char* format_value(const unsigned long long& v) { return strprintf("%lld", v); }
 	template<>        inline char* format_value(const float& v)              { return strprintf("%f",   v); }
 	template<>        inline char* format_value(const double& v)             { return strprintf("%f",   v); }
 
 	// Convenience:
 	void set_thread_name(const char* name);
+	const char* home_dir();
 } // namespace loguru
 
 // --------------------------------------------------------------------
@@ -561,7 +578,8 @@ namespace loguru
 This will define all the Loguru functions so that the linker may find them.
 */
 
-#ifdef LOGURU_IMPLEMENTATION
+#if defined(LOGURU_IMPLEMENTATION) && !defined(LOGURU_HAS_BEEN_IMPLEMENTED)
+#define LOGURU_HAS_BEEN_IMPLEMENTED
 
 #include <algorithm>
 #include <atomic>
@@ -574,7 +592,14 @@ This will define all the Loguru functions so that the linker may find them.
 #include <string>
 #include <vector>
 
-#ifndef _MSC_VER
+#ifdef _MSC_VER
+	#include <direct.h>
+#else
+	#include <sys/stat.h> // mkdir
+	#define LOGURU_PTHREADS 1
+#endif
+
+#if LOGURU_PTHREADS
 	#include <pthread.h>
 #endif
 
@@ -602,6 +627,7 @@ namespace loguru
 	bool g_colorlogtostderr = false;
 
 	std::recursive_mutex s_mutex;
+	std::string          s_argv0_filename;
 	std::string          s_file_arguments;
 	CallbackVec          s_callbacks;
 	FILE*                s_err             = stderr;
@@ -714,6 +740,16 @@ namespace loguru
 		return duration_cast<nanoseconds>(high_resolution_clock::now().time_since_epoch()).count();
 	}
 
+	inline const char* filename(const char* path)
+	{
+		for (auto ptr = path; *ptr; ++ptr) {
+			if (*ptr == '/' || *ptr == '\\') {
+				path = ptr + 1;
+			}
+		}
+		return path;
+	}
+
 	// ------------------------------------------------------------------------------
 
 	static void on_atexit()
@@ -723,6 +759,8 @@ namespace loguru
 
 	void init(int& argc, char* argv[])
 	{
+		s_argv0_filename = filename(argv[0]);
+
 		s_file_arguments = "";
 		for (int i = 0; i < argc; ++i) {
 			s_file_arguments += argv[i];
@@ -733,22 +771,21 @@ namespace loguru
 
 		parse_args(argc, argv);
 
-#ifndef _MSC_VER
-		// Set thread name, unless it is already set:
-		char old_thread_name[128] = {0};
-		auto this_thread = pthread_self();
-		pthread_getname_np(this_thread, old_thread_name, sizeof(old_thread_name));
-		if (old_thread_name[0] == 0) {
-			#ifdef __APPLE__
-				pthread_setname_np("main thread");
-			#else
-				pthread_setname_np(this_thread, "main thread");
-			#endif
-		}
-#endif
+		#if LOGURU_PTHREADS
+			// Set thread name, unless it is already set:
+			char old_thread_name[128] = {0};
+			auto this_thread = pthread_self();
+			pthread_getname_np(this_thread, old_thread_name, sizeof(old_thread_name));
+			if (old_thread_name[0] == 0) {
+				#ifdef __APPLE__
+					pthread_setname_np("main thread");
+				#else
+					pthread_setname_np(this_thread, "main thread");
+				#endif
+			}
+		#endif // LOGURU_PTHREADS
 
 		fprintf(stdout, "%s\n", PREAMBLE_EXPLAIN); fflush(stdout);
-
 		LOG_F(INFO, "arguments:       %s", s_file_arguments.c_str());
 		LOG_F(INFO, "Verbosity level: %d", g_verbosity);
 		LOG_F(INFO, "-----------------------------------");
@@ -756,8 +793,93 @@ namespace loguru
 		atexit(on_atexit);
 	}
 
+	static void write_date_time(char* buff, unsigned buff_size)
+	{
+		auto now = system_clock::now();
+		time_t ms_since_epoch = duration_cast<milliseconds>(now.time_since_epoch()).count();
+		time_t sec_since_epoch = ms_since_epoch / 1000;
+		tm time_info;
+		localtime_r(&sec_since_epoch, &time_info);
+		snprintf(buff, buff_size, "%04d%02d%02d_%02d%02d%02d.%03ld",
+			1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday,
+			time_info.tm_hour, time_info.tm_min, time_info.tm_sec, ms_since_epoch % 1000);
+	}
+
+	const char* home_dir()
+	{
+		#if _WIN32
+			auto user_profile = getenv("USERPROFILE");
+			CHECK_F(user_profile != nullptr, "Missing USERPROFILE");
+			return user_profile;
+		#else // _WIN32
+			auto home = getenv("HOME");
+			CHECK_F(home != nullptr, "Missing HOME");
+			return home;
+		#endif // _WIN32
+	}
+
+	void suggest_log_path(const char* prefix, char* buff, unsigned buff_size)
+	{
+		if (prefix[0] == '~') {
+			snprintf(buff, buff_size - 1, "%s%s", home_dir(), prefix + 1);
+		} else {
+			snprintf(buff, buff_size - 1, "%s", prefix);
+		}
+
+		// Check for terminating /
+		auto n = strlen(buff);
+		if (n != 0) {
+			if (buff[n - 1] != '/') {
+				CHECK_F(n + 2 < buff_size, "Filename buffer too small");
+				buff[n] = '/';
+				buff[n + 1] = '\0';
+				n += 1;
+			}
+		}
+
+		strncat(buff, s_argv0_filename.c_str(), buff_size - strlen(buff) - 1);
+		strncat(buff, "/",                      buff_size - strlen(buff) - 1);
+		write_date_time(buff + strlen(buff),    buff_size - strlen(buff));
+		strncat(buff, ".log",                   buff_size - strlen(buff) - 1);
+	}
+
+	bool mkpath(const char* file_path_const)
+	{
+		CHECK_F(file_path_const && *file_path_const);
+		char* file_path = strdup(file_path_const);
+		for (char* p = strchr(file_path + 1, '/'); p; p = strchr(p + 1, '/')) {
+			*p = '\0';
+
+	#ifdef _MSC_VER
+			if (_mkdir(file_path) == -1) {
+	#else
+			if (mkdir(file_path, 0755) == -1) {
+	#endif
+				if (errno != EEXIST) {
+					LOG_F(ERROR, "Failed to create directory '%s'", file_path);
+					LOG_IF_F(ERROR, errno == EACCES,       "EACCES");
+					LOG_IF_F(ERROR, errno == ENAMETOOLONG, "ENAMETOOLONG");
+					LOG_IF_F(ERROR, errno == ENOENT,       "ENOENT");
+					LOG_IF_F(ERROR, errno == ENOTDIR,      "ENOTDIR");
+					LOG_IF_F(ERROR, errno == ELOOP,        "ELOOP");
+
+					*p = '/';
+					free(file_path);
+					return false;
+				}
+			}
+			*p = '/';
+		}
+		free(file_path);
+		return true;
+	}
+
 	bool add_file(const char* path, FileMode mode, Verbosity verbosity)
 	{
+		if (!mkpath(path)) {
+			LOG_F(ERROR, "Failed to create directories to '%s'", path);
+		}
+
 		const char* mode_str = (mode == FileMode::Truncate ? "w" : "a");
 		auto file = fopen(path, mode_str);
 		if (!file) {
@@ -765,6 +887,12 @@ namespace loguru
 			return false;
 		}
 		add_callback(path, file_log, file, verbosity, file_close);
+
+		fprintf(file, "arguments:       %s\n", s_file_arguments.c_str());
+		fprintf(file, "Verbosity level: %d\n", std::max(g_verbosity, verbosity));
+		fprintf(file, "%s\n", PREAMBLE_EXPLAIN);
+		fflush(file);
+
 		LOG_F(INFO, "Logging to '%s', mode: '%s', verbosity: %d", path, mode_str, verbosity);
 		return true;
 	}
@@ -796,11 +924,15 @@ namespace loguru
 
 	void set_thread_name(const char* name)
 	{
-		#ifdef __APPLE__
-			pthread_setname_np(name);
-		#else
-			pthread_setname_np(pthread_self(), name);
-		#endif
+		#if LOGURU_PTHREADS
+			#ifdef __APPLE__
+				pthread_setname_np(name);
+			#else
+				pthread_setname_np(pthread_self(), name);
+			#endif
+		#else // LOGURU_PTHREADS
+			(void)name; // TODO: Windows
+		#endif // LOGURU_PTHREADS
 	}
 
 	// ------------------------------------------------------------------------
@@ -816,30 +948,26 @@ namespace loguru
 		auto uptime_ms = duration_cast<milliseconds>(now - s_start_time).count();
 		auto uptime_sec = uptime_ms / 1000.0;
 
-#ifdef _MSC_VER
-		const char* thread_name = ""; // TODO
-#else
-		auto thread = pthread_self();
-		char thread_name[THREAD_NAME_WIDTH + 1] = {0};
-		pthread_getname_np(thread, thread_name, sizeof(thread_name));
+		#if LOGURU_PTHREADS
+			auto thread = pthread_self();
+			char thread_name[THREAD_NAME_WIDTH + 1] = {0};
+			pthread_getname_np(thread, thread_name, sizeof(thread_name));
 
-		if (thread_name[0] == 0) {
-			#ifdef __APPLE__
-				uint64_t thread_id;
-				pthread_threadid_np(thread, &thread_id);
-			#else
-				uint64_t thread_id = thread;
-			#endif
-			snprintf(thread_name, sizeof(thread_name), "%16X", (unsigned)thread_id);
-		}
-#endif
+			if (thread_name[0] == 0) {
+				#ifdef __APPLE__
+					uint64_t thread_id;
+					pthread_threadid_np(thread, &thread_id);
+				#else
+					uint64_t thread_id = thread;
+				#endif
+				snprintf(thread_name, sizeof(thread_name), "%16X", (unsigned)thread_id);
+			}
+		#else // LOGURU_PTHREADS
+			const char* thread_name = ""; // TODO: Windows
+		#endif // LOGURU_PTHREADS
 
 		if (s_strip_file_path) {
-			for (auto ptr = file; *ptr; ++ptr) {
-				if (*ptr == '/' || *ptr == '\\') {
-					file = ptr + 1;
-				}
-			}
+			file = filename(file);
 		}
 
 		char level_buff[6];

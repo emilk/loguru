@@ -15,7 +15,7 @@ void sleep_ms(int ms)
 
 void test_thread_names()
 {
-	LOG_SCOPE_FUNCTION_F(INFO);
+	LOG_SCOPE_FUNCTION(INFO);
 
 	LOG_F(INFO, "Hello from main thread!");
 
@@ -40,7 +40,7 @@ void test_thread_names()
 
 void test_scopes()
 {
-	LOG_SCOPE_FUNCTION_F(INFO);
+	LOG_SCOPE_FUNCTION(INFO);
 
 	VLOG_F(1, "First thing");
 	VLOG_F(1, "Second thing");
@@ -56,7 +56,7 @@ void test_scopes()
 
 void test_levels()
 {
-	LOG_SCOPE_FUNCTION_F(INFO);
+	LOG_SCOPE_FUNCTION(INFO);
 	VLOG_F(3,      "Only visible with -v 3 or higher");
 	VLOG_F(2,      "Only visible with -v 2 or higher");
 	VLOG_F(1,      "Only visible with -v 1 or higher");
@@ -68,7 +68,7 @@ void test_levels()
 
 void test_stream()
 {
-	LOG_SCOPE_FUNCTION_F(INFO);
+	LOG_SCOPE_FUNCTION(INFO);
 	LOG_S(INFO) << "Testing stream-logging.";
 	VLOG_S(1) << "Stream-logging with verbosity 1";
 	VLOG_S(2) << "Stream-logging with verbosity 2";
@@ -89,7 +89,7 @@ int always_increasing() { static int x = 0; return x++; }
 int main_test(int argc, char* argv[])
 {
 	loguru::init(argc, argv);
-	LOG_SCOPE_FUNCTION_F(INFO);
+	LOG_SCOPE_FUNCTION(INFO);
 	LOG_F(INFO, "Doing some stuff...");
 	for (int i=0; i<2; ++i) {
 		VLOG_SCOPE_F(1, "Iteration %d", i);
@@ -138,6 +138,15 @@ int main(int argc, char* argv[])
 			CHECK_EQ_F(always_increasing(),  0);
 			CHECK_EQ_F(always_increasing(),  1);
 			CHECK_EQ_F(always_increasing(), 42);
+		} else if (test == "CHECK_EQ_F_int") {
+			int x = 42;
+			CHECK_EQ_F(x, x + 1);
+		} else if (test == "CHECK_EQ_F_unsigned") {
+			unsigned x = 42;
+			CHECK_EQ_F(x, x + 1);
+		} else if (test == "CHECK_EQ_F_size_t") {
+			size_t x = 42;
+			CHECK_EQ_F(x, x + 1);
 		} else if (test == "CHECK_EQ_F_message") {
 			CHECK_EQ_F(always_increasing(),  0, "Should pass");
 			CHECK_EQ_F(always_increasing(),  1, "Should pass");
