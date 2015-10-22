@@ -28,6 +28,7 @@ In particular, I want logging that produces logs that are both human-readable an
 	* Verbosity levels.
 	* Supports assertions: `CHECK_F(fp != nullptr, "Failed to open '%s'", filename)`
 	* Supports abort: `ABORT_F("Something went wrong, debug value is %d", value)`.
+	* Stack traces printed on abort.
 * Fast - about 25%-75% faster than GLOG at logging things.
 * Drop-in replacement for most of GLOG (except for setup code).
 * Chose between using printf-style formatting or streams.

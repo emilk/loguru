@@ -7,6 +7,20 @@
 #define LOGURU_IMPLEMENTATION 1
 #include "../loguru.hpp"
 
+void the_one_where_the_problem_is(const std::string& str) {
+	ABORT_F("Abort deep in stack trace, msg: %s", str.c_str());
+}
+void deep_abort_1(const std::string& str) { the_one_where_the_problem_is(str); }
+void deep_abort_2(const std::string& str) { deep_abort_1(str); }
+void deep_abort_3(const std::string& str) { deep_abort_2(str); }
+void deep_abort_4(const std::string& str) { deep_abort_3(str); }
+void deep_abort_5(const std::string& str) { deep_abort_4(str); }
+void deep_abort_6(const std::string& str) { deep_abort_5(str); }
+void deep_abort_7(const std::string& str) { deep_abort_6(str); }
+void deep_abort_8(const std::string& str) { deep_abort_7(str); }
+void deep_abort_9(const std::string& str) { deep_abort_8(str); }
+void deep_abort_10(const std::string& str) { deep_abort_9(str); }
+
 void sleep_ms(int ms)
 {
 	VLOG_F(3, "Sleeping for %d ms", ms);
@@ -162,6 +176,8 @@ int main(int argc, char* argv[])
 			CHECK_EQ_S(always_increasing(),  0) << "Should pass";
 			CHECK_EQ_S(always_increasing(),  1) << "Should pass";
 			CHECK_EQ_S(always_increasing(), 42) << "Should fail!";
+		} else if (test == "deep_abort") {
+			deep_abort_10("deep_abort");
 		} else {
 			LOG_F(ERROR, "Unknown test: '%s'", test.c_str());
 		}

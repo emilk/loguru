@@ -221,8 +221,9 @@ namespace loguru
 	};
 
 	// Marked as 'noreturn' for the benefit of the static analyzer and optimizer.
-	void log_and_abort(const char* expr, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(4, 5) LOGURU_NORETURN;
-	void log_and_abort(const char* expr, const char* file, unsigned line) LOGURU_NORETURN;
+	// stack_strace_skip is the number of extrace stack frames to skip above log_and_abort.
+	void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(5, 6) LOGURU_NORETURN;
+	void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line) LOGURU_NORETURN;
 
 	// Free after use!
 	template<class T> inline char* format_value(const T&)                    { return strprintf("N/A");     }
@@ -239,6 +240,12 @@ namespace loguru
 	// Convenience:
 	void set_thread_name(const char* name);
 	const char* home_dir();
+
+	/* Generates a readable stacktrace as a string. You must free the returned string!
+	   'skip' specifies how many stack frames to skip.
+	   For instance, the default skip (1) means:
+	   don't include the call to loguru::stacktrace in the stack trace. */
+	char* stacktrace(int skip = 1);
 } // namespace loguru
 
 // --------------------------------------------------------------------
@@ -288,10 +295,10 @@ namespace loguru
 // Check/Abort macros
 
 // Message is optional
-#define ABORT_F(...) loguru::log_and_abort("ABORT: ", __FILE__, __LINE__, __VA_ARGS__)
+#define ABORT_F(...) loguru::log_and_abort(0, "ABORT: ", __FILE__, __LINE__, __VA_ARGS__)
 
 #define CHECK_WITH_INFO_F(test, info, ...)                                                         \
-	LOGURU_PREDICT_TRUE((test) == true) ? (void)0 : loguru::log_and_abort("CHECK FAILED:  " info "  ", __FILE__,      \
+	LOGURU_PREDICT_TRUE((test) == true) ? (void)0 : loguru::log_and_abort(0, "CHECK FAILED:  " info "  ", __FILE__,      \
 													   __LINE__, ##__VA_ARGS__)
 
 /* Checked at runtime too. Will print error, then call abort_handler (if any), then 'abort'.
@@ -313,7 +320,7 @@ namespace loguru
 			char* fail_info = loguru::strprintf("CHECK FAILED:  %s %s %s  (%s %s %s)  ",           \
 				#expr_left, #op, #expr_right, str_left, #op, str_right);                           \
 			char* user_msg = loguru::strprintf(__VA_ARGS__);                                       \
-			loguru::log_and_abort(fail_info, __FILE__, __LINE__, "%s", user_msg);                  \
+			loguru::log_and_abort(0, fail_info, __FILE__, __LINE__, "%s", user_msg);                  \
 			/* free(user_msg);  // no need - we never get here anyway! */                          \
 			/* free(fail_info); // no need - we never get here anyway! */                          \
 			/* free(str_right); // no need - we never get here anyway! */                          \
@@ -370,6 +377,10 @@ namespace loguru
 #endif // LOGURU_REDEFINE_ASSERT
 
 // ----------------------------------------------------------------------------
+// .dP"Y8 888888 88""Yb 888888    db    8b    d8 .dP"Y8
+// `Ybo."   88   88__dP 88__     dPYb   88b  d88 `Ybo."
+// o.`Y8b   88   88"Yb  88""    dP__Yb  88YbdP88 o.`Y8b
+// 8bodP'   88   88  Yb 888888 dP""""Yb 88 YY 88 8bodP'
 
 #if LOGURU_WITH_STREAMS || LOGURU_REPLACE_GLOG
 
@@ -402,10 +413,10 @@ namespace loguru
 	{
 	public:
 		AbortLogger(const char* expr, const char* file, unsigned line) : _expr(expr), _file(file), _line(line) {}
-		~AbortLogger() LOGURU_NORETURN
+		inline ~AbortLogger() LOGURU_NORETURN
 		{
 			auto message = this->str();
-			loguru::log_and_abort(_expr, _file, _line, "%s", message.c_str());
+			loguru::log_and_abort(1, _expr, _file, _line, "%s", message.c_str());
 		}
 
 	private:
@@ -570,8 +581,13 @@ namespace loguru
 #endif // LOGURU_HEADER_HPP
 
 // ----------------------------------------------------------------------------
-/* In one of your .cpp files you need to do the following:
+// 88 8b    d8 88""Yb 88     888888 8b    d8 888888 88b 88 888888    db    888888 88  dP"Yb  88b 88
+// 88 88b  d88 88__dP 88     88__   88b  d88 88__   88Yb88   88     dPYb     88   88 dP   Yb 88Yb88
+// 88 88YbdP88 88"""  88  .o 88""   88YbdP88 88""   88 Y88   88    dP__Yb    88   88 Yb   dP 88 Y88
+// 88 88 YY 88 88     88ood8 888888 88 YY 88 888888 88  Y8   88   dP""""Yb   88   88  YbodP  88  Y8
 
+
+/* In one of your .cpp files you need to do the following:
 #define LOGURU_IMPLEMENTATION
 #include <loguru/loguru.hpp>
 
@@ -598,6 +614,12 @@ This will define all the Loguru functions so that the linker may find them.
 	#include <sys/stat.h> // mkdir
 	#define LOGURU_PTHREADS 1
 #endif
+
+#ifdef __GNUG__
+	#include <cxxabi.h>   // for __cxa_demangle
+	#include <dlfcn.h>    // for dladdr
+	#include <execinfo.h> // for backtrace
+#endif // __GNUG__
 
 #if LOGURU_PTHREADS
 	#include <pthread.h>
@@ -936,6 +958,105 @@ namespace loguru
 	}
 
 	// ------------------------------------------------------------------------
+	// Stack traces
+
+#ifdef __GNUG__
+	std::string demangle(const char* name)
+	{
+		int status = -1;
+		char* demangled = abi::__cxa_demangle(name, 0, 0, &status);
+		std::string result = (status == 0 ? demangled : name);
+		free(demangled);
+		return result;
+	}
+
+	template <class T>
+	std::string type_name() {
+		return demangle(typeid(T).name());
+	}
+
+	using StringPair     = std::pair<std::string, std::string>;
+	using StringPairList = std::vector<StringPair>;
+	static const StringPairList REPLACE_LIST = {
+		{ type_name<std::string>(), "std::string" },
+		{ "__thiscall ",            ""            },
+		{ "__cdecl ",               ""            },
+	};
+
+	std::string prettify_function(const std::string& input)
+	{
+		std::string output = input;
+
+		for (auto&& p : REPLACE_LIST) {
+			size_t it;
+			while ((it=output.find(p.first)) != std::string::npos) {
+				output.replace(it, p.first.size(), p.second);
+			}
+		}
+
+		return output;
+	}
+
+	std::string stacktrace_as_stdstring(int skip)
+	{
+		// From https://gist.github.com/fmela/591333
+		void* callstack[128];
+		const auto max_frames = sizeof(callstack) / sizeof(callstack[0]);
+		char buf[1024];
+		int num_frames = backtrace(callstack, max_frames);
+		char** symbols = backtrace_symbols(callstack, num_frames);
+
+		std::string result;
+		// Print stack traces so the most relevant ones are written last
+		// Rationale: http://yellerapp.com/posts/2015-01-22-upside-down-stacktraces.html
+		for (int i = num_frames - 1; i >= skip; --i) {
+			Dl_info info;
+			if (dladdr(callstack[i], &info) && info.dli_sname) {
+				char* demangled = NULL;
+				int status = -1;
+				if (info.dli_sname[0] == '_') {
+					demangled = abi::__cxa_demangle(info.dli_sname, 0, 0, &status);
+				}
+				snprintf(buf, sizeof(buf), "%-3d %*p %s + %zd\n",
+						 i - skip, int(2 + sizeof(void*) * 2), callstack[i],
+						 status == 0 ? demangled :
+						 info.dli_sname == 0 ? symbols[i] : info.dli_sname,
+						 (char *)callstack[i] - (char *)info.dli_saddr);
+				free(demangled);
+			} else {
+				snprintf(buf, sizeof(buf), "%-3d %*p %s\n",
+						 i - skip, int(2 + sizeof(void*) * 2), callstack[i], symbols[i]);
+			}
+			result += buf;
+		}
+		free(symbols);
+		if (num_frames == max_frames) {
+			result = "[truncated]\n" + result;
+		}
+
+		if (!result.empty() && result[result.size() - 1] == '\n') {
+			result.resize(result.size() - 1);
+		}
+
+		return prettify_function( result );
+	}
+
+#else // __GNUG__
+	std::string stacktrace_as_stdstring(int)
+	{
+		#warning "Loguru: No stacktraces available on this platform"
+		return "";
+	}
+
+#endif // __GNUG__
+
+	char* stacktrace(int skip)
+	{
+		auto str = stacktrace_as_stdstring(skip + 1);
+		return strdup(str.c_str());
+	}
+
+	// ------------------------------------------------------------------------
 
 	static void print_preamble(char* out_buff, size_t out_buff_size, Verbosity verbosity, const char* file, unsigned line)
 	{
@@ -1004,13 +1125,6 @@ namespace loguru
 				p.callback(p.user_data, message);
 			}
 		}
-
-		if (verbosity == static_cast<Verbosity>(NamedVerbosity::FATAL)) {
-			if (s_fatal_handler) {
-				s_fatal_handler();
-			}
-			abort();
-		}
 	}
 
 	void log_to_everywhere(Verbosity verbosity, const char* file, unsigned line, const char* prefix,
@@ -1074,21 +1188,31 @@ namespace loguru
 		}
 	}
 
-	void log_and_abort(const char* expr, const char* file, unsigned line, const char* format, ...)
+	void log_and_abort(int stack_strace_skip, const char* expr, const char* file, unsigned line, const char* format, ...)
 	{
 		va_list vlist;
 		va_start(vlist, format);
+
+		char* st = loguru::stacktrace(stack_strace_skip + 2);
+		if (st && *st)
+		{
+			LOG_F(ERROR, "Stack trace:\n%s", st);
+		}
+		free(st);
+
 		log_to_everywhere_v(NamedVerbosity::FATAL, file, line, expr, format, vlist);
+
 		va_end(vlist);
+
 		if (s_fatal_handler) {
 			s_fatal_handler();
 		}
 		abort();
 	}
 
-	void log_and_abort(const char* expr, const char* file, unsigned line)
+	void log_and_abort(int stack_strace_skip, const char* expr, const char* file, unsigned line)
 	{
-		log_and_abort(expr, file, line, " ");
+		log_and_abort(stack_strace_skip + 1, expr, file, line, " ");
 	}
 } // namespace loguru
 

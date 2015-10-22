@@ -25,6 +25,7 @@ echo "---------------------------------------------------------"
 ./loguru_test CHECK_EQ_S          && echo "Expected command to fail!" && exit 1
 ./loguru_test CHECK_LT_S          && echo "Expected command to fail!" && exit 1
 ./loguru_test CHECK_LT_S_message  && echo "Expected command to fail!" && exit 1
+./loguru_test deep_abort          && echo "Expected command to fail!" && exit 1
 echo "---------------------------------------------------------"
 echo "ALL TESTS PASSED!"
 echo "---------------------------------------------------------"
