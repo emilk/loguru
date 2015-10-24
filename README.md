@@ -20,7 +20,7 @@ In particular, I want logging that produces logs that are both human-readable an
 	* Cross-platform (but not tested on Windows yet...)
 * Flexible:
 	* User can install callbacks for logging (e.g. to draw log messages on screen in a game).
-	* User can install callbacks for fatal error (e.g. to print stack traces).
+	* User can install callbacks for fatal error (e.g. to pause an attached debugger).
 * Support multiple file outputs, either trunc or append:
 	* e.g. a logfile with just the latest run at low verbosity (high readability).
 	* e.g. a full logfile at highest verbosity which is appended to.
@@ -28,7 +28,11 @@ In particular, I want logging that produces logs that are both human-readable an
 	* Verbosity levels.
 	* Supports assertions: `CHECK_F(fp != nullptr, "Failed to open '%s'", filename)`
 	* Supports abort: `ABORT_F("Something went wrong, debug value is %d", value)`.
-	* Stack traces printed on abort.
+* Stack traces printed on abort.
+	* Stack traces are cleaned up somewhat.
+		* Before cleanup: `some_function_name(std::__1::vector<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> >, std::__1::allocator<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> > > > const&)`
+		* After cleanup: `some_function_name(std::vector<std::string> const&)`
+
 * Fast - about 25%-75% faster than GLOG at logging things.
 * Drop-in replacement for most of GLOG (except for setup code).
 * Chose between using printf-style formatting or streams.
@@ -38,12 +42,12 @@ In particular, I want logging that produces logs that are both human-readable an
 * Thread-safe.
 * Flushes output on each call so you won't miss anything even on hard crashes (and still faster than buffered GLOG!).
 * Prefixes each log line with:
-  * Date and time to millisecond precision.
-  * Application uptime to millisecond precision.
-  * Thread name or id.
-  * File and line.
-  * Log level.
-  * Indentation (see *Scopes*).
+	* Date and time to millisecond precision.
+	* Application uptime to millisecond precision.
+	* Thread name or id.
+	* File and line.
+	* Log level.
+	* Indentation (see *Scopes*).
 * Scopes (see *Scopes*).
 * grep:able logs:
 	* Each line has all the info you need (e.g. date).

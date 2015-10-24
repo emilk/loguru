@@ -22,6 +22,7 @@ Website: www.ilikebigbits.com
 	* Version 0.3 - 2015-10-02 - Drop-in replacement for most of GLOG
 	* Version 0.4 - 2015-10-07 - Single-file!
 	* Version 0.5 - 2015-10-17 - Improved file logging
+	* Version 0.6 - 2015-10-24 - Add stack traces
 
 # Compiling
 	Just include <loguru/loguru.hpp> where you want to use Loguru.
@@ -413,11 +414,7 @@ namespace loguru
 	{
 	public:
 		AbortLogger(const char* expr, const char* file, unsigned line) : _expr(expr), _file(file), _line(line) {}
-		inline ~AbortLogger() LOGURU_NORETURN
-		{
-			auto message = this->str();
-			loguru::log_and_abort(1, _expr, _file, _line, "%s", message.c_str());
-		}
+		~AbortLogger() LOGURU_NORETURN;
 
 	private:
 		const char* _expr;
@@ -605,6 +602,7 @@ This will define all the Loguru functions so that the linker may find them.
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -978,12 +976,16 @@ namespace loguru
 	using StringPair     = std::pair<std::string, std::string>;
 	using StringPairList = std::vector<StringPair>;
 	static const StringPairList REPLACE_LIST = {
-		{ type_name<std::string>(), "std::string" },
-		{ "__thiscall ",            ""            },
-		{ "__cdecl ",               ""            },
+		{ type_name<std::string>(),    "std::string"    },
+		{ type_name<std::wstring>(),   "std::wstring"   },
+		{ type_name<std::u16string>(), "std::u16string" },
+		{ type_name<std::u32string>(), "std::u32string" },
+		{ "std::__1::",                "std::"          },
+		{ "__thiscall ",               ""               },
+		{ "__cdecl ",                  ""               },
 	};
 
-	std::string prettify_function(const std::string& input)
+	std::string prettify_stacktrace(const std::string& input)
 	{
 		std::string output = input;
 
@@ -993,6 +995,12 @@ namespace loguru
 				output.replace(it, p.first.size(), p.second);
 			}
 		}
+
+		std::regex std_allocator_re(R"(,\s*std::allocator<[^<>]+>)");
+		output = std::regex_replace(output, std_allocator_re, "");
+
+		std::regex template_spaces_re(R"(<\s*([^<> ]+)\s*>)");
+		output = std::regex_replace(output, template_spaces_re, "<$1>");
 
 		return output;
 	}
@@ -1038,7 +1046,7 @@ namespace loguru
 			result.resize(result.size() - 1);
 		}
 
-		return prettify_function( result );
+		return prettify_stacktrace(result);
 	}
 
 #else // __GNUG__
@@ -1213,6 +1221,12 @@ namespace loguru
 	void log_and_abort(int stack_strace_skip, const char* expr, const char* file, unsigned line)
 	{
 		log_and_abort(stack_strace_skip + 1, expr, file, line, " ");
+	}
+
+	AbortLogger::~AbortLogger()
+	{
+		auto message = this->str();
+		loguru::log_and_abort(1, _expr, _file, _line, "%s", message.c_str());
 	}
 } // namespace loguru
 

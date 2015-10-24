@@ -7,10 +7,10 @@
 #define LOGURU_IMPLEMENTATION 1
 #include "../loguru.hpp"
 
-void the_one_where_the_problem_is(const std::string& str) {
-	ABORT_F("Abort deep in stack trace, msg: %s", str.c_str());
+void the_one_where_the_problem_is(const std::vector<std::string>& v) {
+	ABORT_F("Abort deep in stack trace, msg: %s", v[0].c_str());
 }
-void deep_abort_1(const std::string& str) { the_one_where_the_problem_is(str); }
+void deep_abort_1(const std::string& str) { the_one_where_the_problem_is({str}); }
 void deep_abort_2(const std::string& str) { deep_abort_1(str); }
 void deep_abort_3(const std::string& str) { deep_abort_2(str); }
 void deep_abort_4(const std::string& str) { deep_abort_3(str); }
