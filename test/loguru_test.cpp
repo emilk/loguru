@@ -114,6 +114,24 @@ int main_test(int argc, char* argv[])
 	return 0;
 }
 
+void test_SIGSEGV_0()
+{
+	LOG_F(INFO, "Intentionally writing to nullptr:");
+	int* ptr = nullptr;
+	*ptr = 42;
+	LOG_F(FATAL, "We shouldn't get here");
+}
+
+void test_SIGSEGV_1()
+{
+	test_SIGSEGV_0();
+}
+
+void test_SIGSEGV_2()
+{
+	test_SIGSEGV_1();
+}
+
 int main(int argc, char* argv[])
 {
 	if (argc > 1 && argv[1] == std::string("test"))
@@ -178,6 +196,8 @@ int main(int argc, char* argv[])
 			CHECK_EQ_S(always_increasing(), 42) << "Should fail!";
 		} else if (test == "deep_abort") {
 			deep_abort_10("deep_abort");
+		} else if (test == "SIGSEGV") {
+			test_SIGSEGV_2();
 		} else {
 			LOG_F(ERROR, "Unknown test: '%s'", test.c_str());
 		}

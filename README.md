@@ -32,6 +32,9 @@ In particular, I want logging that produces logs that are both human-readable an
 	* Stack traces are cleaned up somewhat.
 		* Before cleanup: `some_function_name(std::__1::vector<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> >, std::__1::allocator<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> > > > const&)`
 		* After cleanup: `some_function_name(std::vector<std::string> const&)`
+	* Stack traces are printed [the right way](http://yellerapp.com/posts/2015-01-22-upside-down-stacktraces.html):
+		* Chronological order with the most relevant at the end.
+* SIGBUS, SIGFPE, SIGILL, SIGSEGV and SIGTERM writes stack traces.
 
 * Fast - about 25%-75% faster than GLOG at logging things.
 * Drop-in replacement for most of GLOG (except for setup code).

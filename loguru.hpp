@@ -777,6 +777,8 @@ namespace loguru
 		LOG_F(INFO, "atexit");
 	}
 
+	void install_signal_handlers();
+
 	void init(int& argc, char* argv[])
 	{
 		s_argv0_filename = filename(argv[0]);
@@ -809,6 +811,8 @@ namespace loguru
 		LOG_F(INFO, "arguments:       %s", s_file_arguments.c_str());
 		LOG_F(INFO, "Verbosity level: %d", g_verbosity);
 		LOG_F(INFO, "-----------------------------------");
+
+		install_signal_handlers();
 
 		atexit(on_atexit);
 	}
@@ -1229,5 +1233,92 @@ namespace loguru
 		loguru::log_and_abort(1, _expr, _file, _line, "%s", message.c_str());
 	}
 } // namespace loguru
+
+// ----------------------------------------------------------------------------
+// .dP"Y8 88  dP""b8 88b 88    db    88     .dP"Y8
+// `Ybo." 88 dP   `" 88Yb88   dPYb   88     `Ybo."
+// o.`Y8b 88 Yb  "88 88 Y88  dP__Yb  88  .o o.`Y8b
+// 8bodP' 88  YboodP 88  Y8 dP""""Yb 88ood8 8bodP'
+// ----------------------------------------------------------------------------
+
+#ifdef _WIN32
+namespace loguru {
+	void install_signal_handlers()
+	{
+		#warning "No signal handlers on Win32"
+	}
+} // namespace loguru
+
+#else // _WIN32
+
+#include <signal.h>
+
+namespace loguru
+{
+	struct Signal {
+		int         number;
+		const char* name;
+	};
+	const Signal ALL_SIGNALS[] = {
+		// { SIGABRT, "SIGABRT" },
+		{ SIGBUS,  "SIGBUS"  },
+		{ SIGFPE,  "SIGFPE"  },
+		{ SIGILL,  "SIGILL"  },
+		{ SIGSEGV, "SIGSEGV" },
+		{ SIGTERM, "SIGTERM" },
+	};
+
+	void write_to_stderr(const char* data, size_t size)
+	{
+		write(STDERR_FILENO, data, size);
+	}
+
+	void write_to_stderr(const char* data)
+	{
+		write_to_stderr(data, strlen(data));
+	}
+
+	void call_default_signal_handler(int signal_number) {
+		struct sigaction sig_action;
+		memset(&sig_action, 0, sizeof(sig_action));
+		sigemptyset(&sig_action.sa_mask);
+		sig_action.sa_handler = SIG_DFL;
+		sigaction(signal_number, &sig_action, NULL);
+		kill(getpid(), signal_number);
+	}
+
+	void signal_handler(int signal_number, siginfo_t* signal_info, void* ucontext)
+	{
+		for (const auto& s : ALL_SIGNALS) {
+			if (s.number == signal_number) {
+				write_to_stderr(s.name);
+				write_to_stderr("\n");
+			}
+		}
+
+		char* st = stacktrace(2);
+		write_to_stderr(st);
+		free(st);
+		write_to_stderr("\n");
+
+		call_default_signal_handler(signal_number);
+	}
+
+	void install_signal_handlers()
+	{
+		// Build the sigaction struct.
+		struct sigaction sig_action;
+		memset(&sig_action, 0, sizeof(sig_action));
+		sigemptyset(&sig_action.sa_mask);
+		sig_action.sa_flags |= SA_SIGINFO;
+		sig_action.sa_sigaction = &signal_handler;
+		for (const auto& s : ALL_SIGNALS) {
+			CHECK_F(sigaction(s.number, &sig_action, NULL) != -1,
+				"Failed to install handler for %s", s.name);
+		}
+	}
+} // namespace loguru
+
+#endif // _WIN32
 
 #endif // LOGURU_IMPLEMENTATION
