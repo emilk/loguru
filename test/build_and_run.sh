@@ -33,3 +33,5 @@ echo "ALL TESTS PASSED!"
 echo "---------------------------------------------------------"
 
 ./loguru_test $@
+
+./loguru_test hang

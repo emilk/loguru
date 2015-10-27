@@ -34,7 +34,7 @@ In particular, I want logging that produces logs that are both human-readable an
 		* After cleanup: `some_function_name(std::vector<std::string> const&)`
 	* Stack traces are printed [the right way](http://yellerapp.com/posts/2015-01-22-upside-down-stacktraces.html):
 		* Chronological order with the most relevant at the end.
-* SIGBUS, SIGFPE, SIGILL, SIGSEGV and SIGTERM writes stack traces.
+* (most) signals writes stack traces.
 
 * Fast - about 25%-75% faster than GLOG at logging things.
 * Drop-in replacement for most of GLOG (except for setup code).
@@ -188,7 +188,5 @@ Loguru allows you to use whatever style you prefer.
 * Test on Windows.
 * Color print to terminal?
 * Is writing WARN/ERR/FATL to stderr the right thing to do?
-* File logging should start with PREAMBLE_EXPLAIN etc.
-* Replicate InstallFailureSignalHandler.
-* Default log-file with good path and name.
-* Mimic GLOG_NO_ABBREVIATED_SEVERITIES ?
+* Rename ERROR to avoid conflict with windows.h macro?
+* File-only logging: LOG_F(FILE, "Always written to file, never to stdout/stderr")

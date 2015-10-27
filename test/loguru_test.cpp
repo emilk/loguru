@@ -121,16 +121,16 @@ void test_SIGSEGV_0()
 	*ptr = 42;
 	LOG_F(FATAL, "We shouldn't get here");
 }
+void test_SIGSEGV_1() { test_SIGSEGV_0(); }
+void test_SIGSEGV_2() { test_SIGSEGV_1(); }
 
-void test_SIGSEGV_1()
+void test_hang_0()
 {
-	test_SIGSEGV_0();
+	LOG_F(INFO, "Press ctrl-C");
+	for(;;);
 }
-
-void test_SIGSEGV_2()
-{
-	test_SIGSEGV_1();
-}
+void test_hang_1() { test_hang_0(); }
+void test_hang_2() { test_hang_1(); }
 
 int main(int argc, char* argv[])
 {
@@ -143,7 +143,7 @@ int main(int argc, char* argv[])
 
 	if (argc == 1)
 	{
-		loguru::add_file("latest_readable.log", loguru::Truncate, loguru::INFO);
+		loguru::add_file("latest_readable.log", loguru::Truncate, loguru::Verbosity_INFO);
 		loguru::add_file("everything.log",      loguru::Append);
 
 		LOG_F(INFO, "Loguru test");
@@ -198,6 +198,8 @@ int main(int argc, char* argv[])
 			deep_abort_10("deep_abort");
 		} else if (test == "SIGSEGV") {
 			test_SIGSEGV_2();
+		} else if (test == "hang") {
+			test_hang_2();
 		} else {
 			LOG_F(ERROR, "Unknown test: '%s'", test.c_str());
 		}

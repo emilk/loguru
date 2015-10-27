@@ -43,7 +43,7 @@ Website: www.ilikebigbits.com
 	loguru::add_file("everything.log", loguru::Append);
 
 	// Only log INFO, WARNING, ERROR and FATAL to "latest_readable.log":
-	loguru::add_file("latest_readable.log", loguru::Truncate, loguru::INFO);
+	loguru::add_file("latest_readable.log", loguru::Truncate, Verbosity_INFO);
 
 	// Or just go with what Loguru suggests:
 	char log_path[1024];
@@ -131,11 +131,11 @@ namespace loguru
 	{
 		// Value is the verbosity level one must pass.
 		// Negative numbers go to stderr and cannot be skipped.
-		FATAL   = -3, // Prefer to use ABORT_F over LOG_F(FATAL)
-		ERROR   = -2,
-		WARNING = -1,
-		INFO    =  0, // Normal messages.
-		MAX     = +9
+		Verbosity_FATAL   = -3, // Prefer to use ABORT_F over LOG_F(FATAL)
+		Verbosity_ERROR   = -2,
+		Verbosity_WARNING = -1,
+		Verbosity_INFO    =  0, // Normal messages.
+		Verbosity_MAX     = +9
 	};
 
 	struct Message
@@ -180,7 +180,7 @@ namespace loguru
 		`verbosity` is the cutoff, but this is applied *after* g_verbosity.
 		add_file will also create all directories in 'path' if needed.
 	*/
-	bool add_file(const char* path, FileMode mode, Verbosity verbosity = NamedVerbosity::MAX);
+	bool add_file(const char* path, FileMode mode, Verbosity verbosity = Verbosity_MAX);
 
 	/*  Will be called right before abort().
 		This can be used to print a callstack.
@@ -192,7 +192,7 @@ namespace loguru
 		`verbosity` is the cutoff, but this is applied *after* g_verbosity.
 	*/
 	void add_callback(const char* id, log_handler_t callback, void* user_data,
-					  Verbosity verbosity = NamedVerbosity::MAX,
+					  Verbosity verbosity = Verbosity_MAX,
 					  close_handler_t on_close = nullptr);
 	void remove_callback(const char* id);
 
@@ -266,7 +266,7 @@ namespace loguru
 									  : loguru::log(verbosity, __FILE__, __LINE__, __VA_ARGS__)
 
 // LOG_F(INFO, "Foo: %d", some_number);
-#define LOG_F(verbosity_name, ...) VLOG_F(loguru::NamedVerbosity::verbosity_name, __VA_ARGS__)
+#define LOG_F(verbosity_name, ...) VLOG_F(loguru::Verbosity_ ## verbosity_name, __VA_ARGS__)
 
 #define VLOG_IF_F(verbosity, cond, ...)                                                            \
 	(verbosity > loguru::g_verbosity || (cond) == false)                                           \
@@ -274,7 +274,7 @@ namespace loguru
 		: loguru::log(verbosity, __FILE__, __LINE__, __VA_ARGS__)
 
 #define LOG_IF_F(verbosity_name, cond, ...)                                                        \
-	VLOG_IF_F(loguru::NamedVerbosity::verbosity_name, cond, __VA_ARGS__)
+	VLOG_IF_F(loguru::Verbosity_ ## verbosity_name, cond, __VA_ARGS__)
 
 #define VLOG_SCOPE_F(verbosity, ...)                                                               \
 	loguru::LogScopeRAII LOGURU_GIVE_UNIQUE_NAME(error_context_RAII_, __LINE__)                    \
@@ -286,11 +286,11 @@ namespace loguru
 #define RAW_VLOG_F(verbosity, ...)                                                                  \
 	(verbosity > loguru::g_verbosity) ? (void)0                                                     \
 									  : loguru::raw_log(verbosity, __FILE__, __LINE__, __VA_ARGS__)
-#define RAW_LOG_F(verbosity_name, ...) RAW_VLOG_F(loguru::NamedVerbosity::verbosity_name, __VA_ARGS__)
+#define RAW_LOG_F(verbosity_name, ...) RAW_VLOG_F(loguru::Verbosity_ ## verbosity_name, __VA_ARGS__)
 
 // Use to book-end a scope. Affects logging on all threads.
 #define LOG_SCOPE_F(verbosity_name, ...)                                                           \
-	VLOG_SCOPE_F(loguru::NamedVerbosity::verbosity_name, __VA_ARGS__)
+	VLOG_SCOPE_F(loguru::Verbosity_ ## verbosity_name, __VA_ARGS__)
 #define LOG_SCOPE_FUNCTION(verbosity_name) LOG_SCOPE_F(verbosity_name, __PRETTY_FUNCTION__)
 
 // --------------------------------------------------------------------
@@ -415,7 +415,11 @@ namespace loguru
 	{
 	public:
 		AbortLogger(const char* expr, const char* file, unsigned line) : _expr(expr), _file(file), _line(line) {}
-		~AbortLogger() LOGURU_NORETURN;
+		~AbortLogger() LOGURU_NORETURN
+		{
+			auto message = this->str();
+			loguru::log_and_abort(1, _expr, _file, _line, "%s", message.c_str());
+		}
 
 	private:
 		const char* _expr;
@@ -481,9 +485,9 @@ namespace loguru
 	(verbosity > loguru::g_verbosity || (cond) == false)                                           \
 		? (void)0                                                                                  \
 		: loguru::Voidify() & loguru::StreamLogger(verbosity, __FILE__, __LINE__)
-#define LOG_IF_S(verbosity_name, cond) VLOG_IF_S(loguru::NamedVerbosity::verbosity_name, cond)
+#define LOG_IF_S(verbosity_name, cond) VLOG_IF_S(loguru::Verbosity_ ## verbosity_name, cond)
 #define VLOG_S(verbosity)              VLOG_IF_S(verbosity, true)
-#define LOG_S(verbosity_name)          VLOG_S(loguru::NamedVerbosity::verbosity_name)
+#define LOG_S(verbosity_name)          VLOG_S(loguru::Verbosity_ ## verbosity_name)
 
 // -----------------------------------------------
 // CHECKS:
@@ -528,9 +532,9 @@ namespace loguru
 			? (void)0                                                                       \
 			: loguru::Voidify() & loguru::StreamLogger(verbosity, __FILE__, __LINE__)
 
-	#define DLOG_IF_S(verbosity_name, cond) DVLOG_IF_S(loguru::NamedVerbosity::verbosity_name, cond)
+	#define DLOG_IF_S(verbosity_name, cond) DVLOG_IF_S(loguru::Verbosity_ ## verbosity_name, cond)
 	#define DVLOG_S(verbosity)              DVLOG_IF_S(verbosity, true)
-	#define DLOG_S(verbosity_name)          DVLOG_S(loguru::NamedVerbosity::verbosity_name)
+	#define DLOG_S(verbosity_name)          DVLOG_S(loguru::Verbosity_ ## verbosity_name)
 	#define DCHECK_S(cond)                  while (false) CHECK(cond)
 	#define DCHECK_NOTNULL_S(x)             while (false) CHECK((x) != nullptr)
 	#define DCHECK_EQ_S(a, b)               while (false) CHECK_EQ_S(a, b)
@@ -1024,7 +1028,6 @@ namespace loguru
 		// From https://gist.github.com/fmela/591333
 		void* callstack[128];
 		const auto max_frames = sizeof(callstack) / sizeof(callstack[0]);
-		char buf[1024];
 		int num_frames = backtrace(callstack, max_frames);
 		char** symbols = backtrace_symbols(callstack, num_frames);
 
@@ -1032,6 +1035,7 @@ namespace loguru
 		// Print stack traces so the most relevant ones are written last
 		// Rationale: http://yellerapp.com/posts/2015-01-22-upside-down-stacktraces.html
 		for (int i = num_frames - 1; i >= skip; --i) {
+			char buf[1024];
 			Dl_info info;
 			if (dladdr(callstack[i], &info) && info.dli_sname) {
 				char* demangled = NULL;
@@ -1052,6 +1056,7 @@ namespace loguru
 			result += buf;
 		}
 		free(symbols);
+
 		if (num_frames == max_frames) {
 			result = "[truncated]\n" + result;
 		}
@@ -1114,11 +1119,11 @@ namespace loguru
 		}
 
 		char level_buff[6];
-		if (verbosity <= NamedVerbosity::FATAL) {
+		if (verbosity <= Verbosity_FATAL) {
 			strcpy(level_buff, "FATL");
-		} else if (verbosity == NamedVerbosity::ERROR) {
+		} else if (verbosity == Verbosity_ERROR) {
 			strcpy(level_buff, "ERR");
-		} else if (verbosity == NamedVerbosity::WARNING) {
+		} else if (verbosity == Verbosity_WARNING) {
 			strcpy(level_buff, "WARN");
 		} else {
 			snprintf(level_buff, sizeof(level_buff) - 1, "% 4d", verbosity);
@@ -1137,7 +1142,7 @@ namespace loguru
 		const auto verbosity = message.verbosity;
 		std::lock_guard<std::recursive_mutex> lock(s_mutex);
 
-		FILE* out = (verbosity <= static_cast<Verbosity>(NamedVerbosity::WARNING) ? s_err : s_out);
+		FILE* out = (verbosity <= static_cast<Verbosity>(Verbosity_WARNING) ? s_err : s_out);
 		fprintf(out, "%s%s%s%s\n",
 			message.preamble, message.indentation, message.prefix, message.message);
 		fflush(out);
@@ -1222,7 +1227,7 @@ namespace loguru
 		}
 		free(st);
 
-		log_to_everywhere_v(NamedVerbosity::FATAL, file, line, expr, format, vlist);
+		log_to_everywhere_v(Verbosity_FATAL, file, line, expr, format, vlist);
 
 		va_end(vlist);
 
@@ -1235,12 +1240,6 @@ namespace loguru
 	void log_and_abort(int stack_strace_skip, const char* expr, const char* file, unsigned line)
 	{
 		log_and_abort(stack_strace_skip + 1, expr, file, line, " ");
-	}
-
-	AbortLogger::~AbortLogger()
-	{
-		auto message = this->str();
-		loguru::log_and_abort(1, _expr, _file, _line, "%s", message.c_str());
 	}
 } // namespace loguru
 
@@ -1275,6 +1274,7 @@ namespace loguru
 		{ SIGBUS,  "SIGBUS"  },
 		{ SIGFPE,  "SIGFPE"  },
 		{ SIGILL,  "SIGILL"  },
+		{ SIGINT,  "SIGINT"  },
 		{ SIGSEGV, "SIGSEGV" },
 		{ SIGTERM, "SIGTERM" },
 	};
@@ -1290,7 +1290,8 @@ namespace loguru
 		write_to_stderr(data, strlen(data));
 	}
 
-	void call_default_signal_handler(int signal_number) {
+	void call_default_signal_handler(int signal_number)
+	{
 		struct sigaction sig_action;
 		memset(&sig_action, 0, sizeof(sig_action));
 		sigemptyset(&sig_action.sa_mask);
@@ -1308,6 +1309,8 @@ namespace loguru
 			}
 		}
 
+		/* This is theoretically unsafe to call from a signal handler,
+		   but in practice it seems like no problem on my Mac. */
 		char* st = stacktrace(2);
 		write_to_stderr(st);
 		free(st);

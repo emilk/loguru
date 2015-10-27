@@ -93,7 +93,7 @@ void raw_string_float()
 int main(int argc, char* argv[])
 {
 	loguru::init(argc, argv);
-	loguru::add_file("loguru_bench.log", loguru::Truncate, loguru::INFO);
+	loguru::add_file("loguru_bench.log", loguru::Truncate, loguru::Verbosity_INFO);
 
 	bench("LOG_F string (unbuffered):", format_strings);
 	bench("LOG_F float  (unbuffered):", format_float);
