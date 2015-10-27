@@ -23,6 +23,7 @@ Website: www.ilikebigbits.com
 	* Version 0.4 - 2015-10-07 - Single-file!
 	* Version 0.5 - 2015-10-17 - Improved file logging
 	* Version 0.6 - 2015-10-24 - Add stack traces
+	* Version 0.7 - 2015-10-27 - Signals
 
 # Compiling
 	Just include <loguru/loguru.hpp> where you want to use Loguru.
@@ -273,7 +274,7 @@ namespace loguru
 		: loguru::log(verbosity, __FILE__, __LINE__, __VA_ARGS__)
 
 #define LOG_IF_F(verbosity_name, cond, ...)                                                        \
-	VLOG_IF_F(loguru::NamedVerbosity::verbosity_name > loguru::g_verbosity, cond, __VA_ARGS__)
+	VLOG_IF_F(loguru::NamedVerbosity::verbosity_name, cond, __VA_ARGS__)
 
 #define VLOG_SCOPE_F(verbosity, ...)                                                               \
 	loguru::LogScopeRAII LOGURU_GIVE_UNIQUE_NAME(error_context_RAII_, __LINE__)                    \
@@ -994,17 +995,26 @@ namespace loguru
 		std::string output = input;
 
 		for (auto&& p : REPLACE_LIST) {
+			if (p.first.size() <= p.second.size()) {
+				// On gcc, "type_name<std::string>()" is "std::string"
+				continue;
+			}
+
 			size_t it;
 			while ((it=output.find(p.first)) != std::string::npos) {
 				output.replace(it, p.first.size(), p.second);
 			}
 		}
 
-		std::regex std_allocator_re(R"(,\s*std::allocator<[^<>]+>)");
-		output = std::regex_replace(output, std_allocator_re, "");
+		try {
+			std::regex std_allocator_re(R"(,\s*std::allocator<[^<>]+>)");
+			output = std::regex_replace(output, std_allocator_re, std::string(""));
 
-		std::regex template_spaces_re(R"(<\s*([^<> ]+)\s*>)");
-		output = std::regex_replace(output, template_spaces_re, "<$1>");
+			std::regex template_spaces_re(R"(<\s*([^<> ]+)\s*>)");
+			output = std::regex_replace(output, template_spaces_re, std::string("<$1>"));
+		} catch (std::regex_error&) {
+			// Probably old GCC.
+		}
 
 		return output;
 	}
@@ -1252,6 +1262,7 @@ namespace loguru {
 #else // _WIN32
 
 #include <signal.h>
+#include <unistd.h> // STDERR_FILENO
 
 namespace loguru
 {
@@ -1270,7 +1281,8 @@ namespace loguru
 
 	void write_to_stderr(const char* data, size_t size)
 	{
-		write(STDERR_FILENO, data, size);
+		auto result = write(STDERR_FILENO, data, size);
+		(void)result; // Ignore errors.
 	}
 
 	void write_to_stderr(const char* data)
@@ -1287,7 +1299,7 @@ namespace loguru
 		kill(getpid(), signal_number);
 	}
 
-	void signal_handler(int signal_number, siginfo_t* signal_info, void* ucontext)
+	void signal_handler(int signal_number, siginfo_t*, void*)
 	{
 		for (const auto& s : ALL_SIGNALS) {
 			if (s.number == signal_number) {

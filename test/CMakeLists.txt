@@ -9,7 +9,7 @@ endif(NOT CMAKE_BUILD_TYPE)
 
 MESSAGE(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
-add_compile_options(-std=c++14)
+add_compile_options(-std=c++11 -Werror -Wall -Wextra)
 
 file(GLOB source
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
@@ -17,3 +17,7 @@ file(GLOB source
 )
 
 add_executable(loguru_test ${source})
+
+find_package(Threads)
+target_link_libraries(loguru_test ${CMAKE_THREAD_LIBS_INIT}) # For pthreads
+target_link_libraries(loguru_test dl) # For ldl
