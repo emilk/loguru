@@ -9,7 +9,7 @@
 #define LOGURU_IMPLEMENTATION 1
 #include "../loguru.hpp"
 
-const size_t kNumIterations = 100 * 1000;
+const size_t kNumIterations = 50 * 1000;
 const size_t kNumRuns = 10;
 const double kPi = 3.1415926535897932384626433;
 

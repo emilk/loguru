@@ -36,7 +36,11 @@ In particular, I want logging that produces logs that are both human-readable an
 		* Chronological order with the most relevant at the end.
 * (most) signals writes stack traces.
 
-* Fast - about 25%-75% faster than GLOG at logging things.
+* Fast:
+	* Around  3us per call with no log file.
+	* Around 10us extra per log file.
+	* About 25%-75% faster than GLOG on Mac+Clang.
+	* About the same on Linux+GCC.
 * Drop-in replacement for most of GLOG (except for setup code).
 * Chose between using printf-style formatting or streams.
 * Compile-time checked printf-formating (on supported compilers).
@@ -190,3 +194,5 @@ Loguru allows you to use whatever style you prefer.
 * Is writing WARN/ERR/FATL to stderr the right thing to do?
 * Rename ERROR to avoid conflict with windows.h macro?
 * File-only logging: LOG_F(FILE, "Always written to file, never to stdout/stderr")
+* Make sure memory is freed if fatal handler throws an exception.
+* Add some way to have stdout at a lower verbosity than a file.

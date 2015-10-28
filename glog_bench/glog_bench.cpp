@@ -6,7 +6,7 @@
 #include <glog/logging.h>
 #include <glog/raw_logging.h>
 
-const size_t kNumIterations = 100 * 1000;
+const size_t kNumIterations = 50 * 1000;
 const size_t kNumRuns = 10;
 const double kPi = 3.1415926535897932384626433;
 
@@ -84,10 +84,8 @@ int main(int argc, char* argv[])
 
     bench("LOG(WARNING) << string (buffered):", stream_strings);
     bench("LOG(WARNING) << float  (buffered):", stream_float);
-    bench("RAW_LOG(WARNING)       (buffered):", raw_string_float);
 
     FLAGS_logbufsecs = 0; // Flush all output in realtime
     bench("LOG(WARNING) << string (unbuffered):", stream_strings);
     bench("LOG(WARNING) << float  (unbuffered):", stream_float);
-    bench("RAW_LOG(WARNING)       (unbuffered):", raw_string_float);
 }

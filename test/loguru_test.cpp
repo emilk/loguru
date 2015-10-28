@@ -144,7 +144,7 @@ int main(int argc, char* argv[])
 	if (argc == 1)
 	{
 		loguru::add_file("latest_readable.log", loguru::Truncate, loguru::Verbosity_INFO);
-		loguru::add_file("everything.log",      loguru::Append);
+		loguru::add_file("everything.log",      loguru::Append, loguru::Verbosity_MAX);
 
 		LOG_F(INFO, "Loguru test");
 		test_thread_names();

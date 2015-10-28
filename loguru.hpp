@@ -48,7 +48,7 @@ Website: www.ilikebigbits.com
 	// Or just go with what Loguru suggests:
 	char log_path[1024];
 	loguru::suggest_log_path("~/loguru/", log_path, sizeof(log_path));
-	loguru::add_file(log_path, loguru::FileMode::Truncate);
+	loguru::add_file(log_path, loguru::FileMode::Truncate, loguru::Verbosity_MAX);
 
 	LOG_SCOPE_F(INFO, "Will indent all log messages withing this scope.");
 	LOG_F(INFO, "I'm hungry for some %.3f!", 3.14159);
@@ -158,7 +158,9 @@ namespace loguru
 	// May not throw!
 	typedef void (*log_handler_t)(void* user_data, const Message& message);
 	typedef void (*close_handler_t)(void* user_data);
-	typedef void (*fatal_handler_t)();
+
+	// May throw if that's how you'd like to handle your errors.
+	typedef void (*fatal_handler_t)(const char* message);
 
 	/*  Should be called from the main thread.
 		You don't need to call this, but it's nice if you do.
@@ -166,6 +168,17 @@ namespace loguru
 		Arguments meant for loguru are:
 			-v n   Set verbosity level */
 	void init(int& argc, char* argv[]);
+
+	// What ~ will be replaced with, e.g. "/home/your_user_name/"
+	const char* home_dir();
+
+	/* Returns the name of the app as given in argv[0] but wtihout leadin path.
+	   That is, if argv[0] is "../foo/app" this will return "app".
+	*/
+	const char* argv0_filename();
+
+	// Writes date and time with millisecond precision, e.g. "20151017_161503.123"
+	void write_date_time(char* buff, unsigned buff_size);
 
 	/* Given a prefix of e.g. "~/loguru/" this might return
 	   "/home/your_username/loguru/app_name/20151017_161503.123.log"
@@ -177,13 +190,15 @@ namespace loguru
 	enum FileMode { Truncate, Append };
 
 	/*  Will log to a file at the given path.
-		`verbosity` is the cutoff, but this is applied *after* g_verbosity.
-		add_file will also create all directories in 'path' if needed.
+		Any logging message with a verbosity lower or equal to
+		min(verbosity, g_verbosity) will be included.
+		The function will create all directories in 'path' if needed.
+		If path starts with a ~, it will be replaced with loguru::home_dir()
 	*/
-	bool add_file(const char* path, FileMode mode, Verbosity verbosity = Verbosity_MAX);
+	bool add_file(const char* path, FileMode mode, Verbosity verbosity);
 
 	/*  Will be called right before abort().
-		This can be used to print a callstack.
+		You can for instance use this to print custom error messages, or throw an exception.
 		Feel free to call LOG:ing function from this, but not FATAL ones! */
 	void set_fatal_handler(fatal_handler_t handler);
 
@@ -241,7 +256,6 @@ namespace loguru
 
 	// Convenience:
 	void set_thread_name(const char* name);
-	const char* home_dir();
 
 	/* Generates a readable stacktrace as a string. You must free the returned string!
 	   'skip' specifies how many stack frames to skip.
@@ -657,7 +671,7 @@ namespace loguru
 	CallbackVec          s_callbacks;
 	FILE*                s_err             = stderr;
 	FILE*                s_out             = stdout;
-	fatal_handler_t      s_fatal_handler   = ::abort;
+	fatal_handler_t      s_fatal_handler   = nullptr;
 	bool                 s_strip_file_path = true;
 	std::atomic<int>     s_indentation     { 0 };
 
@@ -822,7 +836,7 @@ namespace loguru
 		atexit(on_atexit);
 	}
 
-	static void write_date_time(char* buff, unsigned buff_size)
+	void write_date_time(char* buff, unsigned buff_size)
 	{
 		auto now = system_clock::now();
 		time_t ms_since_epoch = duration_cast<milliseconds>(now.time_since_epoch()).count();
@@ -833,6 +847,8 @@ namespace loguru
 			1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday,
 			time_info.tm_hour, time_info.tm_min, time_info.tm_sec, ms_since_epoch % 1000);
 	}
+
+	const char* argv0_filename() { return s_argv0_filename.c_str(); }
 
 	const char* home_dir()
 	{
@@ -903,8 +919,15 @@ namespace loguru
 		return true;
 	}
 
-	bool add_file(const char* path, FileMode mode, Verbosity verbosity)
+	bool add_file(const char* path_in, FileMode mode, Verbosity verbosity)
 	{
+		char path[1024];
+		if (path_in[0] == '~') {
+			snprintf(path, sizeof(path) - 1, "%s%s", home_dir(), path_in + 1);
+		} else {
+			snprintf(path, sizeof(path) - 1, "%s", path_in);
+		}
+
 		if (!mkpath(path)) {
 			LOG_F(ERROR, "Failed to create directories to '%s'", path);
 		}
@@ -916,6 +939,10 @@ namespace loguru
 			return false;
 		}
 		add_callback(path, file_log, file, verbosity, file_close);
+
+		if (mode == FileMode::Append) {
+			fprintf(file, "\n\n\n\n\n");
+		}
 
 		fprintf(file, "arguments:       %s\n", s_file_arguments.c_str());
 		fprintf(file, "Verbosity level: %d\n", std::max(g_verbosity, verbosity));
@@ -1227,13 +1254,18 @@ namespace loguru
 		}
 		free(st);
 
-		log_to_everywhere_v(Verbosity_FATAL, file, line, expr, format, vlist);
+		// TODO: make sure buff gets greed
+		auto buff = strprintfv(format, vlist);
+		log_to_everywhere(Verbosity_FATAL, file, line, expr, buff);
 
 		va_end(vlist);
 
 		if (s_fatal_handler) {
-			s_fatal_handler();
+			s_fatal_handler(buff);
 		}
+
+		free(buff);
+
 		abort();
 	}
 
