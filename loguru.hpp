@@ -14,7 +14,7 @@ Website: www.ilikebigbits.com
 # Inspiration
 	Much of Loguru was inspired by GLOG, https://code.google.com/p/google-glog/.
 	The whole "single header" and public domain is fully due Sean T. Barrett
-	and his wonderful stb libraries at https://github.com/nothings/stb
+	and his wonderful stb libraries at https://github.com/nothings/stb.
 
 # Version history
 	* Version 0.1 - 2015-03-22 - Works great on Mac.
@@ -24,13 +24,14 @@ Website: www.ilikebigbits.com
 	* Version 0.5 - 2015-10-17 - Improved file logging
 	* Version 0.6 - 2015-10-24 - Add stack traces
 	* Version 0.7 - 2015-10-27 - Signals
+	* Version 0.8 - 2015-10-30 - Color logging.
 
 # Compiling
 	Just include <loguru/loguru.hpp> where you want to use Loguru.
 	Then, in one .cpp file:
 		#define LOGURU_IMPLEMENTATION
 		#include <loguru/loguru.hpp>
-	Make sure you compile with -std=c++11.
+	Make sure you compile with -std=c++11 -lpthread -ldl
 
 # Usage
 	#include <loguru/loguru.hpp>
@@ -71,6 +72,15 @@ Website: www.ilikebigbits.com
 	...
 	LOG_S(INFO) << "Look at my custom object: " << a.cross(b);
 	CHECK_EQ_S(pi, 3.14) << "Maybe it is closer to " << M_PI;
+
+	// Set global verbosity level (higher == more spam):
+	loguru::g_verbosity = 4;
+
+	// Turn off writing to stderr:
+	loguru::g_alsologtostderr = false;
+
+	// Turn off writing err/warn in red:
+	loguru::g_colorlogtostderr = false;
 
 	Before including <loguru/loguru.hpp> you may optionally want to define the following to 1:
 
@@ -152,8 +162,8 @@ namespace loguru
 	};
 
 	extern Verbosity g_verbosity;        // Anything greater than this is ignored.
-	extern bool      g_alsologtostderr;  // Ignored right now. Only used for LOGURU_REPLACE_GLOG.
-	extern bool      g_colorlogtostderr; // Ignored right now. Only used for LOGURU_REPLACE_GLOG.
+	extern bool      g_alsologtostderr;  // True by default.
+	extern bool      g_colorlogtostderr; // True by default.
 
 	// May not throw!
 	typedef void (*log_handler_t)(void* user_data, const Message& message);
@@ -662,18 +672,34 @@ namespace loguru
 	const auto s_start_time = system_clock::now();
 
 	int  g_verbosity        = 0;
-	bool g_alsologtostderr  = false;
-	bool g_colorlogtostderr = false;
+	bool g_alsologtostderr  = true;
+	bool g_colorlogtostderr = true;
 
 	std::recursive_mutex s_mutex;
 	std::string          s_argv0_filename;
 	std::string          s_file_arguments;
 	CallbackVec          s_callbacks;
-	FILE*                s_err             = stderr;
-	FILE*                s_out             = stdout;
 	fatal_handler_t      s_fatal_handler   = nullptr;
 	bool                 s_strip_file_path = true;
 	std::atomic<int>     s_indentation     { 0 };
+
+	const bool           s_terminal_has_color = [](){
+		#ifdef _MSC_VER
+			return false;
+		#else
+			if (const char* term = getenv("TERM")) {
+				return
+					strcmp(term, "xterm") == 0          ||
+					strcmp(term, "xterm-color") == 0    ||
+					strcmp(term, "xterm-256color") == 0 ||
+					strcmp(term, "screen") == 0         ||
+					strcmp(term, "linux") == 0          ||
+					strcmp(term, "cygwin") == 0;
+			} else {
+				return false;
+			}
+		#endif
+	}();
 
 	const int THREAD_NAME_WIDTH = 16;
 	const char* PREAMBLE_EXPLAIN = "date       time         ( uptime  ) [ thread name/id ]                   file:line     v| ";
@@ -733,14 +759,16 @@ namespace loguru
 
 	const char* indentation(unsigned depth)
 	{
-		static const char* buff =
+		static const char buff[] =
 		".   .   .   .   .   .   .   .   .   .   " ".   .   .   .   .   .   .   .   .   .   "
 		".   .   .   .   .   .   .   .   .   .   " ".   .   .   .   .   .   .   .   .   .   "
 		".   .   .   .   .   .   .   .   .   .   " ".   .   .   .   .   .   .   .   .   .   "
 		".   .   .   .   .   .   .   .   .   .   " ".   .   .   .   .   .   .   .   .   .   "
 		".   .   .   .   .   .   .   .   .   .   " ".   .   .   .   .   .   .   .   .   .   ";
-		depth = std::min<unsigned>(depth, 100);
-		return buff + 4 * (100 - depth);
+		static const size_t INDENTATION_WIDTH = 4;
+		static const size_t NUM_INDENTATIONS = (sizeof(buff) - 1) / INDENTATION_WIDTH;
+		depth = std::min<unsigned>(depth, NUM_INDENTATIONS);
+		return buff + INDENTATION_WIDTH * (NUM_INDENTATIONS - depth);
 	}
 
 	static void parse_args(int& argc, char* argv[])
@@ -1169,10 +1197,22 @@ namespace loguru
 		const auto verbosity = message.verbosity;
 		std::lock_guard<std::recursive_mutex> lock(s_mutex);
 
-		FILE* out = (verbosity <= static_cast<Verbosity>(Verbosity_WARNING) ? s_err : s_out);
-		fprintf(out, "%s%s%s%s\n",
-			message.preamble, message.indentation, message.prefix, message.message);
-		fflush(out);
+		if (g_alsologtostderr) {
+			if (g_colorlogtostderr && s_terminal_has_color && verbosity <= Verbosity_WARNING) {
+				#define LOGURU_BASH_RED         "\e[31m"
+				#define LOGURU_BASH_LIGHT_RED   "\e[91m"
+				#define LOGURU_BASH_RESET_COLOR "\e[0m"
+
+				fprintf(stderr, "%s%s%s%s%s\n" LOGURU_BASH_RESET_COLOR,
+				    verbosity == Verbosity_WARNING ? LOGURU_BASH_LIGHT_RED  : LOGURU_BASH_RED,
+					message.preamble, message.indentation, message.prefix, message.message);
+				fflush(stderr);
+			} else {
+				fprintf(stderr, "%s%s%s%s\n",
+					message.preamble, message.indentation, message.prefix, message.message);
+				fflush(stderr);
+			}
+		}
 
 		for (auto& p : s_callbacks) {
 			if (verbosity <= p.verbosity) {
@@ -1353,7 +1393,6 @@ namespace loguru
 
 	void install_signal_handlers()
 	{
-		// Build the sigaction struct.
 		struct sigaction sig_action;
 		memset(&sig_action, 0, sizeof(sig_action));
 		sigemptyset(&sig_action.sa_mask);

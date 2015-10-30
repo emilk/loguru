@@ -37,15 +37,16 @@ In particular, I want logging that produces logs that are both human-readable an
 * (most) signals writes stack traces.
 
 * Fast:
-	* Around  3us per call with no log file.
+	* Around  3us per call with no log file (just stderr).
 	* Around 10us extra per log file.
-	* About 25%-75% faster than GLOG on Mac+Clang.
-	* About the same on Linux+GCC.
+	* About 25%-75% faster than GLOG on my MacBook Pro (Clang).
+	* About the same as GLOG on my Linux Disktop (GCC).
 * Drop-in replacement for most of GLOG (except for setup code).
 * Chose between using printf-style formatting or streams.
 * Compile-time checked printf-formating (on supported compilers).
 * Assertion failures are marked with `noreturn` for the benefit of the static analyzer and optimizer.
-* Log to any combination of file, stdout and stderr.
+* All logging also written to stderr.
+	* With colors on supported terminals.
 * Thread-safe.
 * Flushes output on each call so you won't miss anything even on hard crashes (and still faster than buffered GLOG!).
 * Prefixes each log line with:
@@ -68,7 +69,7 @@ Then, in one .cpp file:
 	#define LOGURU_IMPLEMENTATION
 	#include <loguru/loguru.hpp>
 ```
-Make sure you compile with -std=c++11.
+Make sure you compile with `-std=c++11 -lpthread -ldl`
 
 ## Usage
 
@@ -190,9 +191,7 @@ Loguru allows you to use whatever style you prefer.
 
 ## Limitations and TODO
 * Test on Windows.
-* Color print to terminal?
-* Is writing WARN/ERR/FATL to stderr the right thing to do?
 * Rename ERROR to avoid conflict with windows.h macro?
-* File-only logging: LOG_F(FILE, "Always written to file, never to stdout/stderr")
+* File-only logging: LOG_F(FILE, "Always written to file, never to stderr")
 * Make sure memory is freed if fatal handler throws an exception.
 * Add some way to have stdout at a lower verbosity than a file.
