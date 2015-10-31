@@ -643,9 +643,9 @@ This will define all the Loguru functions so that the linker may find them.
 #endif
 
 #ifdef __GNUG__
-	#include <cxxabi.h>   // for __cxa_demangle
-	#include <dlfcn.h>    // for dladdr
-	#include <execinfo.h> // for backtrace
+	#include <cxxabi.h>    // for __cxa_demangle
+	#include <dlfcn.h>     // for dladdr
+	#include <execinfo.h>  // for backtrace
 #endif // __GNUG__
 
 #if LOGURU_PTHREADS
@@ -700,6 +700,13 @@ namespace loguru
 			}
 		#endif
 	}();
+
+	const auto LOGURU_BASH_BOLD        = "\e[1m";
+	const auto LOGURU_BASH_DIM         = "\e[2m";
+	const auto LOGURU_BASH_LIGHT_GRAY  = "\e[37m";
+	const auto LOGURU_BASH_LIGHT_RED   = "\e[91m";
+	const auto LOGURU_BASH_RED         = "\e[31m";
+	const auto LOGURU_BASH_RESET_ALL   = "\e[0m";
 
 	const int THREAD_NAME_WIDTH = 16;
 	const char* PREAMBLE_EXPLAIN = "date       time         ( uptime  ) [ thread name/id ]                   file:line     v| ";
@@ -854,7 +861,14 @@ namespace loguru
 			}
 		#endif // LOGURU_PTHREADS
 
-		fprintf(stdout, "%s\n", PREAMBLE_EXPLAIN); fflush(stdout);
+		if (g_alsologtostderr) {
+			if (g_colorlogtostderr && s_terminal_has_color) {
+				fprintf(stderr, "%s%s%s\n", LOGURU_BASH_RESET_ALL, LOGURU_BASH_DIM, PREAMBLE_EXPLAIN);
+			} else {
+				fprintf(stderr, "%s\n", PREAMBLE_EXPLAIN);
+			}
+			fflush(stderr);
+		}
 		LOG_F(INFO, "arguments:       %s", s_file_arguments.c_str());
 		LOG_F(INFO, "Verbosity level: %d", g_verbosity);
 		LOG_F(INFO, "-----------------------------------");
@@ -1198,20 +1212,34 @@ namespace loguru
 		std::lock_guard<std::recursive_mutex> lock(s_mutex);
 
 		if (g_alsologtostderr) {
-			if (g_colorlogtostderr && s_terminal_has_color && verbosity <= Verbosity_WARNING) {
-				#define LOGURU_BASH_RED         "\e[31m"
-				#define LOGURU_BASH_LIGHT_RED   "\e[91m"
-				#define LOGURU_BASH_RESET_COLOR "\e[0m"
-
-				fprintf(stderr, "%s%s%s%s%s\n" LOGURU_BASH_RESET_COLOR,
-				    verbosity == Verbosity_WARNING ? LOGURU_BASH_LIGHT_RED  : LOGURU_BASH_RED,
-					message.preamble, message.indentation, message.prefix, message.message);
-				fflush(stderr);
+			if (g_colorlogtostderr && s_terminal_has_color) {
+				if (verbosity > Verbosity_WARNING) {
+					fprintf(stderr, "%s%s%s%s%s%s%s%s%s\n",
+					    LOGURU_BASH_RESET_ALL,
+						LOGURU_BASH_DIM,
+						message.preamble,
+						message.indentation,
+						LOGURU_BASH_RESET_ALL,
+						verbosity == Verbosity_INFO ? LOGURU_BASH_BOLD : LOGURU_BASH_LIGHT_GRAY,
+						message.prefix,
+						message.message,
+						LOGURU_BASH_RESET_ALL);
+				} else {
+					fprintf(stderr, "%s%s%s%s%s%s%s%s\n",
+					    LOGURU_BASH_RESET_ALL,
+						verbosity == Verbosity_WARNING ? LOGURU_BASH_RED : LOGURU_BASH_LIGHT_RED,
+						LOGURU_BASH_BOLD,
+						message.preamble,
+						message.indentation,
+						message.prefix,
+						message.message,
+						LOGURU_BASH_RESET_ALL);
+				}
 			} else {
 				fprintf(stderr, "%s%s%s%s\n",
 					message.preamble, message.indentation, message.prefix, message.message);
-				fflush(stderr);
 			}
+			fflush(stderr);
 		}
 
 		for (auto& p : s_callbacks) {

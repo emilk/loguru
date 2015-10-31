@@ -126,8 +126,10 @@ void test_SIGSEGV_2() { test_SIGSEGV_1(); }
 
 void test_hang_0()
 {
-	LOG_F(INFO, "Press ctrl-C");
-	for(;;);
+	LOG_F(INFO, "Press ctrl-C to kill.");
+	for(;;) {
+		// LOG_F(INFO, "Press ctrl-C to break out of this infinite loop.");
+	}
 }
 void test_hang_1() { test_hang_0(); }
 void test_hang_2() { test_hang_1(); }
@@ -144,7 +146,7 @@ int main(int argc, char* argv[])
 	if (argc == 1)
 	{
 		loguru::add_file("latest_readable.log", loguru::Truncate, loguru::Verbosity_INFO);
-		loguru::add_file("everything.log",      loguru::Append, loguru::Verbosity_MAX);
+		loguru::add_file("everything.log",      loguru::Append,   loguru::Verbosity_MAX);
 
 		LOG_F(INFO, "Loguru test");
 		test_thread_names();
