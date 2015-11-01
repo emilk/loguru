@@ -737,9 +737,9 @@ namespace loguru
 				return 0 == strcmp(term, "cygwin")
 				    || 0 == strcmp(term, "linux")
 				    || 0 == strcmp(term, "screen")
-				    || 0 == strcmp(term, "xterm");
+				    || 0 == strcmp(term, "xterm")
 				    || 0 == strcmp(term, "xterm-256color")
-				    || 0 == strcmp(term, "xterm-color")
+				    || 0 == strcmp(term, "xterm-color");
 			} else {
 				return false;
 			}
