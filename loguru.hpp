@@ -53,7 +53,8 @@ Website: www.ilikebigbits.com
 
 	LOG_SCOPE_F(INFO, "Will indent all log messages withing this scope.");
 	LOG_F(INFO, "I'm hungry for some %.3f!", 3.14159);
-	VLOG_F(2, "Will only show if verbosity is 2 or higher");
+	LOG_F(2, "Will only show if verbosity is 2 or higher");
+	VLOG_F(get_log_level(), "Use vlog for dynamic log level (integer in the range 0-9, inclusive)");
 	LOG_IF_F(ERROR, badness, "Will only show if badness happens");
 	auto fp = fopen(filename, "r");
 	CHECK_F(fp != nullptr, "Failed to open file '%s'", filename);
@@ -65,14 +66,6 @@ Website: www.ilikebigbits.com
 	DCHECK_F(expensive_check(x)); // Only checked #if !NDEBUG
 	DLOG_F("Only written in debug-builds");
 
-	If you prefer logging with streams:
-
-	#define LOGURU_WITH_STREAMS 1
-	#include <loguru/loguru.hpp>
-	...
-	LOG_S(INFO) << "Look at my custom object: " << a.cross(b);
-	CHECK_EQ_S(pi, 3.14) << "Maybe it is closer to " << M_PI;
-
 	// Set global verbosity level (higher == more spam):
 	loguru::g_verbosity = 4;
 
@@ -81,6 +74,20 @@ Website: www.ilikebigbits.com
 
 	// Turn off writing err/warn in red:
 	loguru::g_colorlogtostderr = false;
+
+	// Only show most relevant things on stderr:
+	loguru::g_stderr_verbosity = 1;
+
+	// Thow exceptions instead of aborting on CHECK fails:
+	loguru::set_fatal_handler([](const char* message){ throw std::runtime_error(message); })
+
+	If you prefer logging with streams:
+
+	#define LOGURU_WITH_STREAMS 1
+	#include <loguru/loguru.hpp>
+	...
+	LOG_S(INFO) << "Look at my custom object: " << a.cross(b);
+	CHECK_EQ_S(pi, 3.14) << "Maybe it is closer to " << M_PI;
 
 	Before including <loguru/loguru.hpp> you may optionally want to define the following to 1:
 
@@ -123,11 +130,28 @@ Website: www.ilikebigbits.com
 
 namespace loguru
 {
-	// free after use
-	char* strprintf(LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(1, 2);
+	// Simple RAII ownership of a char*.
+	class Text
+	{
+	public:
+		explicit Text(char* owned_str) : _str(owned_str) {}
+		~Text();
+		Text(Text&& t);
+		Text(Text& t) = delete;
+		Text& operator=(Text& t) = delete;
+		void operator=(Text&& t) = delete;
+
+		const char* c_str() const { return _str; }
+
+	private:
+		char* _str;
+	};
+
+	// Like printf, but returns the formated text.
+	Text strprintf(LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(1, 2);
 
 	// Overloaded for variadic template matching.
-	char* strprintf();
+	Text strprintf();
 
 	using Verbosity = int;
 
@@ -139,13 +163,30 @@ namespace loguru
 
 	enum NamedVerbosity : Verbosity
 	{
-		// Value is the verbosity level one must pass.
-		// Negative numbers go to stderr and cannot be skipped.
-		Verbosity_FATAL   = -3, // Prefer to use ABORT_F over LOG_F(FATAL)
+		// Do not use FATAL yourself. Prefer to use ABORT_F over LOG_F(FATAL)
+		Verbosity_FATAL   = -3,
 		Verbosity_ERROR   = -2,
 		Verbosity_WARNING = -1,
-		Verbosity_INFO    =  0, // Normal messages.
-		Verbosity_MAX     = +9
+
+		// Normal messages. By default written to stderr.
+		Verbosity_INFO    =  0,
+
+		// Same as Verbosity_INFO in every way.
+		Verbosity_0       =  0,
+
+		// Verbosity levels 1-9 are generally not written to stderr, but are written to file.
+		Verbosity_1       = +1,
+		Verbosity_2       = +2,
+		Verbosity_3       = +3,
+		Verbosity_4       = +4,
+		Verbosity_5       = +5,
+		Verbosity_6       = +6,
+		Verbosity_7       = +7,
+		Verbosity_8       = +8,
+		Verbosity_9       = +9,
+
+		// Don not use higher verbosity levels, as that will make grepping log files harder.
+		Verbosity_MAX     = +9,
 	};
 
 	struct Message
@@ -161,7 +202,15 @@ namespace loguru
 		const char* message;     // User message goes here.
 	};
 
-	extern Verbosity g_verbosity;        // Anything greater than this is ignored.
+	// Anything greater than g_verbosity is never passed ont to any log handler.
+	// This means no file logging, no logging to stderr, and no custom log callbacks will be called.
+	// Settings this to something lower than MAX is a good way to save CPU.
+	extern Verbosity g_verbosity; // MAX by default.
+
+	// Control with -v argument. Not that a value higher than g_verbosity has no effect.
+	extern Verbosity g_stderr_verbosity; // 0 by default (only log ERROR, WARNING and INFO)
+
+	// By default, Loguru writes everything above g_stderr_verbosity to stdout.
 	extern bool      g_alsologtostderr;  // True by default.
 	extern bool      g_colorlogtostderr; // True by default.
 
@@ -252,26 +301,25 @@ namespace loguru
 	void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(5, 6) LOGURU_NORETURN;
 	void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line) LOGURU_NORETURN;
 
-	// Free after use!
-	template<class T> inline char* format_value(const T&)                    { return strprintf("N/A");     }
-	template<>        inline char* format_value(const char& v)               { return strprintf("%c",   v); }
-	template<>        inline char* format_value(const int& v)                { return strprintf("%d",   v); }
-	template<>        inline char* format_value(const unsigned int& v)       { return strprintf("%u",   v); }
-	template<>        inline char* format_value(const long& v)               { return strprintf("%lu",  v); }
-	template<>        inline char* format_value(const unsigned long& v)      { return strprintf("%ld",  v); }
-	template<>        inline char* format_value(const long long& v)          { return strprintf("%llu", v); }
-	template<>        inline char* format_value(const unsigned long long& v) { return strprintf("%lld", v); }
-	template<>        inline char* format_value(const float& v)              { return strprintf("%f",   v); }
-	template<>        inline char* format_value(const double& v)             { return strprintf("%f",   v); }
+	template<class T> inline Text format_value(const T&)                    { return strprintf("N/A");     }
+	template<>        inline Text format_value(const char& v)               { return strprintf("%c",   v); }
+	template<>        inline Text format_value(const int& v)                { return strprintf("%d",   v); }
+	template<>        inline Text format_value(const unsigned int& v)       { return strprintf("%u",   v); }
+	template<>        inline Text format_value(const long& v)               { return strprintf("%lu",  v); }
+	template<>        inline Text format_value(const unsigned long& v)      { return strprintf("%ld",  v); }
+	template<>        inline Text format_value(const long long& v)          { return strprintf("%llu", v); }
+	template<>        inline Text format_value(const unsigned long long& v) { return strprintf("%lld", v); }
+	template<>        inline Text format_value(const float& v)              { return strprintf("%f",   v); }
+	template<>        inline Text format_value(const double& v)             { return strprintf("%f",   v); }
 
 	// Convenience:
 	void set_thread_name(const char* name);
 
-	/* Generates a readable stacktrace as a string. You must free the returned string!
+	/* Generates a readable stacktrace as a string.
 	   'skip' specifies how many stack frames to skip.
 	   For instance, the default skip (1) means:
 	   don't include the call to loguru::stacktrace in the stack trace. */
-	char* stacktrace(int skip = 1);
+	Text stacktrace(int skip = 1);
 } // namespace loguru
 
 // --------------------------------------------------------------------
@@ -341,16 +389,13 @@ namespace loguru
 		auto val_right = expr_right;                                                               \
 		if (! LOGURU_PREDICT_TRUE(val_left op val_right))                                          \
 		{                                                                                          \
-			char* str_left = loguru::format_value(val_left);                                       \
-			char* str_right = loguru::format_value(val_right);                                     \
-			char* fail_info = loguru::strprintf("CHECK FAILED:  %s %s %s  (%s %s %s)  ",           \
-				#expr_left, #op, #expr_right, str_left, #op, str_right);                           \
-			char* user_msg = loguru::strprintf(__VA_ARGS__);                                       \
-			loguru::log_and_abort(0, fail_info, __FILE__, __LINE__, "%s", user_msg);                  \
-			/* free(user_msg);  // no need - we never get here anyway! */                          \
-			/* free(fail_info); // no need - we never get here anyway! */                          \
-			/* free(str_right); // no need - we never get here anyway! */                          \
-			/* free(str_left);  // no need - we never get here anyway! */                          \
+			auto str_left = loguru::format_value(val_left);                                        \
+			auto str_right = loguru::format_value(val_right);                                      \
+			auto fail_info = loguru::strprintf("CHECK FAILED:  %s %s %s  (%s %s %s)  ",            \
+				#expr_left, #op, #expr_right, str_left.c_str(), #op, str_right.c_str());           \
+			auto user_msg = loguru::strprintf(__VA_ARGS__);                                        \
+			loguru::log_and_abort(0, fail_info.c_str(), __FILE__, __LINE__,                        \
+								  "%s", user_msg.c_str());                                         \
 		}                                                                                          \
 	} while (false)
 
@@ -671,9 +716,10 @@ namespace loguru
 
 	const auto s_start_time = system_clock::now();
 
-	int  g_verbosity        = 0;
-	bool g_alsologtostderr  = true;
-	bool g_colorlogtostderr = true;
+	Verbosity g_verbosity        = Verbosity_MAX;
+	Verbosity g_stderr_verbosity = Verbosity_0;
+	bool      g_alsologtostderr  = true;
+	bool      g_colorlogtostderr = true;
 
 	std::recursive_mutex s_mutex;
 	std::string          s_argv0_filename;
@@ -688,25 +734,24 @@ namespace loguru
 			return false;
 		#else
 			if (const char* term = getenv("TERM")) {
-				return
-					strcmp(term, "xterm") == 0          ||
-					strcmp(term, "xterm-color") == 0    ||
-					strcmp(term, "xterm-256color") == 0 ||
-					strcmp(term, "screen") == 0         ||
-					strcmp(term, "linux") == 0          ||
-					strcmp(term, "cygwin") == 0;
+				return 0 == strcmp(term, "cygwin")
+				    || 0 == strcmp(term, "linux")
+				    || 0 == strcmp(term, "screen")
+				    || 0 == strcmp(term, "xterm");
+				    || 0 == strcmp(term, "xterm-256color")
+				    || 0 == strcmp(term, "xterm-color")
 			} else {
 				return false;
 			}
 		#endif
 	}();
 
-	const auto LOGURU_BASH_BOLD        = "\e[1m";
-	const auto LOGURU_BASH_DIM         = "\e[2m";
-	const auto LOGURU_BASH_LIGHT_GRAY  = "\e[37m";
-	const auto LOGURU_BASH_LIGHT_RED   = "\e[91m";
-	const auto LOGURU_BASH_RED         = "\e[31m";
-	const auto LOGURU_BASH_RESET_ALL   = "\e[0m";
+	const auto TERMINAL_BOLD       = s_terminal_has_color ? "\e[1m"  : "";
+	const auto TERMINAL_DIM        = s_terminal_has_color ? "\e[2m"  : "";
+	const auto TERMINAL_LIGHT_GRAY = s_terminal_has_color ? "\e[37m" : "";
+	const auto TERMINAL_LIGHT_RED  = s_terminal_has_color ? "\e[91m" : "";
+	const auto TERMINAL_RED        = s_terminal_has_color ? "\e[31m" : "";
+	const auto TERMINAL_RESET_ALL  = s_terminal_has_color ? "\e[0m"  : "";
 
 	const int THREAD_NAME_WIDTH = 16;
 	const char* PREAMBLE_EXPLAIN = "date       time         ( uptime  ) [ thread name/id ]                   file:line     v| ";
@@ -731,8 +776,14 @@ namespace loguru
 
 	// Helpers:
 
-	// free after use
-	static char* strprintfv(const char* format, va_list vlist)
+	Text::~Text() { free(_str); }
+	Text::Text(Text&& t)
+	{
+		_str = t._str;
+		t._str = nullptr;
+	}
+
+	static Text strprintfv(const char* format, va_list vlist)
 	{
 #ifdef _MSC_VER
 		int bytes_needed = vsnprintf(nullptr, 0, format, vlist);
@@ -744,24 +795,23 @@ namespace loguru
 		char* buff = nullptr;
 		int result = vasprintf(&buff, format, vlist);
 		CHECK_F(result >= 0, "Bad string format: '%s'", format);
-		return buff;
+		return Text(buff);
 #endif
 	}
 
-	// free after use
-	char* strprintf(const char* format, ...)
+	Text strprintf(const char* format, ...)
 	{
 		va_list vlist;
 		va_start(vlist, format);
-		char* result = strprintfv(format, vlist);
+		auto result = strprintfv(format, vlist);
 		va_end(vlist);
 		return result;
 	}
 
 	// Overloaded for variadic template matching.
-	char* strprintf()
+	Text strprintf()
 	{
-		return (char*)calloc(1, 1);
+		return Text((char*)calloc(1, 1));
 	}
 
 	const char* indentation(unsigned depth)
@@ -799,7 +849,7 @@ namespace loguru
 					out_argc -= 1;
 				}
 				if (*value_str == '=') { value_str += 1; }
-				g_verbosity = atoi(value_str);
+				g_stderr_verbosity = atoi(value_str);
 			} else {
 				argv[arg_dest++] = argv[arg_it];
 			}
@@ -863,14 +913,14 @@ namespace loguru
 
 		if (g_alsologtostderr) {
 			if (g_colorlogtostderr && s_terminal_has_color) {
-				fprintf(stderr, "%s%s%s\n", LOGURU_BASH_RESET_ALL, LOGURU_BASH_DIM, PREAMBLE_EXPLAIN);
+				fprintf(stderr, "%s%s%s\n", TERMINAL_RESET_ALL, TERMINAL_DIM, PREAMBLE_EXPLAIN);
 			} else {
 				fprintf(stderr, "%s\n", PREAMBLE_EXPLAIN);
 			}
 			fflush(stderr);
 		}
-		LOG_F(INFO, "arguments:       %s", s_file_arguments.c_str());
-		LOG_F(INFO, "Verbosity level: %d", g_verbosity);
+		LOG_F(INFO, "arguments:        %s", s_file_arguments.c_str());
+		LOG_F(INFO, "stderr verbosity: %d", g_stderr_verbosity);
 		LOG_F(INFO, "-----------------------------------");
 
 		install_signal_handlers();
@@ -920,7 +970,6 @@ namespace loguru
 				CHECK_F(n + 2 < buff_size, "Filename buffer too small");
 				buff[n] = '/';
 				buff[n + 1] = '\0';
-				n += 1;
 			}
 		}
 
@@ -1029,7 +1078,7 @@ namespace loguru
 				pthread_setname_np(pthread_self(), name);
 			#endif
 		#else // LOGURU_PTHREADS
-			(void)name; // TODO: Windows
+			(void)name;
 		#endif // LOGURU_PTHREADS
 	}
 
@@ -1146,10 +1195,10 @@ namespace loguru
 
 #endif // __GNUG__
 
-	char* stacktrace(int skip)
+	Text stacktrace(int skip)
 	{
 		auto str = stacktrace_as_stdstring(skip + 1);
-		return strdup(str.c_str());
+		return Text(strdup(str.c_str()));
 	}
 
 	// ------------------------------------------------------------------------
@@ -1180,7 +1229,7 @@ namespace loguru
 				snprintf(thread_name, sizeof(thread_name), "%16X", (unsigned)thread_id);
 			}
 		#else // LOGURU_PTHREADS
-			const char* thread_name = ""; // TODO: Windows
+			const char* thread_name = "";
 		#endif // LOGURU_PTHREADS
 
 		if (s_strip_file_path) {
@@ -1211,29 +1260,29 @@ namespace loguru
 		const auto verbosity = message.verbosity;
 		std::lock_guard<std::recursive_mutex> lock(s_mutex);
 
-		if (g_alsologtostderr) {
+		if (g_alsologtostderr && verbosity <= g_stderr_verbosity) {
 			if (g_colorlogtostderr && s_terminal_has_color) {
 				if (verbosity > Verbosity_WARNING) {
 					fprintf(stderr, "%s%s%s%s%s%s%s%s%s\n",
-					    LOGURU_BASH_RESET_ALL,
-						LOGURU_BASH_DIM,
+						TERMINAL_RESET_ALL,
+						TERMINAL_DIM,
 						message.preamble,
 						message.indentation,
-						LOGURU_BASH_RESET_ALL,
-						verbosity == Verbosity_INFO ? LOGURU_BASH_BOLD : LOGURU_BASH_LIGHT_GRAY,
+						TERMINAL_RESET_ALL,
+						verbosity == Verbosity_INFO ? TERMINAL_BOLD : TERMINAL_LIGHT_GRAY,
 						message.prefix,
 						message.message,
-						LOGURU_BASH_RESET_ALL);
+						TERMINAL_RESET_ALL);
 				} else {
 					fprintf(stderr, "%s%s%s%s%s%s%s%s\n",
-					    LOGURU_BASH_RESET_ALL,
-						verbosity == Verbosity_WARNING ? LOGURU_BASH_RED : LOGURU_BASH_LIGHT_RED,
-						LOGURU_BASH_BOLD,
+						TERMINAL_RESET_ALL,
+						TERMINAL_BOLD,
+						verbosity == Verbosity_WARNING ? TERMINAL_RED : TERMINAL_LIGHT_RED,
 						message.preamble,
 						message.indentation,
 						message.prefix,
 						message.message,
-						LOGURU_BASH_RESET_ALL);
+						TERMINAL_RESET_ALL);
 				}
 			} else {
 				fprintf(stderr, "%s%s%s%s\n",
@@ -1264,8 +1313,7 @@ namespace loguru
 	void log_to_everywhere_v(Verbosity verbosity, const char* file, unsigned line, const char* prefix, const char* format, va_list vlist)
 	{
 		auto buff = strprintfv(format, vlist);
-		log_to_everywhere(verbosity, file, line, prefix, buff);
-		free(buff);
+		log_to_everywhere(verbosity, file, line, prefix, buff.c_str());
 	}
 
 	void log(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
@@ -1280,9 +1328,8 @@ namespace loguru
 		va_list vlist;
 		va_start(vlist, format);
 		auto buff = strprintfv(format, vlist);
-		auto message = Message{verbosity, file, line, "", "", "", buff};
+		auto message = Message{verbosity, file, line, "", "", "", buff.c_str()};
 		log_message(message);
-		free(buff);
 		va_end(vlist);
 	}
 
@@ -1315,24 +1362,20 @@ namespace loguru
 		va_list vlist;
 		va_start(vlist, format);
 
-		char* st = loguru::stacktrace(stack_strace_skip + 2);
-		if (st && *st)
+		auto st = loguru::stacktrace(stack_strace_skip + 2);
+		if (st.c_str() && st.c_str()[0])
 		{
-			LOG_F(ERROR, "Stack trace:\n%s", st);
+			LOG_F(ERROR, "Stack trace:\n%s", st.c_str());
 		}
-		free(st);
 
-		// TODO: make sure buff gets greed
 		auto buff = strprintfv(format, vlist);
-		log_to_everywhere(Verbosity_FATAL, file, line, expr, buff);
+		log_to_everywhere(Verbosity_FATAL, file, line, expr, buff.c_str());
 
 		va_end(vlist);
 
 		if (s_fatal_handler) {
-			s_fatal_handler(buff);
+			s_fatal_handler(buff.c_str());
 		}
-
-		free(buff);
 
 		abort();
 	}
@@ -1402,8 +1445,15 @@ namespace loguru
 
 	void signal_handler(int signal_number, siginfo_t*, void*)
 	{
+		if (g_colorlogtostderr && s_terminal_has_color) {
+			write_to_stderr(TERMINAL_RESET_ALL);
+			write_to_stderr(TERMINAL_BOLD);
+			write_to_stderr(TERMINAL_LIGHT_RED);
+		}
+
 		for (const auto& s : ALL_SIGNALS) {
 			if (s.number == signal_number) {
+				write_to_stderr("\n");
 				write_to_stderr(s.name);
 				write_to_stderr("\n");
 			}
@@ -1411,10 +1461,13 @@ namespace loguru
 
 		/* This is theoretically unsafe to call from a signal handler,
 		   but in practice it seems like no problem on my Mac. */
-		char* st = stacktrace(2);
-		write_to_stderr(st);
-		free(st);
+		auto st = stacktrace(2);
+		write_to_stderr(st.c_str());
 		write_to_stderr("\n");
+
+		if (g_colorlogtostderr && s_terminal_has_color) {
+			write_to_stderr(TERMINAL_RESET_ALL);
+		}
 
 		call_default_signal_handler(signal_number);
 	}

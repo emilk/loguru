@@ -24,10 +24,10 @@ In particular, I want logging that produces logs that are both human-readable an
 	* Cross-platform (but not tested on Windows yet...)
 * Flexible:
 	* User can install callbacks for logging (e.g. to draw log messages on screen in a game).
-	* User can install callbacks for fatal error (e.g. to pause an attached debugger).
+	* User can install callbacks for fatal error (e.g. to pause an attached debugger or throw an exception).
 * Support multiple file outputs, either trunc or append:
 	* e.g. a logfile with just the latest run at low verbosity (high readability).
-	* e.g. a full logfile at highest verbosity which is appended to.
+	* e.g. a full logfile at highest verbosity which is appended to on every run.
 * Full featured:
 	* Verbosity levels.
 	* Supports assertions: `CHECK_F(fp != nullptr, "Failed to open '%s'", filename)`
@@ -92,7 +92,8 @@ loguru::add_file("latest_readable.log", loguru::Truncate, loguru::INFO);
 
 LOG_SCOPE_F(INFO, "Will indent all log messages within this scope.");
 LOG_F(INFO, "I'm hungry for some %.3f!", 3.14159);
-VLOG_F(2, "Will only show if verbosity is 2 or higher");
+LOG_F(2, "Will only show if verbosity is 2 or higher");
+VLOG_F(get_log_level(), "Use vlog for dynamic log level (integer in the range 0-9, inclusive)");
 LOG_IF_F(ERROR, badness, "Will only show if badness happens");
 auto fp = fopen(filename, "r");
 CHECK_F(fp != nullptr, "Failed to open file '%s'", filename);
@@ -103,6 +104,21 @@ LOG_SCOPE_F(INFO, "Will indent all log messages withing this scope.");
 // Each function also comes with a version prefixed with D for Debug:
 DCHECK_F(expensive_check(x)); // Only checked #if !NDEBUG
 DLOG_F("Only written in debug-builds");
+
+// Set global verbosity level (higher == more spam):
+loguru::g_verbosity = 4;
+
+// Turn off writing to stderr:
+loguru::g_alsologtostderr = false;
+
+// Turn off writing err/warn in red:
+loguru::g_colorlogtostderr = false;
+
+// Only show most relevant things on stderr:
+loguru::g_stderr_verbosity = 1;
+
+// Thow exceptions instead of aborting on CHECK fails:
+loguru::set_fatal_handler([](const char* message){ throw std::runtime_error(message); })
 ```
 
 If you prefer logging with streams:
@@ -177,6 +193,8 @@ date       time         ( uptime  ) [ thread name/id ]                   file:li
 Which looks like this in the terminal:
 
 ![Terminal colors](images/terminal_colors.png)
+
+(Notice how verbosity levels higher than 0 are slightly gray).
 
 Scopes affects logging on all threads.
 

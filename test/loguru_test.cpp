@@ -23,7 +23,7 @@ void deep_abort_10(const std::string& str) { deep_abort_9(str); }
 
 void sleep_ms(int ms)
 {
-	VLOG_F(3, "Sleeping for %d ms", ms);
+	LOG_F(3, "Sleeping for %d ms", ms);
 	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 
@@ -56,12 +56,12 @@ void test_scopes()
 {
 	LOG_SCOPE_FUNCTION(INFO);
 
-	VLOG_F(1, "First thing");
-	VLOG_F(1, "Second thing");
+	LOG_F(1, "First thing");
+	LOG_F(1, "Second thing");
 
 	{
-		VLOG_SCOPE_F(1, "Some indentation");
-		VLOG_F(2, "Some info");
+		LOG_SCOPE_F(1, "Some indentation");
+		LOG_F(2, "Some info");
 		sleep_ms(123);
 	}
 
@@ -71,10 +71,10 @@ void test_scopes()
 void test_levels()
 {
 	LOG_SCOPE_FUNCTION(INFO);
-	VLOG_F(3,      "Only visible with -v 3 or higher");
-	VLOG_F(2,      "Only visible with -v 2 or higher");
-	VLOG_F(1,      "Only visible with -v 1 or higher");
-	VLOG_F(0,      "VLOG_F(0)");
+	LOG_F(3,       "Only visible with -v 3 or higher");
+	LOG_F(2,       "Only visible with -v 2 or higher");
+	LOG_F(1,       "Only visible with -v 1 or higher");
+	LOG_F(0,       "LOG_F(0)");
 	LOG_F(INFO,    "This is some INFO");
 	LOG_F(WARNING, "This is a WARNING");
 	LOG_F(ERROR,   "This is a serious ERROR");
@@ -84,13 +84,13 @@ void test_stream()
 {
 	LOG_SCOPE_FUNCTION(INFO);
 	LOG_S(INFO) << "Testing stream-logging.";
-	VLOG_S(1) << "Stream-logging with verbosity 1";
-	VLOG_S(2) << "Stream-logging with verbosity 2";
-	VLOG_S(3) << "Stream-logging with verbosity 3";
+	LOG_S(1) << "Stream-logging with verbosity 1";
+	LOG_S(2) << "Stream-logging with verbosity 2";
+	LOG_S(3) << "Stream-logging with verbosity 3";
 	LOG_IF_S(INFO, true) << "Should be visible";
 	LOG_IF_S(INFO, false) << "SHOULD NOT BE VISIBLE";
-	VLOG_IF_S(1, true) << "Should be visible if verbosity is at least 1";
-	VLOG_IF_S(1, false) << "SHOULD NOT BE VISIBLE";
+	LOG_IF_S(1, true) << "Should be visible if verbosity is at least 1";
+	LOG_IF_S(1, false) << "SHOULD NOT BE VISIBLE";
 	CHECK_LT_S(1, 2);
 	CHECK_GT_S(3, 2) << "Weird";
 }
@@ -106,7 +106,7 @@ int main_test(int argc, char* argv[])
 	LOG_SCOPE_FUNCTION(INFO);
 	LOG_F(INFO, "Doing some stuff...");
 	for (int i=0; i<2; ++i) {
-		VLOG_SCOPE_F(1, "Iteration %d", i);
+		LOG_SCOPE_F(1, "Iteration %d", i);
 		auto result = some_expensive_operation();
 		LOG_IF_F(WARNING, result == BAD, "Bad result");
 	}
