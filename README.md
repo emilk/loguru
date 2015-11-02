@@ -11,7 +11,7 @@ That being said, I would appreciate credit!
 If you find Loguru useful, tweet me at @ernerfeldt mail me at emil.ernerfeldt@gmail.com.
 
 ## Why another logging library?
-I have yet to come accross a nice, light-weight logging library for C++ that does everything I want. So I made one!
+I have yet to come across a nice, light-weight logging library for C++ that does everything I want. So I made one!
 
 In particular, I want logging that produces logs that are both human-readable and easily grep:ed. I also want to be able to hook into the logging process to print some of the more severe messages on-screen in my app (for dev-purposes).
 
@@ -46,7 +46,7 @@ In particular, I want logging that produces logs that are both human-readable an
 	* About 25%-75% faster than GLOG on my MacBook Pro (Clang).
 	* About the same as GLOG on my Linux Disktop (GCC).
 * Drop-in replacement for most of GLOG (except for setup code).
-* Chose between using printf-style formatting or streams.
+* Choose between using printf-style formatting or streams.
 * Compile-time checked printf-formating (on supported compilers).
 * Assertion failures are marked with `noreturn` for the benefit of the static analyzer and optimizer.
 * All logging also written to stderr.
