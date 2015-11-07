@@ -71,9 +71,12 @@ void test_scopes()
 void test_levels()
 {
 	LOG_SCOPE_FUNCTION(INFO);
-	LOG_F(3,       "Only visible with -v 3 or higher");
-	LOG_F(2,       "Only visible with -v 2 or higher");
-	LOG_F(1,       "Only visible with -v 1 or higher");
+	{
+		VLOG_SCOPE_F(1, "Scope with verbosity 1");
+		LOG_F(3,       "Only visible with -v 3 or higher");
+		LOG_F(2,       "Only visible with -v 2 or higher");
+		LOG_F(1,       "Only visible with -v 1 or higher");
+	}
 	LOG_F(0,       "LOG_F(0)");
 	LOG_F(INFO,    "This is some INFO");
 	LOG_F(WARNING, "This is a WARNING");

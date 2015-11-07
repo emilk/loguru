@@ -90,6 +90,9 @@ loguru::add_file("everything.log", loguru::Append);
 // Only log INFO, WARNING, ERROR and FATAL to "latest_readable.log":
 loguru::add_file("latest_readable.log", loguru::Truncate, loguru::INFO);
 
+// Only show most relevant things on stderr:
+loguru::g_stderr_verbosity = 1;
+
 LOG_SCOPE_F(INFO, "Will indent all log messages within this scope.");
 LOG_F(INFO, "I'm hungry for some %.3f!", 3.14159);
 LOG_F(2, "Will only show if verbosity is 2 or higher");
@@ -99,23 +102,16 @@ auto fp = fopen(filename, "r");
 CHECK_F(fp != nullptr, "Failed to open file '%s'", filename);
 CHECK_GT_F(length, 0); // Will print the value of `length` on failure.
 CHECK_EQ_F(a, b, "You can also supply a custom message, like to print something: %d", a + b);
-LOG_SCOPE_F(INFO, "Will indent all log messages withing this scope.");
 
 // Each function also comes with a version prefixed with D for Debug:
 DCHECK_F(expensive_check(x)); // Only checked #if !NDEBUG
 DLOG_F("Only written in debug-builds");
-
-// Set global verbosity level (higher == more spam):
-loguru::g_verbosity = 4;
 
 // Turn off writing to stderr:
 loguru::g_alsologtostderr = false;
 
 // Turn off writing err/warn in red:
 loguru::g_colorlogtostderr = false;
-
-// Only show most relevant things on stderr:
-loguru::g_stderr_verbosity = 1;
 
 // Thow exceptions instead of aborting on CHECK fails:
 loguru::set_fatal_handler([](const char* message){ throw std::runtime_error(message); })
@@ -219,5 +215,3 @@ Loguru allows you to use whatever style you prefer.
 * Test on Windows.
 * Rename ERROR to avoid conflict with windows.h macro?
 * File-only logging: LOG_F(FILE, "Always written to file, never to stderr")
-* Make sure memory is freed if fatal handler throws an exception.
-* Add some way to have stdout at a lower verbosity than a file.

@@ -46,12 +46,15 @@ Website: www.ilikebigbits.com
 	// Only log INFO, WARNING, ERROR and FATAL to "latest_readable.log":
 	loguru::add_file("latest_readable.log", loguru::Truncate, Verbosity_INFO);
 
+	// Only show most relevant things on stderr:
+	loguru::g_stderr_verbosity = 1;
+
 	// Or just go with what Loguru suggests:
 	char log_path[1024];
 	loguru::suggest_log_path("~/loguru/", log_path, sizeof(log_path));
 	loguru::add_file(log_path, loguru::FileMode::Truncate, loguru::Verbosity_MAX);
 
-	LOG_SCOPE_F(INFO, "Will indent all log messages withing this scope.");
+	LOG_SCOPE_F(INFO, "Will indent all log messages within this scope.");
 	LOG_F(INFO, "I'm hungry for some %.3f!", 3.14159);
 	LOG_F(2, "Will only show if verbosity is 2 or higher");
 	VLOG_F(get_log_level(), "Use vlog for dynamic log level (integer in the range 0-9, inclusive)");
@@ -60,23 +63,16 @@ Website: www.ilikebigbits.com
 	CHECK_F(fp != nullptr, "Failed to open file '%s'", filename);
 	CHECK_GT_F(length, 0); // Will print the value of `length` on failure.
 	CHECK_EQ_F(a, b, "You can also supply a custom message, like to print something: %d", a + b);
-	LOG_SCOPE_F(INFO, "Will indent all log messages withing this scope.");
 
 	// Each function also comes with a version prefixed with D for Debug:
 	DCHECK_F(expensive_check(x)); // Only checked #if !NDEBUG
 	DLOG_F("Only written in debug-builds");
-
-	// Set global verbosity level (higher == more spam):
-	loguru::g_verbosity = 4;
 
 	// Turn off writing to stderr:
 	loguru::g_alsologtostderr = false;
 
 	// Turn off writing err/warn in red:
 	loguru::g_colorlogtostderr = false;
-
-	// Only show most relevant things on stderr:
-	loguru::g_stderr_verbosity = 1;
 
 	// Thow exceptions instead of aborting on CHECK fails:
 	loguru::set_fatal_handler([](const char* message){ throw std::runtime_error(message); })
@@ -104,6 +100,11 @@ Website: www.ilikebigbits.com
 		Make Loguru mimic GLOG as close as possible,
 		including #defining LOG, CHECK, FLAGS_v etc.
 		LOGURU_REPLACE_GLOG imlies LOGURU_WITH_STREAMS.
+
+# Notes:
+	* Any arguments to CHECK:s are only evaluated once.
+	* Any arguments to LOG functions or LOG_SCOPE are only evaluated iff the verbosity test passes.
+	* Any arguments to LOG_IF functions are only evaluated if the test passes.
 */
 
 #ifndef LOGURU_HEADER_HPP
@@ -163,6 +164,8 @@ namespace loguru
 
 	enum NamedVerbosity : Verbosity
 	{
+		Verbosity_NOTHING = -9, // If set as output, nothing is written
+
 		// Do not use FATAL yourself. Prefer to use ABORT_F over LOG_F(FATAL)
 		Verbosity_FATAL   = -3,
 		Verbosity_ERROR   = -2,
@@ -202,12 +205,7 @@ namespace loguru
 		const char* message;     // User message goes here.
 	};
 
-	// Anything greater than g_verbosity is never passed ont to any log handler.
-	// This means no file logging, no logging to stderr, and no custom log callbacks will be called.
-	// Settings this to something lower than MAX is a good way to save CPU.
-	extern Verbosity g_verbosity; // MAX by default.
-
-	// Control with -v argument. Not that a value higher than g_verbosity has no effect.
+	// Control with -v argument.
 	extern Verbosity g_stderr_verbosity; // 0 by default (only log ERROR, WARNING and INFO)
 
 	// By default, Loguru writes everything above g_stderr_verbosity to stdout.
@@ -250,7 +248,7 @@ namespace loguru
 
 	/*  Will log to a file at the given path.
 		Any logging message with a verbosity lower or equal to
-		min(verbosity, g_verbosity) will be included.
+		the given verbosity will be included.
 		The function will create all directories in 'path' if needed.
 		If path starts with a ~, it will be replaced with loguru::home_dir()
 	*/
@@ -261,14 +259,15 @@ namespace loguru
 		Feel free to call LOG:ing function from this, but not FATAL ones! */
 	void set_fatal_handler(fatal_handler_t handler);
 
-	/*  Will be called on each log messages that passes verbocity tests etc.
-		Useful for displaying messages on-screen in a game, for eample.
-		`verbosity` is the cutoff, but this is applied *after* g_verbosity.
+	/*  Will be called on each log messages with a verbosity less or equal to the given one.
+		Useful for displaying messages on-screen in a game, for example.
 	*/
 	void add_callback(const char* id, log_handler_t callback, void* user_data,
-					  Verbosity verbosity = Verbosity_MAX,
-					  close_handler_t on_close = nullptr);
+					  Verbosity verbosity, close_handler_t on_close = nullptr);
 	void remove_callback(const char* id);
+
+	// Returns the maximum of g_stderr_verbosity and all file/custom outputs.
+	Verbosity current_verbosity_cutoff();
 
 	// Actual logging function. Use the LOG macro instead of calling this directly.
 	void log(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(4, 5);
@@ -280,14 +279,16 @@ namespace loguru
 	class LogScopeRAII
 	{
 	public:
+		LogScopeRAII() : _file(nullptr) {} // No logging
 		LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(5, 6);
 		~LogScopeRAII();
 
+		LogScopeRAII(LogScopeRAII&& other) = default;
+
 	private:
-		LogScopeRAII(LogScopeRAII&);
-		LogScopeRAII(LogScopeRAII&&);
-		LogScopeRAII& operator=(LogScopeRAII&);
-		LogScopeRAII& operator=(LogScopeRAII&&);
+		LogScopeRAII(const LogScopeRAII&) = delete;
+		LogScopeRAII& operator=(const LogScopeRAII&) = delete;
+		void operator=(LogScopeRAII&&) = delete;
 
 		Verbosity   _verbosity;
 		const char* _file; // Set to null if we are disabled due to verbosity
@@ -334,14 +335,14 @@ namespace loguru
 
 // LOG_F(2, "Only logged if verbosity is 2 or higher: %d", some_number);
 #define VLOG_F(verbosity, ...)                                                                     \
-	(verbosity > loguru::g_verbosity) ? (void)0                                                    \
+	(verbosity > loguru::current_verbosity_cutoff()) ? (void)0                                     \
 									  : loguru::log(verbosity, __FILE__, __LINE__, __VA_ARGS__)
 
 // LOG_F(INFO, "Foo: %d", some_number);
 #define LOG_F(verbosity_name, ...) VLOG_F(loguru::Verbosity_ ## verbosity_name, __VA_ARGS__)
 
 #define VLOG_IF_F(verbosity, cond, ...)                                                            \
-	(verbosity > loguru::g_verbosity || (cond) == false)                                           \
+	(verbosity > loguru::current_verbosity_cutoff() || (cond) == false)                            \
 		? (void)0                                                                                  \
 		: loguru::log(verbosity, __FILE__, __LINE__, __VA_ARGS__)
 
@@ -349,20 +350,21 @@ namespace loguru
 	VLOG_IF_F(loguru::Verbosity_ ## verbosity_name, cond, __VA_ARGS__)
 
 #define VLOG_SCOPE_F(verbosity, ...)                                                               \
-	loguru::LogScopeRAII LOGURU_GIVE_UNIQUE_NAME(error_context_RAII_, __LINE__)                    \
-	{                                                                                              \
-		verbosity, __FILE__, __LINE__, __VA_ARGS__                                                 \
-	}
+	loguru::LogScopeRAII LOGURU_GIVE_UNIQUE_NAME(error_context_RAII_, __LINE__) =                  \
+	((verbosity) > loguru::current_verbosity_cutoff()) ? loguru::LogScopeRAII() :                  \
+	loguru::LogScopeRAII{verbosity, __FILE__, __LINE__, __VA_ARGS__}
 
 // Raw logging - no preamble, no indentation. Slightly faster than full logging.
 #define RAW_VLOG_F(verbosity, ...)                                                                  \
-	(verbosity > loguru::g_verbosity) ? (void)0                                                     \
+	(verbosity > loguru::current_verbosity_cutoff()) ? (void)0                                      \
 									  : loguru::raw_log(verbosity, __FILE__, __LINE__, __VA_ARGS__)
+
 #define RAW_LOG_F(verbosity_name, ...) RAW_VLOG_F(loguru::Verbosity_ ## verbosity_name, __VA_ARGS__)
 
 // Use to book-end a scope. Affects logging on all threads.
 #define LOG_SCOPE_F(verbosity_name, ...)                                                           \
 	VLOG_SCOPE_F(loguru::Verbosity_ ## verbosity_name, __VA_ARGS__)
+
 #define LOG_SCOPE_FUNCTION(verbosity_name) LOG_SCOPE_F(verbosity_name, __PRETTY_FUNCTION__)
 
 // --------------------------------------------------------------------
@@ -551,7 +553,7 @@ namespace loguru
 
 // usage:  LOG_STREAM(INFO) << "Foo " << std::setprecision(10) << some_value;
 #define VLOG_IF_S(verbosity, cond)                                                                 \
-	(verbosity > loguru::g_verbosity || (cond) == false)                                           \
+	(verbosity > loguru::current_verbosity_cutoff() || (cond) == false)                                           \
 		? (void)0                                                                                  \
 		: loguru::Voidify() & loguru::StreamLogger(verbosity, __FILE__, __LINE__)
 #define LOG_IF_S(verbosity_name, cond) VLOG_IF_S(loguru::Verbosity_ ## verbosity_name, cond)
@@ -597,7 +599,7 @@ namespace loguru
 	#define DCHECK_GE_S(a, b)               CHECK_GE_S(a, b)
 #else // NDEBUG
 	#define DVLOG_IF_S(verbosity, cond)                                                     \
-		(true || verbosity > loguru::g_verbosity || (cond) == false)                        \
+		(true || verbosity > loguru::current_verbosity_cutoff() || (cond) == false)                        \
 			? (void)0                                                                       \
 			: loguru::Voidify() & loguru::StreamLogger(verbosity, __FILE__, __LINE__)
 
@@ -640,11 +642,11 @@ namespace loguru
 	#define DCHECK_GT      DCHECK_GT_S
 	#define DCHECK_GE      DCHECK_GE_S
 
-	#define FLAGS_v                loguru::g_verbosity
+	#define FLAGS_v                loguru::g_stderr_verbosity
 	#define FLAGS_alsologtostderr  loguru::g_alsologtostderr
 	#define FLAGS_colorlogtostderr loguru::g_colorlogtostderr
 
-	#define VLOG_IS_ON(verbosity) ((verbosity) <= loguru::g_verbosity)
+	#define VLOG_IS_ON(verbosity) ((verbosity) <= loguru::current_verbosity_cutoff())
 #endif // LOGURU_REPLACE_GLOG
 
 #endif // LOGURU_WITH_STREAMS || LOGURU_REPLACE_GLOG
@@ -716,12 +718,12 @@ namespace loguru
 
 	const auto s_start_time = system_clock::now();
 
-	Verbosity g_verbosity        = Verbosity_MAX;
 	Verbosity g_stderr_verbosity = Verbosity_0;
 	bool      g_alsologtostderr  = true;
 	bool      g_colorlogtostderr = true;
 
 	std::recursive_mutex s_mutex;
+	Verbosity            s_max_out_verbosity = Verbosity_NOTHING;
 	std::string          s_argv0_filename;
 	std::string          s_file_arguments;
 	CallbackVec          s_callbacks;
@@ -919,7 +921,7 @@ namespace loguru
 			}
 			fflush(stderr);
 		}
-		LOG_F(INFO, "arguments:        %s", s_file_arguments.c_str());
+		LOG_F(INFO, "arguments: %s", s_file_arguments.c_str());
 		LOG_F(INFO, "stderr verbosity: %d", g_stderr_verbosity);
 		LOG_F(INFO, "-----------------------------------");
 
@@ -1035,8 +1037,8 @@ namespace loguru
 			fprintf(file, "\n\n\n\n\n");
 		}
 
-		fprintf(file, "arguments:       %s\n", s_file_arguments.c_str());
-		fprintf(file, "Verbosity level: %d\n", std::max(g_verbosity, verbosity));
+		fprintf(file, "arguments: %s\n", s_file_arguments.c_str());
+		fprintf(file, "File verbosity level: %d\n", verbosity);
 		fprintf(file, "%s\n", PREAMBLE_EXPLAIN);
 		fflush(file);
 
@@ -1050,11 +1052,21 @@ namespace loguru
 		s_fatal_handler = handler;
 	}
 
+	static void on_callback_change()
+	{
+		s_max_out_verbosity = Verbosity_NOTHING;
+		for (const auto& callback : s_callbacks)
+		{
+			s_max_out_verbosity = std::max(s_max_out_verbosity, callback.verbosity);
+		}
+	}
+
 	void add_callback(const char* id, log_handler_t callback, void* user_data,
 					  Verbosity verbosity, close_handler_t on_close)
 	{
 		std::lock_guard<std::recursive_mutex> lock(s_mutex);
 		s_callbacks.push_back(Callback{id, callback, user_data, verbosity, on_close});
+		on_callback_change();
 	}
 
 	void remove_callback(const char* id)
@@ -1067,6 +1079,14 @@ namespace loguru
 		} else {
 			LOG_F(ERROR, "Failed to locate callback with id '%s'", id);
 		}
+		on_callback_change();
+	}
+
+	// Returns the maximum of g_stderr_verbosity and all file/custom outputs.
+	Verbosity current_verbosity_cutoff()
+	{
+		return g_stderr_verbosity > s_max_out_verbosity ?
+		       g_stderr_verbosity : s_max_out_verbosity;
 	}
 
 	void set_thread_name(const char* name)
@@ -1334,9 +1354,10 @@ namespace loguru
 	}
 
 	LogScopeRAII::LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
-		: _verbosity(verbosity), _file(file), _line(line), _start_time_ns(now_ns())
+		: _verbosity(verbosity), _file(file), _line(line)
 	{
-		if ((int)verbosity <= g_verbosity) {
+		if ((int)verbosity <= current_verbosity_cutoff()) {
+			_start_time_ns = now_ns();
 			va_list vlist;
 			va_start(vlist, format);
 			vsnprintf(_name, sizeof(_name), format, vlist);
