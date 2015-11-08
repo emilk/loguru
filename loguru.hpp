@@ -699,10 +699,10 @@ This will define all the Loguru functions so that the linker may find them.
 	#include <pthread.h>
 #endif
 
-using namespace std::chrono;
-
 namespace loguru
 {
+	using namespace std::chrono;
+
 	struct Callback
 	{
 		std::string     id;
