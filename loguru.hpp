@@ -313,7 +313,10 @@ namespace loguru
 	template<>        inline Text format_value(const float& v)              { return strprintf("%f",   v); }
 	template<>        inline Text format_value(const double& v)             { return strprintf("%f",   v); }
 
-	// Convenience:
+	/* Thread names can be set for the benefit of readable logs.
+	   If you do not set the thread name, a hex id will be shown instead.
+	   These thread names may or may not be the same as the system thread names,
+	   depending on the system. */
 	void set_thread_name(const char* name);
 
 	/* Generates a readable stacktrace as a string.
@@ -697,6 +700,14 @@ This will define all the Loguru functions so that the linker may find them.
 
 #if LOGURU_PTHREADS
 	#include <pthread.h>
+
+	#ifdef __linux__
+		/* On Linux, the default thread name is the same as the name of the binary.
+		   Additionally, all new threads inherit the name of the thread it got forked from.
+		   For this reason, Loguru use the pthread Thread Local Storage
+		   for storing thread names on Linux. */
+		#define LOGURU_PTLS_NAMES 1
+	#endif
 #endif
 
 namespace loguru
@@ -757,6 +768,16 @@ namespace loguru
 
 	const int THREAD_NAME_WIDTH = 16;
 	const char* PREAMBLE_EXPLAIN = "date       time         ( uptime  ) [ thread name/id ]                   file:line     v| ";
+
+	#if LOGURU_PTLS_NAMES
+		pthread_once_t s_pthread_key_once = PTHREAD_ONCE_INIT;
+		pthread_key_t  s_pthread_key_name;
+
+		void make_pthread_key_name()
+		{
+			(void)pthread_key_create(&s_pthread_key_name, free);
+		}
+	#endif
 
 	// ------------------------------------------------------------------------------
 
@@ -899,8 +920,9 @@ namespace loguru
 
 		parse_args(argc, argv);
 
-		#if LOGURU_PTHREADS
-			// Set thread name, unless it is already set:
+		#if LOGURU_PTLS_NAMES
+			set_thread_name("main thread");
+		#elif LOGURU_PTHREADS
 			char old_thread_name[128] = {0};
 			auto this_thread = pthread_self();
 			pthread_getname_np(this_thread, old_thread_name, sizeof(old_thread_name));
@@ -1091,7 +1113,11 @@ namespace loguru
 
 	void set_thread_name(const char* name)
 	{
-		#if LOGURU_PTHREADS
+		#if LOGURU_PTLS_NAMES
+			(void)pthread_once(&s_pthread_key_once, make_pthread_key_name);
+			(void)pthread_setspecific(s_pthread_key_name, strdup(name));
+
+		#elif LOGURU_PTHREADS
 			#ifdef __APPLE__
 				pthread_setname_np(name);
 			#else
@@ -1101,6 +1127,14 @@ namespace loguru
 			(void)name;
 		#endif // LOGURU_PTHREADS
 	}
+
+#if LOGURU_PTLS_NAMES
+	const char* get_thread_name_ptls()
+	{
+		(void)pthread_once(&s_pthread_key_once, make_pthread_key_name);
+		return (const char*)pthread_getspecific(s_pthread_key_name);
+	}
+#endif // LOGURU_PTLS_NAMES
 
 	// ------------------------------------------------------------------------
 	// Stack traces
@@ -1235,9 +1269,18 @@ namespace loguru
 		auto uptime_sec = uptime_ms / 1000.0;
 
 		#if LOGURU_PTHREADS
-			auto thread = pthread_self();
 			char thread_name[THREAD_NAME_WIDTH + 1] = {0};
-			pthread_getname_np(thread, thread_name, sizeof(thread_name));
+
+			auto thread = pthread_self();
+			#if LOGURU_PTLS_NAMES
+				if (const char* name = get_thread_name_ptls()) {
+					snprintf(thread_name, sizeof(thread_name), "%s", name);
+				} else {
+					thread_name[0] = 0;
+				}
+			#else
+				pthread_getname_np(thread, thread_name, sizeof(thread_name));
+			#endif
 
 			if (thread_name[0] == 0) {
 				#ifdef __APPLE__
