@@ -56,11 +56,13 @@ void test_scopes()
 {
 	LOG_SCOPE_FUNCTION(INFO);
 
+	LOG_F(INFO, "Should be indented one step");
 	LOG_F(1, "First thing");
 	LOG_F(1, "Second thing");
 
 	{
-		LOG_SCOPE_F(1, "Some indentation");
+		LOG_SCOPE_F(1, "Some indentation at level 1");
+		LOG_F(INFO, "Should only be indented one more step iff verbosity is 1 or higher");
 		LOG_F(2, "Some info");
 		sleep_ms(123);
 	}

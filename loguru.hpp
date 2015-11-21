@@ -293,6 +293,7 @@ namespace loguru
 		Verbosity   _verbosity;
 		const char* _file; // Set to null if we are disabled due to verbosity
 		unsigned    _line;
+		bool        _indent_stderr; // Did we?
 		long long   _start_time_ns;
 		char        _name[128]; // Long enough to get most things, short enough not to clutter the stack.
 	};
@@ -719,8 +720,9 @@ namespace loguru
 		std::string     id;
 		log_handler_t   callback;
 		void*           user_data;
-		Verbosity       verbosity;
+		Verbosity       verbosity; // Does not change!
 		close_handler_t close;
+		int             indentation;
 	};
 
 	using CallbackVec = std::vector<Callback>;
@@ -740,7 +742,7 @@ namespace loguru
 	CallbackVec          s_callbacks;
 	fatal_handler_t      s_fatal_handler   = nullptr;
 	bool                 s_strip_file_path = true;
-	std::atomic<int>     s_indentation     { 0 };
+	std::atomic<int>     s_stderr_indentation { 0 };
 
 	const bool           s_terminal_has_color = [](){
 		#ifdef _MSC_VER
@@ -1087,7 +1089,7 @@ namespace loguru
 					  Verbosity verbosity, close_handler_t on_close)
 	{
 		std::lock_guard<std::recursive_mutex> lock(s_mutex);
-		s_callbacks.push_back(Callback{id, callback, user_data, verbosity, on_close});
+		s_callbacks.push_back(Callback{id, callback, user_data, verbosity, on_close, 0});
 		on_callback_change();
 	}
 
@@ -1318,10 +1320,14 @@ namespace loguru
 			file, line, level_buff);
 	}
 
-	static void log_message(const Message& message)
+	static void log_message(Message& message, bool with_indentation)
 	{
 		const auto verbosity = message.verbosity;
 		std::lock_guard<std::recursive_mutex> lock(s_mutex);
+
+		if (with_indentation) {
+			message.indentation = indentation(s_stderr_indentation);
+		}
 
 		if (g_alsologtostderr && verbosity <= g_stderr_verbosity) {
 			if (g_colorlogtostderr && s_terminal_has_color) {
@@ -1356,6 +1362,9 @@ namespace loguru
 
 		for (auto& p : s_callbacks) {
 			if (verbosity <= p.verbosity) {
+				if (with_indentation) {
+					message.indentation = indentation(p.indentation);
+				}
 				p.callback(p.user_data, message);
 			}
 		}
@@ -1368,9 +1377,9 @@ namespace loguru
 		print_preamble(preamble_buff, sizeof(preamble_buff), verbosity, file, line);
 
 		auto message =
-			Message{verbosity, file, line, preamble_buff, indentation(s_indentation), prefix, buff};
+			Message{verbosity, file, line, preamble_buff, "", prefix, buff};
 
-		log_message(message);
+		log_message(message, true);
 	}
 
 	void log_to_everywhere_v(Verbosity verbosity, const char* file, unsigned line, const char* prefix, const char* format, va_list vlist)
@@ -1392,21 +1401,32 @@ namespace loguru
 		va_start(vlist, format);
 		auto buff = strprintfv(format, vlist);
 		auto message = Message{verbosity, file, line, "", "", "", buff.c_str()};
-		log_message(message);
+		log_message(message, false);
 		va_end(vlist);
 	}
 
 	LogScopeRAII::LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
 		: _verbosity(verbosity), _file(file), _line(line)
 	{
-		if ((int)verbosity <= current_verbosity_cutoff()) {
+		if (verbosity <= current_verbosity_cutoff()) {
+			std::lock_guard<std::recursive_mutex> lock(s_mutex);
+			_indent_stderr = (verbosity <= g_stderr_verbosity);
 			_start_time_ns = now_ns();
 			va_list vlist;
 			va_start(vlist, format);
 			vsnprintf(_name, sizeof(_name), format, vlist);
 			log_to_everywhere(_verbosity, file, line, "{ ", _name);
 			va_end(vlist);
-			++s_indentation;
+
+			if (_indent_stderr) {
+				++s_stderr_indentation;
+			}
+
+			for (auto& p : s_callbacks) {
+				if (verbosity <= p.verbosity) {
+					++p.indentation;
+				}
+			}
 		} else {
 			_file = nullptr;
 		}
@@ -1415,7 +1435,17 @@ namespace loguru
 	LogScopeRAII::~LogScopeRAII()
 	{
 		if (_file) {
-			--s_indentation;
+			std::lock_guard<std::recursive_mutex> lock(s_mutex);
+			if (_indent_stderr) {
+				--s_stderr_indentation;
+			}
+			for (auto& p : s_callbacks) {
+				// Note: Callback indentation cannot change!
+				if (_verbosity <= p.verbosity) {
+					// std::max, in unlikely case this callback is new!
+					p.indentation = std::max(0, p.indentation - 1);
+				}
+			}
 			auto duration_sec = (now_ns() - _start_time_ns) / 1e9;
 			log(_verbosity, _file, _line, "} %.*f s: %s", SCOPE_TIME_PRECISION, duration_sec, _name);
 		}
