@@ -75,7 +75,7 @@ Website: www.ilikebigbits.com
 	loguru::g_colorlogtostderr = false;
 
 	// Thow exceptions instead of aborting on CHECK fails:
-	loguru::set_fatal_handler([](const char* message){ throw std::runtime_error(message); })
+	loguru::set_fatal_handler([](const char* message){ throw std::runtime_error(message.message); })
 
 	If you prefer logging with streams:
 
@@ -217,7 +217,7 @@ namespace loguru
 	typedef void (*close_handler_t)(void* user_data);
 
 	// May throw if that's how you'd like to handle your errors.
-	typedef void (*fatal_handler_t)(const char* message);
+	typedef void (*fatal_handler_t)(const Message& message);
 
 	/*  Should be called from the main thread.
 		You don't need to call this, but it's nice if you do.
@@ -381,7 +381,7 @@ namespace loguru
 	LOGURU_PREDICT_TRUE((test) == true) ? (void)0 : loguru::log_and_abort(0, "CHECK FAILED:  " info "  ", __FILE__,      \
 													   __LINE__, ##__VA_ARGS__)
 
-/* Checked at runtime too. Will print error, then call abort_handler (if any), then 'abort'.
+/* Checked at runtime too. Will print error, then call fatal_handler (if any), then 'abort'.
    Note that the test must be boolean.
    CHECK_F(ptr); will not compile, but CHECK_F(ptr != nullptr); will. */
 #define CHECK_F(test, ...) CHECK_WITH_INFO_F(test, #test, ##__VA_ARGS__)
@@ -1379,7 +1379,7 @@ namespace loguru
 
 		if (message.verbosity == Verbosity_FATAL) {
 			if (s_fatal_handler) {
-				s_fatal_handler(message.message);
+				s_fatal_handler(message);
 			}
 
 			abort();
