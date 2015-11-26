@@ -164,7 +164,9 @@ int main(int argc, char* argv[])
 	{
 		std::string test = argv[1];
 		if (test == "ABORT_F") {
-			ABORT_F("This is the end, beautiful friend");
+			ABORT_F("ABORT_F format message");
+		} else if (test == "ABORT_S") {
+			ABORT_S() << "ABORT_S stream message";
 		} else if (test == "assert") {
 			const char* ptr = 0;
 			assert(ptr && "Error that was unexpected");

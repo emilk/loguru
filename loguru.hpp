@@ -166,7 +166,7 @@ namespace loguru
 	{
 		Verbosity_NOTHING = -9, // If set as output, nothing is written
 
-		// Do not use FATAL yourself. Prefer to use ABORT_F over LOG_F(FATAL)
+		// Prefer to use ABORT_F over LOG_F(FATAL)
 		Verbosity_FATAL   = -3,
 		Verbosity_ERROR   = -2,
 		Verbosity_WARNING = -1,
@@ -371,11 +371,14 @@ namespace loguru
 
 #define LOG_SCOPE_FUNCTION(verbosity_name) LOG_SCOPE_F(verbosity_name, __PRETTY_FUNCTION__)
 
-// --------------------------------------------------------------------
-// Check/Abort macros
+// -----------------------------------------------
+// ABORT_F macro. Usage:  ABORT_F("Cause of error: %s", error_str);
 
 // Message is optional
 #define ABORT_F(...) loguru::log_and_abort(0, "ABORT: ", __FILE__, __LINE__, __VA_ARGS__)
+
+// --------------------------------------------------------------------
+// CHECK_F macros:
 
 #define CHECK_WITH_INFO_F(test, info, ...)                                                         \
 	LOGURU_PREDICT_TRUE((test) == true) ? (void)0 : loguru::log_and_abort(0, "CHECK FAILED:  " info "  ", __FILE__,      \
@@ -565,7 +568,12 @@ namespace loguru
 #define LOG_S(verbosity_name)          VLOG_S(loguru::Verbosity_ ## verbosity_name)
 
 // -----------------------------------------------
-// CHECKS:
+// ABORT_S macro. Usage:  ABORT_S() << "Causo of error: " << details;
+
+#define ABORT_S() loguru::Voidify() & loguru::AbortLogger("ABORT: ", __FILE__, __LINE__)
+
+// -----------------------------------------------
+// CHECK_S macros:
 
 #define CHECK_WITH_INFO_S(cond, info)                                                              \
 	LOGURU_PREDICT_TRUE((cond) == true)                                                            \
