@@ -25,6 +25,7 @@ Website: www.ilikebigbits.com
 	* Version 0.6 - 2015-10-24 - Add stack traces
 	* Version 0.7 - 2015-10-27 - Signals
 	* Version 0.8 - 2015-10-30 - Color logging.
+	* Version 0.9 - 2015-11-26 - ABORT_S and proper handling of FATAL
 
 # Compiling
 	Just include <loguru/loguru.hpp> where you want to use Loguru.
@@ -75,7 +76,9 @@ Website: www.ilikebigbits.com
 	loguru::g_colorlogtostderr = false;
 
 	// Thow exceptions instead of aborting on CHECK fails:
-	loguru::set_fatal_handler([](const char* message){ throw std::runtime_error(message.message); })
+	loguru::set_fatal_handler([](const loguru::Message& message){
+		throw std::runtime_error(message.message);
+	})
 
 	If you prefer logging with streams:
 
@@ -166,7 +169,7 @@ namespace loguru
 	{
 		Verbosity_NOTHING = -9, // If set as output, nothing is written
 
-		// Prefer to use ABORT_F over LOG_F(FATAL)
+		// Prefer to use ABORT_F or ABORT_S over LOG_F(FATAL) or LOG_S(FATAL).
 		Verbosity_FATAL   = -3,
 		Verbosity_ERROR   = -2,
 		Verbosity_WARNING = -1,
