@@ -299,7 +299,7 @@ namespace loguru
 	};
 
 	// Marked as 'noreturn' for the benefit of the static analyzer and optimizer.
-	// stack_strace_skip is the number of extrace stack frames to skip above log_and_abort.
+	// stack_trace_skip is the number of extrace stack frames to skip above log_and_abort.
 	void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(5, 6) LOGURU_NORETURN;
 	void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line) LOGURU_NORETURN;
 
@@ -1320,10 +1320,18 @@ namespace loguru
 			file, line, level_buff);
 	}
 
-	static void log_message(Message& message, bool with_indentation)
+	// stack_trace_skip is just if verbosity == FATAL.
+	static void log_message(int stack_trace_skip, Message& message, bool with_indentation)
 	{
 		const auto verbosity = message.verbosity;
 		std::lock_guard<std::recursive_mutex> lock(s_mutex);
+
+		if (message.verbosity == Verbosity_FATAL) {
+			auto st = loguru::stacktrace(stack_trace_skip + 2);
+			if (st.c_str() && st.c_str()[0]) {
+				RAW_LOG_F(ERROR, "Stack trace:\n%s", st.c_str());
+			}
+		}
 
 		if (with_indentation) {
 			message.indentation = indentation(s_stderr_indentation);
@@ -1368,31 +1376,34 @@ namespace loguru
 				p.callback(p.user_data, message);
 			}
 		}
+
+		if (message.verbosity == Verbosity_FATAL) {
+			if (s_fatal_handler) {
+				s_fatal_handler(message.message);
+			}
+
+			abort();
+		}
 	}
 
-	void log_to_everywhere(Verbosity verbosity, const char* file, unsigned line, const char* prefix,
-						   const char* buff)
+	// stack_trace_skip is just if verbosity == FATAL.
+	void log_to_everywhere(int stack_trace_skip, Verbosity verbosity,
+	                       const char* file, unsigned line,
+	                       const char* prefix, const char* buff)
 	{
 		char preamble_buff[128];
 		print_preamble(preamble_buff, sizeof(preamble_buff), verbosity, file, line);
-
-		auto message =
-			Message{verbosity, file, line, preamble_buff, "", prefix, buff};
-
-		log_message(message, true);
-	}
-
-	void log_to_everywhere_v(Verbosity verbosity, const char* file, unsigned line, const char* prefix, const char* format, va_list vlist)
-	{
-		auto buff = strprintfv(format, vlist);
-		log_to_everywhere(verbosity, file, line, prefix, buff.c_str());
+		auto message = Message{verbosity, file, line, preamble_buff, "", prefix, buff};
+		log_message(stack_trace_skip + 1, message, true);
 	}
 
 	void log(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
 	{
 		va_list vlist;
 		va_start(vlist, format);
-		log_to_everywhere_v(verbosity, file, line, "", format, vlist);
+		auto buff = strprintfv(format, vlist);
+		log_to_everywhere(1, verbosity, file, line, "", buff.c_str());
+		va_end(vlist);
 	}
 
 	void raw_log(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
@@ -1401,7 +1412,7 @@ namespace loguru
 		va_start(vlist, format);
 		auto buff = strprintfv(format, vlist);
 		auto message = Message{verbosity, file, line, "", "", "", buff.c_str()};
-		log_message(message, false);
+		log_message(1, message, false);
 		va_end(vlist);
 	}
 
@@ -1415,7 +1426,7 @@ namespace loguru
 			va_list vlist;
 			va_start(vlist, format);
 			vsnprintf(_name, sizeof(_name), format, vlist);
-			log_to_everywhere(_verbosity, file, line, "{ ", _name);
+			log_to_everywhere(1, _verbosity, file, line, "{ ", _name);
 			va_end(vlist);
 
 			if (_indent_stderr) {
@@ -1451,32 +1462,19 @@ namespace loguru
 		}
 	}
 
-	void log_and_abort(int stack_strace_skip, const char* expr, const char* file, unsigned line, const char* format, ...)
+	void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line, const char* format, ...)
 	{
 		va_list vlist;
 		va_start(vlist, format);
-
-		auto st = loguru::stacktrace(stack_strace_skip + 2);
-		if (st.c_str() && st.c_str()[0])
-		{
-			LOG_F(ERROR, "Stack trace:\n%s", st.c_str());
-		}
-
 		auto buff = strprintfv(format, vlist);
-		log_to_everywhere(Verbosity_FATAL, file, line, expr, buff.c_str());
-
+		log_to_everywhere(stack_trace_skip + 1, Verbosity_FATAL, file, line, expr, buff.c_str());
 		va_end(vlist);
-
-		if (s_fatal_handler) {
-			s_fatal_handler(buff.c_str());
-		}
-
-		abort();
+		abort(); // log_to_everywhere already does this, but this makes the analyzer happy.
 	}
 
-	void log_and_abort(int stack_strace_skip, const char* expr, const char* file, unsigned line)
+	void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line)
 	{
-		log_and_abort(stack_strace_skip + 1, expr, file, line, " ");
+		log_and_abort(stack_trace_skip + 1, expr, file, line, " ");
 	}
 } // namespace loguru
 

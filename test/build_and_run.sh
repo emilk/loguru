@@ -10,24 +10,35 @@ cd build
 cmake ..
 make
 
+function test_failure
+{
+    echo ""
+    ./loguru_test $1 && echo "Expected command to fail!" && exit 1
+    echo ""
+    echo ""
+}
+
+
 echo "---------------------------------------------------------"
 echo "Testing failures..."
 echo "---------------------------------------------------------"
-./loguru_test ABORT_F             && echo "Expected command to fail!" && exit 1
-./loguru_test assert              && echo "Expected command to fail!" && exit 1
-./loguru_test CHECK_NOTNULL_F     && echo "Expected command to fail!" && exit 1
-./loguru_test CHECK_F             && echo "Expected command to fail!" && exit 1
-./loguru_test CHECK_EQ_F_int      && echo "Expected command to fail!" && exit 1
-./loguru_test CHECK_EQ_F_unsigned && echo "Expected command to fail!" && exit 1
-./loguru_test CHECK_EQ_F_size_t   && echo "Expected command to fail!" && exit 1
-./loguru_test CHECK_EQ_F          && echo "Expected command to fail!" && exit 1
-./loguru_test CHECK_EQ_F_message  && echo "Expected command to fail!" && exit 1
-./loguru_test CHECK_EQ_F          && echo "Expected command to fail!" && exit 1
-./loguru_test CHECK_EQ_S          && echo "Expected command to fail!" && exit 1
-./loguru_test CHECK_LT_S          && echo "Expected command to fail!" && exit 1
-./loguru_test CHECK_LT_S_message  && echo "Expected command to fail!" && exit 1
-./loguru_test deep_abort          && echo "Expected command to fail!" && exit 1
-./loguru_test SIGSEGV             && echo "Expected command to fail!" && exit 1
+test_failure "ABORT_F"
+test_failure "assert"
+test_failure "LOG_F(FATAL)"
+test_failure "LOG_S(FATAL)"
+test_failure "CHECK_NOTNULL_F"
+test_failure "CHECK_F"
+test_failure "CHECK_EQ_F_int"
+test_failure "CHECK_EQ_F_unsigned"
+test_failure "CHECK_EQ_F_size_t"
+test_failure "CHECK_EQ_F"
+test_failure "CHECK_EQ_F_message"
+test_failure "CHECK_EQ_F"
+test_failure "CHECK_EQ_S"
+test_failure "CHECK_LT_S"
+test_failure "CHECK_LT_S_message"
+test_failure "deep_abort"
+test_failure "SIGSEGV"
 echo "---------------------------------------------------------"
 echo "ALL TESTS PASSED!"
 echo "---------------------------------------------------------"

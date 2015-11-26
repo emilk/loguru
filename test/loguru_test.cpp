@@ -168,6 +168,10 @@ int main(int argc, char* argv[])
 		} else if (test == "assert") {
 			const char* ptr = 0;
 			assert(ptr && "Error that was unexpected");
+		} else if (test == "LOG_F(FATAL)") {
+			LOG_F(FATAL, "Fatal format message");
+		} else if (test == "LOG_S(FATAL)") {
+			LOG_S(FATAL) << "Fatal stream message";
 		} else if (test == "CHECK_NOTNULL_F") {
 			const char* ptr = 0;
 			CHECK_NOTNULL_F(ptr);
