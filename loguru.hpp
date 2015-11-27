@@ -328,6 +328,51 @@ namespace loguru
 	   For instance, the default skip (1) means:
 	   don't include the call to loguru::stacktrace in the stack trace. */
 	Text stacktrace(int skip = 1);
+
+	// ------------------------------------------------------------------------
+	/*
+	Not all terminals support colors, but if they do, and g_colorlogtostderr
+	is set, Loguru will write them to stderr to make errors in red, etc.
+
+	You also have the option to manually use them, via the function below.
+
+	Note, however, that if you do, the color codes could end up in your logfile!
+
+	This means if you intend to use them functions you should either:
+		* Use them on the stderr/stdout directly (bypass Loguru).
+		* Don't add file outputs to Loguru.
+		* Expect some \e[1m things in your logfile.
+
+	Usage:
+		printf("%sRed%sGreen%sBold green%sClear again\n",
+			   loguru::terminal_red(), loguru::terminal_green(),
+			   loguru::terminal_bold(), loguru::terminal_reset());
+
+	If the terminal at hand does not support colors the above output
+	will just not have funky \e[1m things showing.
+	*/
+
+	// Do the output terminal support colors?
+	bool terminal_has_color();
+
+	// Colors
+	const char* terminal_black();
+	const char* terminal_red();
+	const char* terminal_green();
+	const char* terminal_yellow();
+	const char* terminal_blue();
+	const char* terminal_purple();
+	const char* terminal_cyan();
+	const char* terminal_light_gray();
+	const char* terminal_light_red();
+	const char* terminal_white();
+
+	// Formating
+	const char* terminal_bold();
+	const char* terminal_underline();
+
+	// You should end each line with this!
+	const char* terminal_reset();
 } // namespace loguru
 
 // --------------------------------------------------------------------
@@ -772,13 +817,6 @@ namespace loguru
 		#endif
 	}();
 
-	const auto TERMINAL_BOLD       = s_terminal_has_color ? "\e[1m"  : "";
-	const auto TERMINAL_DIM        = s_terminal_has_color ? "\e[2m"  : "";
-	const auto TERMINAL_LIGHT_GRAY = s_terminal_has_color ? "\e[37m" : "";
-	const auto TERMINAL_LIGHT_RED  = s_terminal_has_color ? "\e[91m" : "";
-	const auto TERMINAL_RED        = s_terminal_has_color ? "\e[31m" : "";
-	const auto TERMINAL_RESET_ALL  = s_terminal_has_color ? "\e[0m"  : "";
-
 	const int THREAD_NAME_WIDTH = 16;
 	const char* PREAMBLE_EXPLAIN = "date       time         ( uptime  ) [ thread name/id ]                   file:line     v| ";
 
@@ -791,6 +829,31 @@ namespace loguru
 			(void)pthread_key_create(&s_pthread_key_name, free);
 		}
 	#endif
+
+	// ------------------------------------------------------------------------------
+	// Colors
+
+	bool terminal_has_color() { return s_terminal_has_color; }
+
+	// Colors
+	const char* terminal_black()      { return s_terminal_has_color ? "\e[30m" : ""; }
+	const char* terminal_red()        { return s_terminal_has_color ? "\e[31m" : ""; }
+	const char* terminal_green()      { return s_terminal_has_color ? "\e[32m" : ""; }
+	const char* terminal_yellow()     { return s_terminal_has_color ? "\e[33m" : ""; }
+	const char* terminal_blue()       { return s_terminal_has_color ? "\e[34m" : ""; }
+	const char* terminal_purple()     { return s_terminal_has_color ? "\e[35m" : ""; }
+	const char* terminal_cyan()       { return s_terminal_has_color ? "\e[36m" : ""; }
+	const char* terminal_light_gray() { return s_terminal_has_color ? "\e[37m" : ""; }
+	const char* terminal_white()      { return s_terminal_has_color ? "\e[37m" : ""; }
+	const char* terminal_light_red()  { return s_terminal_has_color ? "\e[91m" : ""; }
+	const char* terminal_dim()        { return s_terminal_has_color ? "\e[2m"  : ""; }
+
+	// Formating
+	const char* terminal_bold()       { return s_terminal_has_color ? "\e[1m" : ""; }
+	const char* terminal_underline()  { return s_terminal_has_color ? "\e[4m" : ""; }
+
+	// You should end each line with this!
+	const char* terminal_reset()      { return s_terminal_has_color ? "\e[0m" : ""; }
 
 	// ------------------------------------------------------------------------------
 
@@ -950,7 +1013,7 @@ namespace loguru
 
 		if (g_alsologtostderr) {
 			if (g_colorlogtostderr && s_terminal_has_color) {
-				fprintf(stderr, "%s%s%s\n", TERMINAL_RESET_ALL, TERMINAL_DIM, PREAMBLE_EXPLAIN);
+				fprintf(stderr, "%s%s%s\n", terminal_reset(), terminal_dim(), PREAMBLE_EXPLAIN);
 			} else {
 				fprintf(stderr, "%s\n", PREAMBLE_EXPLAIN);
 			}
@@ -1352,25 +1415,25 @@ namespace loguru
 			if (g_colorlogtostderr && s_terminal_has_color) {
 				if (verbosity > Verbosity_WARNING) {
 					fprintf(stderr, "%s%s%s%s%s%s%s%s%s\n",
-						TERMINAL_RESET_ALL,
-						TERMINAL_DIM,
+						terminal_reset(),
+						terminal_dim(),
 						message.preamble,
 						message.indentation,
-						TERMINAL_RESET_ALL,
-						verbosity == Verbosity_INFO ? TERMINAL_BOLD : TERMINAL_LIGHT_GRAY,
+						terminal_reset(),
+						verbosity == Verbosity_INFO ? terminal_bold() : terminal_light_gray(),
 						message.prefix,
 						message.message,
-						TERMINAL_RESET_ALL);
+						terminal_reset());
 				} else {
 					fprintf(stderr, "%s%s%s%s%s%s%s%s\n",
-						TERMINAL_RESET_ALL,
-						TERMINAL_BOLD,
-						verbosity == Verbosity_WARNING ? TERMINAL_RED : TERMINAL_LIGHT_RED,
+						terminal_reset(),
+						terminal_bold(),
+						verbosity == Verbosity_WARNING ? terminal_red() : terminal_light_red(),
 						message.preamble,
 						message.indentation,
 						message.prefix,
 						message.message,
-						TERMINAL_RESET_ALL);
+						terminal_reset());
 				}
 			} else {
 				fprintf(stderr, "%s%s%s%s\n",
@@ -1549,9 +1612,9 @@ namespace loguru
 	void signal_handler(int signal_number, siginfo_t*, void*)
 	{
 		if (g_colorlogtostderr && s_terminal_has_color) {
-			write_to_stderr(TERMINAL_RESET_ALL);
-			write_to_stderr(TERMINAL_BOLD);
-			write_to_stderr(TERMINAL_LIGHT_RED);
+			write_to_stderr(terminal_reset());
+			write_to_stderr(terminal_bold());
+			write_to_stderr(terminal_light_red());
 		}
 
 		for (const auto& s : ALL_SIGNALS) {
@@ -1569,7 +1632,7 @@ namespace loguru
 		write_to_stderr("\n");
 
 		if (g_colorlogtostderr && s_terminal_has_color) {
-			write_to_stderr(TERMINAL_RESET_ALL);
+			write_to_stderr(terminal_reset());
 		}
 
 		call_default_signal_handler(signal_number);

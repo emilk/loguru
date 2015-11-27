@@ -116,6 +116,7 @@ int main_test(int argc, char* argv[])
 		LOG_IF_F(WARNING, result == BAD, "Bad result");
 	}
 	LOG_F(INFO, "Time to go!");
+
 	return 0;
 }
 
