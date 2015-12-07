@@ -677,6 +677,32 @@ namespace loguru
 #endif // NDEBUG
 
 #if LOGURU_REPLACE_GLOG
+	#undef LOG
+	#undef VLOG
+	#undef LOG_IF
+	#undef VLOG_IF
+	#undef CHECK
+	#undef CHECK_NOTNULL
+	#undef CHECK_EQ
+	#undef CHECK_NE
+	#undef CHECK_LT
+	#undef CHECK_LE
+	#undef CHECK_GT
+	#undef CHECK_GE
+	#undef DLOG
+	#undef DVLOG
+	#undef DLOG_IF
+	#undef DVLOG_IF
+	#undef DCHECK
+	#undef DCHECK_NOTNULL
+	#undef DCHECK_EQ
+	#undef DCHECK_NE
+	#undef DCHECK_LT
+	#undef DCHECK_LE
+	#undef DCHECK_GT
+	#undef DCHECK_GE
+	#undef VLOG_IS_ON
+
 	#define LOG            LOG_S
 	#define VLOG           VLOG_S
 	#define LOG_IF         LOG_IF_S
@@ -701,12 +727,12 @@ namespace loguru
 	#define DCHECK_LE      DCHECK_LE_S
 	#define DCHECK_GT      DCHECK_GT_S
 	#define DCHECK_GE      DCHECK_GE_S
+	#define VLOG_IS_ON(verbosity) ((verbosity) <= loguru::current_verbosity_cutoff())
 
 	#define FLAGS_v                loguru::g_stderr_verbosity
 	#define FLAGS_alsologtostderr  loguru::g_alsologtostderr
 	#define FLAGS_colorlogtostderr loguru::g_colorlogtostderr
 
-	#define VLOG_IS_ON(verbosity) ((verbosity) <= loguru::current_verbosity_cutoff())
 #endif // LOGURU_REPLACE_GLOG
 
 #endif // LOGURU_WITH_STREAMS || LOGURU_REPLACE_GLOG
