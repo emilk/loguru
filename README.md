@@ -217,3 +217,8 @@ Loguru allows you to use whatever style you prefer.
 * Test on Windows.
 * Rename ERROR to avoid conflict with windows.h macro?
 * File-only logging: LOG_F(FILE, "Always written to file, never to stderr")
+* Windows limitations:
+	* No thread naming.
+	* No colored terminal output.
+	* No stack-traces (you can add them yourself with `loguru::set_fatal_handler`).
+	* No signal handlers.

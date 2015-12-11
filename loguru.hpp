@@ -772,14 +772,23 @@ This will define all the Loguru functions so that the linker may find them.
 	#include <direct.h>
 #else
 	#include <sys/stat.h> // mkdir
-	#define LOGURU_PTHREADS 1
 #endif
 
-#ifdef __GNUG__
+// TODO: use defined(_POSIX_VERSION) for some of these things?
+
+#ifdef _WIN32
+	#define LOGURU_PTHREADS    0
+	#define LOGURU_STACKTRACES 0
+#else
+	#define LOGURU_PTHREADS    1
+	#define LOGURU_STACKTRACES 1
+#endif
+
+#if LOGURU_STACKTRACES
 	#include <cxxabi.h>    // for __cxa_demangle
 	#include <dlfcn.h>     // for dladdr
 	#include <execinfo.h>  // for backtrace
-#endif // __GNUG__
+#endif // LOGURU_STACKTRACES
 
 #if LOGURU_PTHREADS
 	#include <pthread.h>
@@ -1241,7 +1250,7 @@ namespace loguru
 	// ------------------------------------------------------------------------
 	// Stack traces
 
-#ifdef __GNUG__
+#if LOGURU_STACKTRACES
 	std::string demangle(const char* name)
 	{
 		int status = -1;
@@ -1342,14 +1351,14 @@ namespace loguru
 		return prettify_stacktrace(result);
 	}
 
-#else // __GNUG__
+#else // LOGURU_STACKTRACES
 	std::string stacktrace_as_stdstring(int)
 	{
 		#warning "Loguru: No stacktraces available on this platform"
 		return "";
 	}
 
-#endif // __GNUG__
+#endif // LOGURU_STACKTRACES
 
 	Text stacktrace(int skip)
 	{
