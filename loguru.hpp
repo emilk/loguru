@@ -923,7 +923,7 @@ namespace loguru
 		int bytes_needed = vsnprintf(nullptr, 0, format, vlist);
 		CHECK_F(bytes_needed >= 0, "Bad string format: '%s'", format);
 		char* buff = (char*)malloc(bytes_needed + 1);
-		vsnprintf(str.data(), bytes_needed, format, vlist);
+		vsnprintf(buff, bytes_needed, format, vlist);
 		return buff;
 #else
 		char* buff = nullptr;
