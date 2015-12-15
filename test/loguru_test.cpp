@@ -2,6 +2,8 @@
 #include <string>
 #include <thread>
 
+#include <fstream>
+
 #define LOGURU_WITH_STREAMS 1
 #define LOGURU_REDEFINE_ASSERT 1
 #define LOGURU_IMPLEMENTATION 1
@@ -10,16 +12,16 @@
 void the_one_where_the_problem_is(const std::vector<std::string>& v) {
 	ABORT_F("Abort deep in stack trace, msg: %s", v[0].c_str());
 }
-void deep_abort_1(const std::string& str) { the_one_where_the_problem_is({str}); }
-void deep_abort_2(const std::string& str) { deep_abort_1(str); }
-void deep_abort_3(const std::string& str) { deep_abort_2(str); }
-void deep_abort_4(const std::string& str) { deep_abort_3(str); }
-void deep_abort_5(const std::string& str) { deep_abort_4(str); }
-void deep_abort_6(const std::string& str) { deep_abort_5(str); }
-void deep_abort_7(const std::string& str) { deep_abort_6(str); }
-void deep_abort_8(const std::string& str) { deep_abort_7(str); }
-void deep_abort_9(const std::string& str) { deep_abort_8(str); }
-void deep_abort_10(const std::string& str) { deep_abort_9(str); }
+void deep_abort_1(const std::vector<std::string>& v) { the_one_where_the_problem_is(v); }
+void deep_abort_2(const std::vector<std::string>& v) { deep_abort_1(v); }
+void deep_abort_3(const std::vector<std::string>& v) { deep_abort_2(v); }
+void deep_abort_4(const std::vector<std::string>& v) { deep_abort_3(v); }
+void deep_abort_5(const std::vector<std::string>& v) { deep_abort_4(v); }
+void deep_abort_6(const std::vector<std::string>& v) { deep_abort_5(v); }
+void deep_abort_7(const std::vector<std::string>& v) { deep_abort_6(v); }
+void deep_abort_8(const std::vector<std::string>& v) { deep_abort_7(v); }
+void deep_abort_9(const std::vector<std::string>& v) { deep_abort_8(v); }
+void deep_abort_10(const std::vector<std::string>& v) { deep_abort_9(v); }
 
 void sleep_ms(int ms)
 {
@@ -140,6 +142,12 @@ void test_hang_0()
 void test_hang_1() { test_hang_0(); }
 void test_hang_2() { test_hang_1(); }
 
+// void die(std::ofstream& of)
+// {
+// 	(void)of;
+// 	test_hang_2();
+// }
+
 int main(int argc, char* argv[])
 {
 	if (argc > 1 && argv[1] == std::string("test"))
@@ -148,6 +156,11 @@ int main(int argc, char* argv[])
 	}
 
 	loguru::init(argc, argv);
+
+	// auto verbose_type_name = loguru::demangle(typeid(std::ofstream).name());
+	// loguru::add_stack_cleanup(verbose_type_name.c_str(), "std::ofstream");
+	// std::ofstream os;
+	// die(os);
 
 	if (argc == 1)
 	{
@@ -209,7 +222,7 @@ int main(int argc, char* argv[])
 			CHECK_EQ_S(always_increasing(),  1) << "Should pass";
 			CHECK_EQ_S(always_increasing(), 42) << "Should fail!";
 		} else if (test == "deep_abort") {
-			deep_abort_10("deep_abort");
+			deep_abort_10({"deep_abort"});
 		} else if (test == "SIGSEGV") {
 			test_SIGSEGV_2();
 		} else if (test == "hang") {

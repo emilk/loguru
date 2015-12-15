@@ -329,6 +329,23 @@ namespace loguru
 	   don't include the call to loguru::stacktrace in the stack trace. */
 	Text stacktrace(int skip = 1);
 
+	/*  Add a string to be replaced with something else in the stack output.
+
+		For instance, instead of having a stack trace look like this:
+			0x41f541 some_function(std::basic_ofstream<char, std::char_traits<char> >&)
+		You can clean it up with:
+			auto verbose_type_name = loguru::demangle(typeid(std::ofstream).name());
+			loguru::add_stack_cleanup(verbose_type_name.c_str(); "std::ofstream");
+		So the next time you will instead see:
+			0x41f541 some_function(std::ofstream&)
+
+		`replace_with_this` must be shorter than `find_this`.
+	*/
+	void add_stack_cleanup(const char* find_this, const char* replace_with_this);
+
+	// Example: demangle(typeid(std::ofstream).name()) -> "std::basic_ofstream<char, std::char_traits<char> >"
+	Text demangle(const char* name);
+
 	// ------------------------------------------------------------------------
 	/*
 	Not all terminals support colors, but if they do, and g_colorlogtostderr
@@ -818,6 +835,9 @@ namespace loguru
 
 	using CallbackVec = std::vector<Callback>;
 
+	using StringPair     = std::pair<std::string, std::string>;
+	using StringPairList = std::vector<StringPair>;
+
 	const auto SCOPE_TIME_PRECISION = 3; // 3=ms, 6≈us, 9=ns
 
 	const auto s_start_time = system_clock::now();
@@ -832,6 +852,7 @@ namespace loguru
 	std::string          s_file_arguments;
 	CallbackVec          s_callbacks;
 	fatal_handler_t      s_fatal_handler   = nullptr;
+	StringPairList       s_user_stack_cleanups;
 	bool                 s_strip_file_path = true;
 	std::atomic<int>     s_stderr_indentation { 0 };
 
@@ -1185,6 +1206,17 @@ namespace loguru
 		s_fatal_handler = handler;
 	}
 
+	void add_stack_cleanup(const char* find_this, const char* replace_with_this)
+	{
+		if (strlen(find_this) <= strlen(replace_with_this))
+		{
+			LOG_F(WARNING, "add_stack_cleanup: the replacement should be shorter than the pattern!");
+			return;
+		}
+
+		s_user_stack_cleanups.push_back(StringPair(find_this, replace_with_this));
+	}
+
 	static void on_callback_change()
 	{
 		s_max_out_verbosity = Verbosity_NOTHING;
@@ -1251,22 +1283,20 @@ namespace loguru
 	// Stack traces
 
 #if LOGURU_STACKTRACES
-	std::string demangle(const char* name)
+	Text demangle(const char* name)
 	{
 		int status = -1;
 		char* demangled = abi::__cxa_demangle(name, 0, 0, &status);
-		std::string result = (status == 0 ? demangled : name);
-		free(demangled);
+		Text result{status == 0 ? demangled : strdup(name)};
 		return result;
 	}
 
 	template <class T>
 	std::string type_name() {
-		return demangle(typeid(T).name());
+		auto demangled = demangle(typeid(T).name());
+		return demangled.c_str();
 	}
 
-	using StringPair     = std::pair<std::string, std::string>;
-	using StringPairList = std::vector<StringPair>;
 	static const StringPairList REPLACE_LIST = {
 		{ type_name<std::string>(),    "std::string"    },
 		{ type_name<std::wstring>(),   "std::wstring"   },
@@ -1277,21 +1307,27 @@ namespace loguru
 		{ "__cdecl ",                  ""               },
 	};
 
-	std::string prettify_stacktrace(const std::string& input)
+	void do_replacements(const StringPairList& replacements, std::string& str)
 	{
-		std::string output = input;
-
-		for (auto&& p : REPLACE_LIST) {
+		for (auto&& p : replacements) {
 			if (p.first.size() <= p.second.size()) {
 				// On gcc, "type_name<std::string>()" is "std::string"
 				continue;
 			}
 
 			size_t it;
-			while ((it=output.find(p.first)) != std::string::npos) {
-				output.replace(it, p.first.size(), p.second);
+			while ((it=str.find(p.first)) != std::string::npos) {
+				str.replace(it, p.first.size(), p.second);
 			}
 		}
+	}
+
+	std::string prettify_stacktrace(const std::string& input)
+	{
+		std::string output = input;
+
+		do_replacements(s_user_stack_cleanups, output);
+		do_replacements(REPLACE_LIST, output);
 
 		try {
 			std::regex std_allocator_re(R"(,\s*std::allocator<[^<>]+>)");
@@ -1352,6 +1388,11 @@ namespace loguru
 	}
 
 #else // LOGURU_STACKTRACES
+	Text demangle(const char* name)
+	{
+		return name;
+	}
+
 	std::string stacktrace_as_stdstring(int)
 	{
 		#warning "Loguru: No stacktraces available on this platform"
