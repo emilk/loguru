@@ -1084,14 +1084,14 @@ namespace loguru
 		atexit(on_atexit);
 	}
 
-	void write_date_time(char* buff, unsigned buff_size)
+	void write_date_time(char* buff, size_t buff_size)
 	{
 		auto now = system_clock::now();
-		time_t ms_since_epoch = duration_cast<milliseconds>(now.time_since_epoch()).count();
-		time_t sec_since_epoch = ms_since_epoch / 1000;
+		long long ms_since_epoch = duration_cast<milliseconds>(now.time_since_epoch()).count();
+		time_t sec_since_epoch = time_t(ms_since_epoch / 1000);
 		tm time_info;
 		localtime_r(&sec_since_epoch, &time_info);
-		snprintf(buff, buff_size, "%04d%02d%02d_%02d%02d%02d.%03ld",
+		snprintf(buff, buff_size, "%04d%02d%02d_%02d%02d%02d.%03lld",
 			1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday,
 			time_info.tm_hour, time_info.tm_min, time_info.tm_sec, ms_since_epoch % 1000);
 	}
@@ -1120,7 +1120,7 @@ namespace loguru
 		}
 
 		// Check for terminating /
-		auto n = strlen(buff);
+		size_t n = strlen(buff);
 		if (n != 0) {
 			if (buff[n - 1] != '/') {
 				CHECK_F(n + 2 < buff_size, "Filename buffer too small");
@@ -1412,8 +1412,8 @@ namespace loguru
 	static void print_preamble(char* out_buff, size_t out_buff_size, Verbosity verbosity, const char* file, unsigned line)
 	{
 		auto now = system_clock::now();
-		time_t ms_since_epoch = duration_cast<milliseconds>(now.time_since_epoch()).count();
-		time_t sec_since_epoch = ms_since_epoch / 1000;
+		auto ms_since_epoch = duration_cast<milliseconds>(now.time_since_epoch()).count();
+		time_t sec_since_epoch = time_t(ms_since_epoch / 1000);
 		tm time_info;
 		localtime_r(&sec_since_epoch, &time_info);
 
@@ -1462,7 +1462,7 @@ namespace loguru
 			snprintf(level_buff, sizeof(level_buff) - 1, "% 4d", verbosity);
 		}
 
-		snprintf(out_buff, out_buff_size, "%04d-%02d-%02d %02d:%02d:%02d.%03ld (%8.3fs) [%-*s]%23s:%-5u %4s| ",
+		snprintf(out_buff, out_buff_size, "%04d-%02d-%02d %02d:%02d:%02d.%03lld (%8.3fs) [%-*s]%23s:%-5u %4s| ",
 			1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday,
 			time_info.tm_hour, time_info.tm_min, time_info.tm_sec, ms_since_epoch % 1000,
 			uptime_sec,
