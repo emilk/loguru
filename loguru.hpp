@@ -1453,11 +1453,11 @@ namespace loguru
 
 		char level_buff[6];
 		if (verbosity <= Verbosity_FATAL) {
-			strcpy(level_buff, "FATL");
+			snprintf(level_buff, sizeof(level_buff) - 1, "FATL");
 		} else if (verbosity == Verbosity_ERROR) {
-			strcpy(level_buff, "ERR");
+			snprintf(level_buff, sizeof(level_buff) - 1, "ERR");
 		} else if (verbosity == Verbosity_WARNING) {
-			strcpy(level_buff, "WARN");
+			snprintf(level_buff, sizeof(level_buff) - 1, "WARN");
 		} else {
 			snprintf(level_buff, sizeof(level_buff) - 1, "% 4d", verbosity);
 		}
