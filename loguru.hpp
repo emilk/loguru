@@ -1412,7 +1412,7 @@ namespace loguru
 	static void print_preamble(char* out_buff, size_t out_buff_size, Verbosity verbosity, const char* file, unsigned line)
 	{
 		auto now = system_clock::now();
-		auto ms_since_epoch = duration_cast<milliseconds>(now.time_since_epoch()).count();
+		long long ms_since_epoch = duration_cast<milliseconds>(now.time_since_epoch()).count();
 		time_t sec_since_epoch = time_t(ms_since_epoch / 1000);
 		tm time_info;
 		localtime_r(&sec_since_epoch, &time_info);
@@ -1693,13 +1693,18 @@ namespace loguru
 			write_to_stderr(terminal_light_red());
 		}
 
+		const char* signal_name = "UNKNOWN SIGNAL";
+
 		for (const auto& s : ALL_SIGNALS) {
 			if (s.number == signal_number) {
-				write_to_stderr("\n");
-				write_to_stderr(s.name);
-				write_to_stderr("\n");
+				signal_name = s.name;
+				break;
 			}
 		}
+
+		write_to_stderr("\n");
+		write_to_stderr(signal_name);
+		write_to_stderr("\n");
 
 		/* This is theoretically unsafe to call from a signal handler,
 		   but in practice it seems like no problem on my Mac. */
@@ -1709,6 +1714,18 @@ namespace loguru
 
 		if (g_colorlogtostderr && s_terminal_has_color) {
 			write_to_stderr(terminal_reset());
+		}
+
+		if (s_fatal_handler) {
+			Message message;
+			message.verbosity   = Verbosity_FATAL;
+			message.filename    = "";
+			message.line        = 0;
+			message.preamble    = "";
+			message.indentation = "";
+			message.prefix      = "SIGNAL CAUGHT";
+			message.message     = signal_name;
+			s_fatal_handler(message);
 		}
 
 		call_default_signal_handler(signal_number);
