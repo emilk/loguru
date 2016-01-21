@@ -1471,7 +1471,7 @@ namespace loguru
 	}
 
 	// stack_trace_skip is just if verbosity == FATAL.
-	static void log_message(int stack_trace_skip, Message& message, bool with_indentation)
+	static void log_message(int stack_trace_skip, Message& message, bool with_indentation, bool abort_if_fatal)
 	{
 		const auto verbosity = message.verbosity;
 		std::lock_guard<std::recursive_mutex> lock(s_mutex);
@@ -1532,7 +1532,9 @@ namespace loguru
 				s_fatal_handler(message);
 			}
 
-			abort();
+			if (abort_if_fatal) {
+				abort();
+			}
 		}
 	}
 
@@ -1544,7 +1546,7 @@ namespace loguru
 		char preamble_buff[128];
 		print_preamble(preamble_buff, sizeof(preamble_buff), verbosity, file, line);
 		auto message = Message{verbosity, file, line, preamble_buff, "", prefix, buff};
-		log_message(stack_trace_skip + 1, message, true);
+		log_message(stack_trace_skip + 1, message, true, true);
 	}
 
 	void log(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
@@ -1562,7 +1564,7 @@ namespace loguru
 		va_start(vlist, format);
 		auto buff = strprintfv(format, vlist);
 		auto message = Message{verbosity, file, line, "", "", "", buff.c_str()};
-		log_message(1, message, false);
+		log_message(1, message, false, true);
 		va_end(vlist);
 	}
 
@@ -1687,12 +1689,6 @@ namespace loguru
 
 	void signal_handler(int signal_number, siginfo_t*, void*)
 	{
-		if (g_colorlogtostderr && s_terminal_has_color) {
-			write_to_stderr(terminal_reset());
-			write_to_stderr(terminal_bold());
-			write_to_stderr(terminal_light_red());
-		}
-
 		const char* signal_name = "UNKNOWN SIGNAL";
 
 		for (const auto& s : ALL_SIGNALS) {
@@ -1702,31 +1698,32 @@ namespace loguru
 			}
 		}
 
+		// --------------------------------------------------------------------
+		/* There are few things that are safe to do in a signal handler,
+		   but writing to stderr is one of them.
+		   So we first print out what happened to stderr so we're sure that gets out,
+		   then we do the unsafe things, like logging the stack trace.
+		   In practice, I've never seen any problems with doing these unsafe things in the signal handler.
+		*/
+
+		if (g_colorlogtostderr && s_terminal_has_color) {
+			write_to_stderr(terminal_reset());
+			write_to_stderr(terminal_bold());
+			write_to_stderr(terminal_light_red());
+		}
 		write_to_stderr("\n");
 		write_to_stderr(signal_name);
 		write_to_stderr("\n");
-
-		/* This is theoretically unsafe to call from a signal handler,
-		   but in practice it seems like no problem on my Mac. */
-		auto st = stacktrace(2);
-		write_to_stderr(st.c_str());
-		write_to_stderr("\n");
-
 		if (g_colorlogtostderr && s_terminal_has_color) {
 			write_to_stderr(terminal_reset());
 		}
 
-		if (s_fatal_handler) {
-			Message message;
-			message.verbosity   = Verbosity_FATAL;
-			message.filename    = "";
-			message.line        = 0;
-			message.preamble    = "";
-			message.indentation = "";
-			message.prefix      = "SIGNAL CAUGHT";
-			message.message     = signal_name;
-			s_fatal_handler(message);
-		}
+		// --------------------------------------------------------------------
+
+		char preamble_buff[128];
+		print_preamble(preamble_buff, sizeof(preamble_buff), Verbosity_FATAL, "", 0);
+		auto message = Message{Verbosity_FATAL, "", 0, preamble_buff, "", "SIGNAL: ", signal_name};
+		log_message(1, message, false, false);
 
 		call_default_signal_handler(signal_number);
 	}

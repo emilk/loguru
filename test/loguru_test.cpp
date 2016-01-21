@@ -226,6 +226,7 @@ int main(int argc, char* argv[])
 		} else if (test == "SIGSEGV") {
 			test_SIGSEGV_2();
 		} else if (test == "hang") {
+			loguru::add_file("hang.log", loguru::Truncate, loguru::Verbosity_INFO);
 			test_hang_2();
 		} else {
 			LOG_F(ERROR, "Unknown test: '%s'", test.c_str());
