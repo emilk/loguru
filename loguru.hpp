@@ -688,7 +688,7 @@ namespace loguru
 	#define DLOG_IF_S(verbosity_name, cond) DVLOG_IF_S(loguru::Verbosity_ ## verbosity_name, cond)
 	#define DVLOG_S(verbosity)              DVLOG_IF_S(verbosity, true)
 	#define DLOG_S(verbosity_name)          DVLOG_S(loguru::Verbosity_ ## verbosity_name)
-	#define DCHECK_S(cond)                  CHECK_S(true || cond)
+	#define DCHECK_S(cond)                  CHECK_S(true || (cond))
 	#define DCHECK_NOTNULL_S(x)             CHECK_S(true || (x) != nullptr)
 	#define DCHECK_EQ_S(a, b)               CHECK_S(true || (a) == (b))
 	#define DCHECK_NE_S(a, b)               CHECK_S(true || (a) != (b))
