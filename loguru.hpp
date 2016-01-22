@@ -481,6 +481,7 @@ namespace loguru
 #define CHECK_GE_F(a, b, ...) CHECK_OP_F(a, b, >=, ##__VA_ARGS__)
 
 #ifndef NDEBUG
+	// Debug:
 	#define DLOG_F(verbosity_name, ...)     LOG_F(verbosity_name, __VA_ARGS__)
 	#define DVLOG_F(verbosity, ...)         VLOG_F(verbosity, __VA_ARGS__)
 	#define DLOG_IF_F(verbosity_name, ...)  LOG_IF_F(verbosity_name, __VA_ARGS__)
@@ -496,6 +497,7 @@ namespace loguru
 	#define DCHECK_GT_F(a, b, ...)          CHECK_GT_F(a, b, ##__VA_ARGS__)
 	#define DCHECK_GE_F(a, b, ...)          CHECK_GE_F(a, b, ##__VA_ARGS__)
 #else // NDEBUG
+	// Release:
 	#define DLOG_F(verbosity_name, ...)
 	#define DVLOG_F(verbosity, ...)
 	#define DLOG_IF_F(verbosity_name, ...)
@@ -515,6 +517,7 @@ namespace loguru
 #ifdef LOGURU_REDEFINE_ASSERT
 	#undef assert
 	#ifndef NDEBUG
+		// Debug:
 		#define assert(test) CHECK_WITH_INFO_F(!!(test), #test) // HACK
 	#else
 		#define assert(test)
@@ -662,6 +665,7 @@ namespace loguru
 #define CHECK_GT_S(expr1, expr2) CHECK_OP_S(check_GT_impl, expr1, > , expr2)
 
 #ifndef NDEBUG
+	// Debug:
 	#define DVLOG_IF_S(verbosity, cond)     VLOG_IF_S(verbosity, cond)
 	#define DLOG_IF_S(verbosity_name, cond) LOG_IF_S(verbosity_name, cond)
 	#define DVLOG_S(verbosity)              VLOG_S(verbosity)
@@ -675,6 +679,7 @@ namespace loguru
 	#define DCHECK_GT_S(a, b)               CHECK_GT_S(a, b)
 	#define DCHECK_GE_S(a, b)               CHECK_GE_S(a, b)
 #else // NDEBUG
+	// Release:
 	#define DVLOG_IF_S(verbosity, cond)                                                     \
 		(true || verbosity > loguru::current_verbosity_cutoff() || (cond) == false)                        \
 			? (void)0                                                                       \
@@ -683,14 +688,14 @@ namespace loguru
 	#define DLOG_IF_S(verbosity_name, cond) DVLOG_IF_S(loguru::Verbosity_ ## verbosity_name, cond)
 	#define DVLOG_S(verbosity)              DVLOG_IF_S(verbosity, true)
 	#define DLOG_S(verbosity_name)          DVLOG_S(loguru::Verbosity_ ## verbosity_name)
-	#define DCHECK_S(cond)                  while (false) CHECK(cond)
-	#define DCHECK_NOTNULL_S(x)             while (false) CHECK((x) != nullptr)
-	#define DCHECK_EQ_S(a, b)               while (false) CHECK_EQ_S(a, b)
-	#define DCHECK_NE_S(a, b)               while (false) CHECK_NE_S(a, b)
-	#define DCHECK_LT_S(a, b)               while (false) CHECK_LT_S(a, b)
-	#define DCHECK_LE_S(a, b)               while (false) CHECK_LE_S(a, b)
-	#define DCHECK_GT_S(a, b)               while (false) CHECK_GT_S(a, b)
-	#define DCHECK_GE_S(a, b)               while (false) CHECK_GE_S(a, b)
+	#define DCHECK_S(cond)                  CHECK_S(true || cond)
+	#define DCHECK_NOTNULL_S(x)             CHECK_S(true || (x) != nullptr)
+	#define DCHECK_EQ_S(a, b)               CHECK_S(true || (a) == (b))
+	#define DCHECK_NE_S(a, b)               CHECK_S(true || (a) != (b))
+	#define DCHECK_LT_S(a, b)               CHECK_S(true || (a) <  (b))
+	#define DCHECK_LE_S(a, b)               CHECK_S(true || (a) <= (b))
+	#define DCHECK_GT_S(a, b)               CHECK_S(true || (a) >  (b))
+	#define DCHECK_GE_S(a, b)               CHECK_S(true || (a) >= (b))
 #endif // NDEBUG
 
 #if LOGURU_REPLACE_GLOG
