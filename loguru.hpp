@@ -113,6 +113,12 @@ Website: www.ilikebigbits.com
 #ifndef LOGURU_HEADER_HPP
 #define LOGURU_HEADER_HPP
 
+#ifndef LOGURU_SCOPE_TEXT_SIZE
+	// Maximum length of text that can be pritned by a LOG_SCOPE.
+	// This hould be long enough to get most things, but short enough not to clutter the stack.
+	#define LOGURU_SCOPE_TEXT_SIZE 196
+#endif
+
 #if defined(__clang__) || defined(__GNUC__)
 	// Helper macro for declaring functions as having similar signature to printf.
 	// This allows the compiler to catch format errors at compile-time.
@@ -298,7 +304,7 @@ namespace loguru
 		unsigned    _line;
 		bool        _indent_stderr; // Did we?
 		long long   _start_time_ns;
-		char        _name[128]; // Long enough to get most things, short enough not to clutter the stack.
+		char        _name[LOGURU_SCOPE_TEXT_SIZE];
 	};
 
 	// Marked as 'noreturn' for the benefit of the static analyzer and optimizer.
