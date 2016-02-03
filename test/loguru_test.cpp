@@ -132,6 +132,14 @@ void test_SIGSEGV_0()
 void test_SIGSEGV_1() { test_SIGSEGV_0(); }
 void test_SIGSEGV_2() { test_SIGSEGV_1(); }
 
+void test_abort_0()
+{
+	LOG_F(INFO, "Calling std::abort");
+	std::abort();
+}
+void test_abort_1() { test_abort_0(); }
+void test_abort_2() { test_abort_1(); }
+
 void test_hang_0()
 {
 	LOG_F(INFO, "Press ctrl-C to kill.");
@@ -225,6 +233,8 @@ int main(int argc, char* argv[])
 			deep_abort_10({"deep_abort"});
 		} else if (test == "SIGSEGV") {
 			test_SIGSEGV_2();
+		} else if (test == "abort") {
+			test_abort_2();
 		} else if (test == "hang") {
 			test_hang_2();
 		} else {

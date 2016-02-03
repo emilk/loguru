@@ -119,6 +119,11 @@ Website: www.ilikebigbits.com
 	#define LOGURU_SCOPE_TEXT_SIZE 196
 #endif
 
+#ifndef LOGURU_CATCH_SIGABRT
+	// Should Loguru catch SIGABRT to print stack trace etc?
+	#define LOGURU_CATCH_SIGABRT 1
+#endif
+
 #if defined(__clang__) || defined(__GNUC__)
 	// Helper macro for declaring functions as having similar signature to printf.
 	// This allows the compiler to catch format errors at compile-time.
@@ -799,7 +804,9 @@ This will define all the Loguru functions so that the linker may find them.
 #ifdef _MSC_VER
 	#include <direct.h>
 #else
+	#include <signal.h>
 	#include <sys/stat.h> // mkdir
+	#include <unistd.h>   // STDERR_FILENO
 #endif
 
 // TODO: use defined(_POSIX_VERSION) for some of these things?
@@ -1544,6 +1551,10 @@ namespace loguru
 			}
 
 			if (abort_if_fatal) {
+#if LOGURU_CATCH_SIGABRT && !defined(_WIN32)
+				// Make sure we don't catch our own abort:
+				signal(SIGABRT, SIG_DFL);
+#endif
 				abort();
 			}
 		}
@@ -1658,9 +1669,6 @@ namespace loguru {
 
 #else // _WIN32
 
-#include <signal.h>
-#include <unistd.h> // STDERR_FILENO
-
 namespace loguru
 {
 	struct Signal {
@@ -1668,7 +1676,9 @@ namespace loguru
 		const char* name;
 	};
 	const Signal ALL_SIGNALS[] = {
-		// { SIGABRT, "SIGABRT" },
+#if LOGURU_CATCH_SIGABRT
+		{ SIGABRT, "SIGABRT" },
+#endif
 		{ SIGBUS,  "SIGBUS"  },
 		{ SIGFPE,  "SIGFPE"  },
 		{ SIGILL,  "SIGILL"  },
@@ -1723,6 +1733,7 @@ namespace loguru
 			write_to_stderr(terminal_light_red());
 		}
 		write_to_stderr("\n");
+		write_to_stderr("Loguru caught a signal: ");
 		write_to_stderr(signal_name);
 		write_to_stderr("\n");
 		if (g_colorlogtostderr && s_terminal_has_color) {
@@ -1733,7 +1744,7 @@ namespace loguru
 
 		char preamble_buff[128];
 		print_preamble(preamble_buff, sizeof(preamble_buff), Verbosity_FATAL, "", 0);
-		auto message = Message{Verbosity_FATAL, "", 0, preamble_buff, "", "SIGNAL: ", signal_name};
+		auto message = Message{Verbosity_FATAL, "", 0, preamble_buff, "", "Signal: ", signal_name};
 		log_message(1, message, false, false);
 
 		call_default_signal_handler(signal_number);
