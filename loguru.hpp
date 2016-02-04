@@ -113,6 +113,17 @@ Website: www.ilikebigbits.com
 #ifndef LOGURU_HEADER_HPP
 #define LOGURU_HEADER_HPP
 
+#ifndef LOGURU_SCOPE_TEXT_SIZE
+	// Maximum length of text that can be pritned by a LOG_SCOPE.
+	// This hould be long enough to get most things, but short enough not to clutter the stack.
+	#define LOGURU_SCOPE_TEXT_SIZE 196
+#endif
+
+#ifndef LOGURU_CATCH_SIGABRT
+	// Should Loguru catch SIGABRT to print stack trace etc?
+	#define LOGURU_CATCH_SIGABRT 1
+#endif
+
 #if defined(__clang__) || defined(__GNUC__)
 	// Helper macro for declaring functions as having similar signature to printf.
 	// This allows the compiler to catch format errors at compile-time.
@@ -298,7 +309,7 @@ namespace loguru
 		unsigned    _line;
 		bool        _indent_stderr; // Did we?
 		long long   _start_time_ns;
-		char        _name[128]; // Long enough to get most things, short enough not to clutter the stack.
+		char        _name[LOGURU_SCOPE_TEXT_SIZE];
 	};
 
 	// Marked as 'noreturn' for the benefit of the static analyzer and optimizer.
@@ -481,6 +492,7 @@ namespace loguru
 #define CHECK_GE_F(a, b, ...) CHECK_OP_F(a, b, >=, ##__VA_ARGS__)
 
 #ifndef NDEBUG
+	// Debug:
 	#define DLOG_F(verbosity_name, ...)     LOG_F(verbosity_name, __VA_ARGS__)
 	#define DVLOG_F(verbosity, ...)         VLOG_F(verbosity, __VA_ARGS__)
 	#define DLOG_IF_F(verbosity_name, ...)  LOG_IF_F(verbosity_name, __VA_ARGS__)
@@ -496,6 +508,7 @@ namespace loguru
 	#define DCHECK_GT_F(a, b, ...)          CHECK_GT_F(a, b, ##__VA_ARGS__)
 	#define DCHECK_GE_F(a, b, ...)          CHECK_GE_F(a, b, ##__VA_ARGS__)
 #else // NDEBUG
+	// Release:
 	#define DLOG_F(verbosity_name, ...)
 	#define DVLOG_F(verbosity, ...)
 	#define DLOG_IF_F(verbosity_name, ...)
@@ -515,6 +528,7 @@ namespace loguru
 #ifdef LOGURU_REDEFINE_ASSERT
 	#undef assert
 	#ifndef NDEBUG
+		// Debug:
 		#define assert(test) CHECK_WITH_INFO_F(!!(test), #test) // HACK
 	#else
 		#define assert(test)
@@ -662,6 +676,7 @@ namespace loguru
 #define CHECK_GT_S(expr1, expr2) CHECK_OP_S(check_GT_impl, expr1, > , expr2)
 
 #ifndef NDEBUG
+	// Debug:
 	#define DVLOG_IF_S(verbosity, cond)     VLOG_IF_S(verbosity, cond)
 	#define DLOG_IF_S(verbosity_name, cond) LOG_IF_S(verbosity_name, cond)
 	#define DVLOG_S(verbosity)              VLOG_S(verbosity)
@@ -675,6 +690,7 @@ namespace loguru
 	#define DCHECK_GT_S(a, b)               CHECK_GT_S(a, b)
 	#define DCHECK_GE_S(a, b)               CHECK_GE_S(a, b)
 #else // NDEBUG
+	// Release:
 	#define DVLOG_IF_S(verbosity, cond)                                                     \
 		(true || verbosity > loguru::current_verbosity_cutoff() || (cond) == false)                        \
 			? (void)0                                                                       \
@@ -683,14 +699,14 @@ namespace loguru
 	#define DLOG_IF_S(verbosity_name, cond) DVLOG_IF_S(loguru::Verbosity_ ## verbosity_name, cond)
 	#define DVLOG_S(verbosity)              DVLOG_IF_S(verbosity, true)
 	#define DLOG_S(verbosity_name)          DVLOG_S(loguru::Verbosity_ ## verbosity_name)
-	#define DCHECK_S(cond)                  while (false) CHECK(cond)
-	#define DCHECK_NOTNULL_S(x)             while (false) CHECK((x) != nullptr)
-	#define DCHECK_EQ_S(a, b)               while (false) CHECK_EQ_S(a, b)
-	#define DCHECK_NE_S(a, b)               while (false) CHECK_NE_S(a, b)
-	#define DCHECK_LT_S(a, b)               while (false) CHECK_LT_S(a, b)
-	#define DCHECK_LE_S(a, b)               while (false) CHECK_LE_S(a, b)
-	#define DCHECK_GT_S(a, b)               while (false) CHECK_GT_S(a, b)
-	#define DCHECK_GE_S(a, b)               while (false) CHECK_GE_S(a, b)
+	#define DCHECK_S(cond)                  CHECK_S(true || (cond))
+	#define DCHECK_NOTNULL_S(x)             CHECK_S(true || (x) != nullptr)
+	#define DCHECK_EQ_S(a, b)               CHECK_S(true || (a) == (b))
+	#define DCHECK_NE_S(a, b)               CHECK_S(true || (a) != (b))
+	#define DCHECK_LT_S(a, b)               CHECK_S(true || (a) <  (b))
+	#define DCHECK_LE_S(a, b)               CHECK_S(true || (a) <= (b))
+	#define DCHECK_GT_S(a, b)               CHECK_S(true || (a) >  (b))
+	#define DCHECK_GE_S(a, b)               CHECK_S(true || (a) >= (b))
 #endif // NDEBUG
 
 #if LOGURU_REPLACE_GLOG
@@ -788,7 +804,9 @@ This will define all the Loguru functions so that the linker may find them.
 #ifdef _MSC_VER
 	#include <direct.h>
 #else
+	#include <signal.h>
 	#include <sys/stat.h> // mkdir
+	#include <unistd.h>   // STDERR_FILENO
 #endif
 
 // TODO: use defined(_POSIX_VERSION) for some of these things?
@@ -1533,6 +1551,10 @@ namespace loguru
 			}
 
 			if (abort_if_fatal) {
+#if LOGURU_CATCH_SIGABRT && !defined(_WIN32)
+				// Make sure we don't catch our own abort:
+				signal(SIGABRT, SIG_DFL);
+#endif
 				abort();
 			}
 		}
@@ -1647,9 +1669,6 @@ namespace loguru {
 
 #else // _WIN32
 
-#include <signal.h>
-#include <unistd.h> // STDERR_FILENO
-
 namespace loguru
 {
 	struct Signal {
@@ -1657,7 +1676,9 @@ namespace loguru
 		const char* name;
 	};
 	const Signal ALL_SIGNALS[] = {
-		// { SIGABRT, "SIGABRT" },
+#if LOGURU_CATCH_SIGABRT
+		{ SIGABRT, "SIGABRT" },
+#endif
 		{ SIGBUS,  "SIGBUS"  },
 		{ SIGFPE,  "SIGFPE"  },
 		{ SIGILL,  "SIGILL"  },
@@ -1712,6 +1733,7 @@ namespace loguru
 			write_to_stderr(terminal_light_red());
 		}
 		write_to_stderr("\n");
+		write_to_stderr("Loguru caught a signal: ");
 		write_to_stderr(signal_name);
 		write_to_stderr("\n");
 		if (g_colorlogtostderr && s_terminal_has_color) {
@@ -1722,7 +1744,7 @@ namespace loguru
 
 		char preamble_buff[128];
 		print_preamble(preamble_buff, sizeof(preamble_buff), Verbosity_FATAL, "", 0);
-		auto message = Message{Verbosity_FATAL, "", 0, preamble_buff, "", "SIGNAL: ", signal_name};
+		auto message = Message{Verbosity_FATAL, "", 0, preamble_buff, "", "Signal: ", signal_name};
 		log_message(1, message, false, false);
 
 		call_default_signal_handler(signal_number);
