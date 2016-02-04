@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 
+#define LOGURU_FLUSH_INTERVAL_MS 100 // Try commenting this line
 #define LOGURU_WITH_STREAMS 1
 #define LOGURU_REDEFINE_ASSERT 1
 #define LOGURU_IMPLEMENTATION 1
@@ -60,6 +61,7 @@ void format_strings()
 	for (size_t i = 0; i < kNumIterations; ++i) {
 		LOG_F(WARNING, "Some long, complex message.");
 	}
+	loguru::flush();
 }
 
 void format_float()
@@ -67,6 +69,7 @@ void format_float()
 	for (size_t i = 0; i < kNumIterations; ++i) {
 		LOG_F(WARNING, "%+05.3f", kPi);
 	}
+	loguru::flush();
 }
 
 void stream_strings()
@@ -74,6 +77,7 @@ void stream_strings()
 	for (size_t i = 0; i < kNumIterations; ++i) {
 		LOG_S(WARNING) << "Some long, complex message.";
 	}
+	loguru::flush();
 }
 
 void stream_float()
@@ -81,6 +85,7 @@ void stream_float()
 	for (size_t i = 0; i < kNumIterations; ++i) {
 		LOG_S(WARNING) << std::setfill('0') << std::setw(5) << std::setprecision(3) << kPi;
 	}
+	loguru::flush();
 }
 
 void raw_string_float()
@@ -88,6 +93,7 @@ void raw_string_float()
 	for (size_t i = 0; i < kNumIterations; ++i) {
 		RAW_LOG_F(WARNING, "Some long, complex message.");
 	}
+	loguru::flush();
 }
 
 int main(int argc, char* argv[])

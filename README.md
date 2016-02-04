@@ -41,22 +41,27 @@ In particular, I want logging that produces logs that are both human-readable an
 * (most) signals writes stack traces.
 
 * Fast:
-	* Around  3us per call with no log file (just stderr).
-	* Around 10us extra per log file.
-	* About 25%-75% faster than GLOG on my MacBook Pro (Clang).
-	* About the same as GLOG on my Linux Disktop (GCC).
+	- When configured in unbuffered mode (LOGURU_FLUSH_INTERVAL_MS not set):
+		+ 6-8 us when logging to stderr + file (rMBP + SSD + Clang).
+		+ About 25%-75% faster than GLOG on my MacBook Pro (Clang).
+		+ About the same as GLOG on my Linux Disktop (GCC).
+	- With LOGURU_FLUSH_INTERVAL_MS set to ~100 ms:
+		+ 3-5 us when logging to stderr + file (rMBP + SSD + Clang).
+		+ About twice as fast as GLOG.
 * Drop-in replacement for most of GLOG (except for setup code).
-* Choose between using printf-style formatting or streams.
+* Choose between using printf-style or std::cout-style formatting.
 * Compile-time checked printf-formating (on supported compilers).
 * Assertion failures are marked with `noreturn` for the benefit of the static analyzer and optimizer.
 * All logging also written to stderr.
 	* With colors on supported terminals.
 * Thread-safe.
-* Flushes output on each call so you won't miss anything even on hard crashes (and still faster than buffered GLOG!).
+* Can be configured to either:
+	* Flush every `LOGURU_FLUSH_INTERVAL_MS` in a background thread
+	* Flushes output on each call so you won't miss anything even on hard crashes (and still faster than buffered GLOG!).
 * Prefixes each log line with:
 	* Date and time to millisecond precision.
 	* Application uptime to millisecond precision.
-	* Thread name or id.
+	* Thread name or id (you can set the name with `loguru::set_thread_name`).
 	* File and line.
 	* Log level.
 	* Indentation (see *Scopes*).

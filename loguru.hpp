@@ -104,6 +104,11 @@ Website: www.ilikebigbits.com
 		including #defining LOG, CHECK, FLAGS_v etc.
 		LOGURU_REPLACE_GLOG imlies LOGURU_WITH_STREAMS.
 
+	You can also configure:
+	LOGURU_FLUSH_INTERVAL_MS:
+		If set, Loguru will flush outputs every LOGURU_FLUSH_INTERVAL_MS ms.
+		If not set, Loguru will flush on every line.
+
 # Notes:
 	* Any arguments to CHECK:s are only evaluated once.
 	* Any arguments to LOG functions or LOG_SCOPE are only evaluated iff the verbosity test passes.
@@ -229,6 +234,7 @@ namespace loguru
 	// May not throw!
 	typedef void (*log_handler_t)(void* user_data, const Message& message);
 	typedef void (*close_handler_t)(void* user_data);
+	typedef void (*flush_handler_t)(void* user_data);
 
 	// May throw if that's how you'd like to handle your errors.
 	typedef void (*fatal_handler_t)(const Message& message);
@@ -277,7 +283,9 @@ namespace loguru
 		Useful for displaying messages on-screen in a game, for example.
 	*/
 	void add_callback(const char* id, log_handler_t callback, void* user_data,
-					  Verbosity verbosity, close_handler_t on_close = nullptr);
+					  Verbosity verbosity,
+					  close_handler_t on_close = nullptr,
+					  flush_handler_t on_flush = nullptr);
 	void remove_callback(const char* id);
 
 	// Returns the maximum of g_stderr_verbosity and all file/custom outputs.
@@ -316,6 +324,11 @@ namespace loguru
 	// stack_trace_skip is the number of extrace stack frames to skip above log_and_abort.
 	void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(5, 6) LOGURU_NORETURN;
 	void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line) LOGURU_NORETURN;
+
+	// Flush output to stderr and files.
+	// If LOGURU_FLUSH_INTERVAL_MS is set, this will be called automatically this often.
+	// If not set, you do not need to call this at al.
+	void flush();
 
 	template<class T> inline Text format_value(const T&)                    { return strprintf("N/A");     }
 	template<>        inline Text format_value(const char& v)               { return strprintf("%c",   v); }
@@ -801,6 +814,10 @@ This will define all the Loguru functions so that the linker may find them.
 #include <string>
 #include <vector>
 
+#if LOGURU_FLUSH_INTERVAL_MS
+	#include <thread>
+#endif
+
 #ifdef _MSC_VER
 	#include <direct.h>
 #else
@@ -848,6 +865,7 @@ namespace loguru
 		void*           user_data;
 		Verbosity       verbosity; // Does not change!
 		close_handler_t close;
+		flush_handler_t flush;
 		int             indentation;
 	};
 
@@ -873,6 +891,11 @@ namespace loguru
 	StringPairList       s_user_stack_cleanups;
 	bool                 s_strip_file_path = true;
 	std::atomic<int>     s_stderr_indentation { 0 };
+
+#if LOGURU_FLUSH_INTERVAL_MS
+	std::thread*         s_flush_thread = nullptr;
+	bool                 s_needs_flushing = false;
+#endif
 
 	const bool           s_terminal_has_color = [](){
 		#ifdef _MSC_VER
@@ -936,13 +959,21 @@ namespace loguru
 		FILE* file = reinterpret_cast<FILE*>(user_data);
 		fprintf(file, "%s%s%s%s\n",
 			message.preamble, message.indentation, message.prefix, message.message);
-		fflush(file);
+		#ifndef LOGURU_FLUSH_INTERVAL_MS
+			fflush(file);
+		#endif
 	}
 
 	void file_close(void* user_data)
 	{
 		FILE* file = reinterpret_cast<FILE*>(user_data);
 		fclose(file);
+	}
+
+	void file_flush(void* user_data)
+	{
+		FILE* file = reinterpret_cast<FILE*>(user_data);
+		fflush(file);
 	}
 
 	// ------------------------------------------------------------------------------
@@ -1052,6 +1083,7 @@ namespace loguru
 	static void on_atexit()
 	{
 		LOG_F(INFO, "atexit");
+		flush();
 	}
 
 	void install_signal_handlers();
@@ -1203,7 +1235,7 @@ namespace loguru
 			LOG_F(ERROR, "Failed to open '%s'", path);
 			return false;
 		}
-		add_callback(path, file_log, file, verbosity, file_close);
+		add_callback(path, file_log, file, verbosity, file_close, file_flush);
 
 		if (mode == FileMode::Append) {
 			fprintf(file, "\n\n\n\n\n");
@@ -1245,10 +1277,10 @@ namespace loguru
 	}
 
 	void add_callback(const char* id, log_handler_t callback, void* user_data,
-					  Verbosity verbosity, close_handler_t on_close)
+					  Verbosity verbosity, close_handler_t on_close, flush_handler_t on_flush)
 	{
 		std::lock_guard<std::recursive_mutex> lock(s_mutex);
-		s_callbacks.push_back(Callback{id, callback, user_data, verbosity, on_close, 0});
+		s_callbacks.push_back(Callback{id, callback, user_data, verbosity, on_close, on_flush, 0});
 		on_callback_change();
 	}
 
@@ -1533,7 +1565,12 @@ namespace loguru
 				fprintf(stderr, "%s%s%s%s\n",
 					message.preamble, message.indentation, message.prefix, message.message);
 			}
-			fflush(stderr);
+
+			#ifdef LOGURU_FLUSH_INTERVAL_MS
+				s_needs_flushing = true;
+			#else
+				fflush(stderr);
+			#endif
 		}
 
 		for (auto& p : s_callbacks) {
@@ -1542,12 +1579,31 @@ namespace loguru
 					message.indentation = indentation(p.indentation);
 				}
 				p.callback(p.user_data, message);
+				#ifdef LOGURU_FLUSH_INTERVAL_MS
+					s_needs_flushing = true;
+				#endif
 			}
 		}
 
+		#ifdef LOGURU_FLUSH_INTERVAL_MS
+			if (!s_flush_thread) {
+				s_flush_thread = new std::thread([](){
+					for (;;) {
+						if (s_needs_flushing) {
+							flush();
+						}
+						std::this_thread::sleep_for(std::chrono::milliseconds(LOGURU_FLUSH_INTERVAL_MS));
+					}
+				});
+			}
+		#endif
+
 		if (message.verbosity == Verbosity_FATAL) {
+			flush();
+
 			if (s_fatal_handler) {
 				s_fatal_handler(message);
+				flush();
 			}
 
 			if (abort_if_fatal) {
@@ -1588,6 +1644,19 @@ namespace loguru
 		auto message = Message{verbosity, file, line, "", "", "", buff.c_str()};
 		log_message(1, message, false, true);
 		va_end(vlist);
+	}
+
+	void flush()
+	{
+		std::lock_guard<std::recursive_mutex> lock(s_mutex);
+		fflush(stderr);
+		for (const auto& callback : s_callbacks)
+		{
+			callback.flush(callback.user_data);
+		}
+		#ifdef LOGURU_FLUSH_INTERVAL_MS
+			s_needs_flushing = false;
+		#endif
 	}
 
 	LogScopeRAII::LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
@@ -1742,10 +1811,12 @@ namespace loguru
 
 		// --------------------------------------------------------------------
 
+		flush();
 		char preamble_buff[128];
 		print_preamble(preamble_buff, sizeof(preamble_buff), Verbosity_FATAL, "", 0);
 		auto message = Message{Verbosity_FATAL, "", 0, preamble_buff, "", "Signal: ", signal_name};
 		log_message(1, message, false, false);
+		flush();
 
 		call_default_signal_handler(signal_number);
 	}
