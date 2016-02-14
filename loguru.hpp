@@ -26,6 +26,7 @@ Website: www.ilikebigbits.com
 	* Version 0.7 - 2015-10-27 - Signals
 	* Version 0.8 - 2015-10-30 - Color logging.
 	* Version 0.9 - 2015-11-26 - ABORT_S and proper handling of FATAL
+	* Verison 1.0 - 2015-02-14 - ERROR_CONTEXT
 
 # Compiling
 	Just include <loguru/loguru.hpp> where you want to use Loguru.
@@ -118,6 +119,8 @@ Website: www.ilikebigbits.com
 #ifndef LOGURU_HEADER_HPP
 #define LOGURU_HEADER_HPP
 
+// ----------------------------------------------------------------------------
+
 #ifndef LOGURU_SCOPE_TEXT_SIZE
 	// Maximum length of text that can be pritned by a LOG_SCOPE.
 	// This hould be long enough to get most things, but short enough not to clutter the stack.
@@ -127,6 +130,24 @@ Website: www.ilikebigbits.com
 #ifndef LOGURU_CATCH_SIGABRT
 	// Should Loguru catch SIGABRT to print stack trace etc?
 	#define LOGURU_CATCH_SIGABRT 1
+#endif
+
+// The data of ERROR_CONTEXT must fit in LOGURU_EC_DATA_SIZE bytes.
+// If your data does not fit, maybe a pointer to it will?
+#ifndef LOGURU_EC_DATA_SIZE
+	#define LOGURU_EC_DATA_SIZE sizeof(long double)
+#endif
+
+// --------------------------------------------------------------------
+// Utility macros
+
+#define LOGURU_CONCATENATE_IMPL(s1, s2) s1 ## s2
+#define LOGURU_CONCATENATE(s1, s2) LOGURU_CONCATENATE_IMPL(s1, s2)
+
+#ifdef __COUNTER__
+#   define LOGURU_ANONYMOUS_VARIABLE(str) LOGURU_CONCATENATE(str, __COUNTER__)
+#else
+#   define LOGURU_ANONYMOUS_VARIABLE(str) LOGURU_CONCATENATE(str, __LINE__)
 #endif
 
 #if defined(__clang__) || defined(__GNUC__)
@@ -148,6 +169,8 @@ Website: www.ilikebigbits.com
 #define LOGURU_PREDICT_FALSE(x) (__builtin_expect(x,     0))
 #define LOGURU_PREDICT_TRUE(x)  (__builtin_expect(!!(x), 1))
 
+// --------------------------------------------------------------------
+
 namespace loguru
 {
 	// Simple RAII ownership of a char*.
@@ -156,12 +179,17 @@ namespace loguru
 	public:
 		explicit Text(char* owned_str) : _str(owned_str) {}
 		~Text();
-		Text(Text&& t);
+		Text(Text&& t)
+		{
+			_str = t._str;
+			t._str = nullptr;
+		}
 		Text(Text& t) = delete;
 		Text& operator=(Text& t) = delete;
 		void operator=(Text&& t) = delete;
 
 		const char* c_str() const { return _str; }
+		bool empty() const { return _str == nullptr || *_str == '\0'; }
 
 	private:
 		char* _str;
@@ -253,6 +281,9 @@ namespace loguru
 	   That is, if argv[0] is "../foo/app" this will return "app".
 	*/
 	const char* argv0_filename();
+
+	// Returns the part of the path after the last / or \ (if any).
+	const char* filename(const char* path);
 
 	// Writes date and time with millisecond precision, e.g. "20151017_161503.123"
 	void write_date_time(char* buff, unsigned buff_size);
@@ -414,14 +445,153 @@ namespace loguru
 
 	// You should end each line with this!
 	const char* terminal_reset();
+
+	// --------------------------------------------------------------------
+	// Error-context related:
+
+	struct EcData { char data[LOGURU_EC_DATA_SIZE]; };
+
+	struct StringStream;
+
+	// Use this in your ec_printer_impl overload.
+	void stream_print(StringStream* string_stream, const char* text);
+
+
+	template<typename T>
+	inline EcData as_ec_data(const T& value)
+	{
+		static_assert(sizeof(T) <= sizeof(EcData),
+			"Data too large - consider using a pointer or increase LOGURU_EC_DATA_SIZE.");
+		return *reinterpret_cast<const EcData*>(&value);
+	}
+
+	template<typename T>
+	inline T from_ec_data(const EcData& ec_data)
+	{
+		static_assert(sizeof(T) <= sizeof(EcData),
+			"Data too large - consider using a pointer or increase LOGURU_EC_DATA_SIZE.");
+		return *reinterpret_cast<const T*>(&ec_data);
+	}
+
+	using EcPrinter = void(*)(StringStream* string_stream, EcData ec_data);
+
+	struct EcPayload
+	{
+		EcData    _ec_data;
+		EcPrinter _printer;
+	};
+
+	struct ErrorContextScope
+	{
+		ErrorContextScope(const char* file, unsigned line, const char* desc, EcPayload&& se);
+		~ErrorContextScope();
+		ErrorContextScope(ErrorContextScope&) = delete;
+		ErrorContextScope(ErrorContextScope&&) = delete;
+		ErrorContextScope& operator=(ErrorContextScope&) = delete;
+		ErrorContextScope& operator=(ErrorContextScope&&) = delete;
+	};
+
+	/* 	A stack trace gives you the names of the function at the point of a crash.
+	    With ERROR_CONTEXT, you can also get the values of select local variables.
+	    Usage:
+
+	    void process_customers(const std::string& filename)
+	    {
+	        ERROR_CONTEXT("Processing file", filename.c_str());
+	        for (int customer_index : ...)
+	        {
+	        	ERROR_CONTEXT("Customer index", customer_index);
+	        	...
+	        }
+	    }
+
+	    The context is in effect during the scope of the ERROR_CONTEXT.
+	    To get the contents of the stack, use get_error_context().
+
+	    Example result:
+
+	    ------------------------------------------------
+	    [ErrorContext]                main.cpp:416   Processing file:    'customers.json'
+	    [ErrorContext]                main.cpp:417   Customer index:     42
+	    ------------------------------------------------
+
+	    Error contexts are printed automatically on crashes.
+	*/
+	#define ERROR_CONTEXT(descr, data)                                              \
+		loguru::ErrorContextScope LOGURU_ANONYMOUS_VARIABLE(error_context_scope_)(  \
+			__FILE__, __LINE__, descr, loguru::make_ec_payload(data)                \
+		)
+
+	// Get a string describing the current stack of error context. Empty string if there is none.
+	Text get_error_context();
+
+	// These are called when the get_error_context() is called.
+	template<typename T>
+	void ec_printer_impl(StringStream* string_stream, T ec_data);
+
+	template<typename T>
+	inline void ec_format(StringStream* string_stream, EcData ec_data)
+	{
+		ec_printer_impl(string_stream, from_ec_data<T>(ec_data));
+	}
+
+	// ------------------------------------------------------------------------
+
+	#define LOGURU_DECLARE_EC_TYPE(Type)                   \
+		inline EcPayload make_ec_payload(Type data) {       \
+			return { as_ec_data(data), ec_format<Type> };  \
+		}
+
+	LOGURU_DECLARE_EC_TYPE(const char*);
+	LOGURU_DECLARE_EC_TYPE(char);
+	LOGURU_DECLARE_EC_TYPE(int);
+	LOGURU_DECLARE_EC_TYPE(unsigned int);
+	LOGURU_DECLARE_EC_TYPE(long);
+	LOGURU_DECLARE_EC_TYPE(unsigned long);
+	LOGURU_DECLARE_EC_TYPE(long long);
+	LOGURU_DECLARE_EC_TYPE(unsigned long long);
+	LOGURU_DECLARE_EC_TYPE(float);
+	LOGURU_DECLARE_EC_TYPE(double);
+	LOGURU_DECLARE_EC_TYPE(long double);
+
+	/*
+	You can add ERROR_CONTEXT support for your own types with the help of
+	LOGURU_DECLARE_EC_TYPE and ec_printer_impl. Here's how:
+
+	some.hpp:
+		namespace loguru {
+			LOGURU_DECLARE_EC_TYPE(MySmallType)
+			LOGURU_DECLARE_EC_TYPE(const MyBigType*)
+		} // namespace loguru
+
+	some.cpp:
+		namespace loguru {
+			template<>
+			void ec_printer_impl(StringStream* string_stream, MySmallType value)
+			{
+				// Called only when needed, i.e. on a crash.
+				std::string str = value.as_string(); // Format 'value' here somehow.
+				stream_print(string_stream, str.c_str());
+			}
+
+			template<>
+			void ec_printer_impl(StringStream* string_stream, const MyBigType* value)
+			{
+				// Called only when needed, i.e. on a crash.
+				std::string str = value->as_string(); // Format 'value' here somehow.
+				stream_print(string_stream, str.c_str());
+			}
+		} // namespace loguru
+
+	Any file that include some.hpp:
+		void foo(MySmallType small, const MyBigType& big)
+		{
+			ERROR_CONTEXT("Small", small); // Copy ´small` by value.
+			ERROR_CONTEXT("Big",   &big);  // `big` should not change during this scope!
+			....
+		}
+	*/
 } // namespace loguru
-
-// --------------------------------------------------------------------
-// Utitlity macros
-
-// Used for giving a unique name to a RAII-object
-#define LOGURU_GIVE_UNIQUE_NAME(arg1, arg2) LOGURU_STRING_JOIN(arg1, arg2)
-#define LOGURU_STRING_JOIN(arg1, arg2) arg1 ## arg2
 
 // --------------------------------------------------------------------
 // Logging macros
@@ -443,7 +613,7 @@ namespace loguru
 	VLOG_IF_F(loguru::Verbosity_ ## verbosity_name, cond, __VA_ARGS__)
 
 #define VLOG_SCOPE_F(verbosity, ...)                                                               \
-	loguru::LogScopeRAII LOGURU_GIVE_UNIQUE_NAME(error_context_RAII_, __LINE__) =                  \
+	loguru::LogScopeRAII LOGURU_ANONYMOUS_VARIABLE(error_context_RAII_) =                  \
 	((verbosity) > loguru::current_verbosity_cutoff()) ? loguru::LogScopeRAII() :                  \
 	loguru::LogScopeRAII{verbosity, __FILE__, __LINE__, __VA_ARGS__}
 
@@ -981,11 +1151,6 @@ namespace loguru
 	// Helpers:
 
 	Text::~Text() { free(_str); }
-	Text::Text(Text&& t)
-	{
-		_str = t._str;
-		t._str = nullptr;
-	}
 
 	static Text strprintfv(const char* format, va_list vlist)
 	{
@@ -1068,7 +1233,8 @@ namespace loguru
 		return duration_cast<nanoseconds>(high_resolution_clock::now().time_since_epoch()).count();
 	}
 
-	inline const char* filename(const char* path)
+	// Returns the part of the path after the last / or \ (if any).
+	const char* filename(const char* path)
 	{
 		for (auto ptr = path; *ptr; ++ptr) {
 			if (*ptr == '/' || *ptr == '\\') {
@@ -1528,8 +1694,13 @@ namespace loguru
 
 		if (message.verbosity == Verbosity_FATAL) {
 			auto st = loguru::stacktrace(stack_trace_skip + 2);
-			if (st.c_str() && st.c_str()[0]) {
+			if (!st.empty()) {
 				RAW_LOG_F(ERROR, "Stack trace:\n%s", st.c_str());
+			}
+
+			auto ec = loguru::get_error_context();
+			if (!ec.empty()) {
+				RAW_LOG_F(ERROR, "%s", ec.c_str());
 			}
 		}
 
@@ -1719,6 +1890,186 @@ namespace loguru
 	{
 		log_and_abort(stack_trace_skip + 1, expr, file, line, " ");
 	}
+
+	// ----------------------------------------------------------------------------
+	// 888888 88""Yb 88""Yb  dP"Yb  88""Yb      dP""b8  dP"Yb  88b 88 888888 888888 Yb  dP 888888
+	// 88__   88__dP 88__dP dP   Yb 88__dP     dP   `" dP   Yb 88Yb88   88   88__    YbdP    88
+	// 88""   88"Yb  88"Yb  Yb   dP 88"Yb      Yb      Yb   dP 88 Y88   88   88""    dPYb    88
+	// 888888 88  Yb 88  Yb  YbodP  88  Yb      YboodP  YbodP  88  Y8   88   888888 dP  Yb   88
+	// ----------------------------------------------------------------------------
+
+	struct StringStream
+	{
+		std::string str;
+	};
+
+	// Use this in your EcPrinter implementations.
+	void stream_print(StringStream* string_stream, const char* text)
+	{
+		string_stream->str += text;
+	}
+
+	// ----------------------------------------------------------------------------
+
+	struct EcEntry
+	{
+		const char* _file;
+		unsigned    _line;
+		const char* _descr;
+		EcPayload   _payload;
+	};
+
+	using EcStack = std::vector<EcEntry>;
+
+	// ----------------------------------------------------------------------------
+
+#ifdef _WIN32
+	Text as_string()
+	{
+		return Text(strdup(""));
+	}
+
+	ErrorContextScope::ErrorContextScope(const char*, unsigned, const char*, EcPayload&&)
+	{
+	}
+
+	ErrorContextScope::~ErrorContextScope()
+	{
+	}
+
+#else // !_WIN32
+	pthread_once_t s_ec_pthread_once = PTHREAD_ONCE_INIT;
+	pthread_key_t  s_ec_pthread_key;
+
+	void free_error_context(void* io_error_context)
+	{
+		delete reinterpret_cast<EcStack*>(io_error_context);
+	}
+
+	void ec_make_pthread_key()
+	{
+		(void)pthread_key_create(&s_ec_pthread_key, free_error_context);
+	}
+
+	EcStack& get_thread_error_context_stack()
+	{
+		(void)pthread_once(&s_ec_pthread_once, ec_make_pthread_key);
+		auto ec = reinterpret_cast<EcStack*>(pthread_getspecific(s_ec_pthread_key));
+		if (ec == nullptr) {
+			ec = new EcStack();
+			(void)pthread_setspecific(s_ec_pthread_key, ec);
+		}
+		return *ec;
+	}
+
+	// ----------------------------------------------------------------------------
+
+	Text get_error_context()
+	{
+		const auto& stack = get_thread_error_context_stack();
+		StringStream result;
+		if (!stack.empty()) {
+			result.str += "------------------------------------------------\n";
+			for (const auto& entry : stack) {
+				const auto description = std::string(entry._descr) + ":";
+				auto prefix = strprintf("[ErrorContext] %23s:%-5u %-20s ",
+					filename(entry._file), entry._line, description.c_str());
+				result.str += prefix.c_str();
+				entry._payload._printer(&result, entry._payload._ec_data);
+				result.str += "\n";
+			}
+			result.str += "------------------------------------------------";
+		}
+		return Text(strdup(result.str.c_str()));
+	}
+
+	ErrorContextScope::ErrorContextScope(const char* file, unsigned line, const char* desc, EcPayload&& se)
+	{
+		get_thread_error_context_stack().emplace_back(EcEntry{file, line, desc, se});
+	}
+
+	ErrorContextScope::~ErrorContextScope()
+	{
+		auto& stack = get_thread_error_context_stack();
+		CHECK_F(!stack.empty());
+		stack.pop_back();
+	}
+#endif // !_WIN32
+
+	// ------------------------------------------------------------------------
+
+	template<>
+	void ec_printer_impl(StringStream* string_stream, const char* value)
+	{
+		// Add quotes around the string to make it obvious where it begin and ends.
+		// This is great for detecting erroneous leading or trailing spaces in e.g. an identifier.
+		auto str = "\"" + std::string(value) + "\"";
+		stream_print(string_stream, str.c_str());
+	}
+
+	template<>
+	void ec_printer_impl(StringStream* string_stream, char c)
+	{
+		// Add quotes around the character to make it obvious where it begin and ends.
+		std::string str = "'";
+
+		auto write_hex_digit = [&](unsigned num)
+		{
+			if (num < 10u) { str += char('0' + num); }
+			else           { str += char('a' + num - 10); }
+		};
+
+		auto write_hex_16 = [&](uint16_t n)
+		{
+			write_hex_digit((n >> 12) & 0x0f);
+			write_hex_digit((n >>  8) & 0x0f);
+			write_hex_digit((n >>  4) & 0x0f);
+			write_hex_digit((n >>  0) & 0x0f);
+		};
+
+		auto write_unicode_16 = [&](uint16_t c)
+		{
+			str += "\\u";
+			write_hex_16(c);
+		};
+
+		if      (c == '\\') { str += "\\\\"; }
+		else if (c == '\"') { str += "\\\""; }
+		else if (c == '\'') { str += "\\\'"; }
+		else if (c == '\0') { str += "\\0";  }
+		else if (c == '\b') { str += "\\b";  }
+		else if (c == '\f') { str += "\\f";  }
+		else if (c == '\n') { str += "\\n";  }
+		else if (c == '\r') { str += "\\r";  }
+		else if (c == '\t') { str += "\\t";  }
+		else if (0 <= c && c < 0x20) { write_unicode_16(c); }
+		else { str += c; }
+
+		str += "'";
+
+		stream_print(string_stream, str.c_str());
+	}
+
+	#define DEFINE_EC(Type) \
+		template<>                                                          \
+		void ec_printer_impl(StringStream* string_stream, Type value)       \
+		{                                                                   \
+			auto str = std::to_string(value);                               \
+			stream_print(string_stream, str.c_str());                       \
+		}
+
+	DEFINE_EC(int);
+	DEFINE_EC(unsigned int);
+	DEFINE_EC(long);
+	DEFINE_EC(unsigned long);
+	DEFINE_EC(long long);
+	DEFINE_EC(unsigned long long);
+	DEFINE_EC(float);
+	DEFINE_EC(double);
+	DEFINE_EC(long double);
+
+	// ----------------------------------------------------------------------------
+
 } // namespace loguru
 
 // ----------------------------------------------------------------------------

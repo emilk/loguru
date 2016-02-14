@@ -39,7 +39,6 @@ In particular, I want logging that produces logs that are both human-readable an
 	* Stack traces are printed [the right way](http://yellerapp.com/posts/2015-01-22-upside-down-stacktraces.html):
 		* Chronological order with the most relevant at the end.
 * (most) signals writes stack traces.
-
 * Fast:
 	- When configured in unbuffered mode (LOGURU_FLUSH_INTERVAL_MS not set):
 		+ 6-8 us when logging to stderr + file (rMBP + SSD + Clang).
@@ -65,6 +64,8 @@ In particular, I want logging that produces logs that are both human-readable an
 	* File and line.
 	* Log level.
 	* Indentation (see *Scopes*).
+* Error context:
+	* Catch the values of local variables and print them only on a crash (see *Error context*).
 * Scopes (see *Scopes*).
 * grep:able logs:
 	* Each line has all the info you need (e.g. date).
@@ -201,6 +202,37 @@ Which looks like this in the terminal:
 
 Scopes affects logging on all threads.
 
+
+## Error context
+A stack trace gives you the names of the function at the point of a crash. With ERROR_CONTEXT, you can also get the values of select local variables. `ERROR_CONTEXT` is in effect a logging that only occurs if there is a crash.
+
+Usage:
+
+``` C++
+void process_customers(const std::string& filename)
+{
+    ERROR_CONTEXT("Processing file", filename.c_str());
+    for (size_t i = 0; i < num_customers; ++i)
+    {
+	    ERROR_CONTEXT("Customer index", i);
+	    if (i == 42) { crashy_code(); }
+    }
+}
+```
+
+The context is in effect during the scope of the `ERROR_CONTEXT`.
+To get the contents of the stack manually, use `loguru::get_error_context()`.
+
+Example result:
+
+	------------------------------------------------
+	[ErrorContext]                main.cpp:416   Processing file:    'customers.json'
+	[ErrorContext]                main.cpp:417   Customer index:     42
+	------------------------------------------------
+
+Error contexts are printed automatically on crashes. Note that values captured by `ERROR_CONTEXT` are **only printed on a crash**. They do not litter the log file otherwise.
+
+`ERROR_CONTEXT` works with built-in types (`float`, `int`, `char` etc) as well as `const char*`. You can also add support for your own types using `LOGURU_DECLARE_EC_TYPE` and `ec_printer_impl` (see `loguru.hpp` for details).
 
 ## Streams vs printf#
 Some logging libraries only supports stream style logging, not printf-style. This means that what in Loguru is:

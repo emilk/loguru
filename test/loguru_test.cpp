@@ -140,6 +140,25 @@ void test_abort_0()
 void test_abort_1() { test_abort_0(); }
 void test_abort_2() { test_abort_1(); }
 
+void test_error_contex()
+{
+	ERROR_CONTEXT("const char*",       "test string");
+	ERROR_CONTEXT("integer",           42);
+	ERROR_CONTEXT("double",             3.14);
+	ERROR_CONTEXT("char A",            'A');
+	ERROR_CONTEXT("char backslash",    '\\');
+	ERROR_CONTEXT("char double-quote", '\"');
+	ERROR_CONTEXT("char single-quote", '\'');
+	ERROR_CONTEXT("char zero",         '\0');
+	ERROR_CONTEXT("char bell",         '\b');
+	ERROR_CONTEXT("char feed",         '\f');
+	ERROR_CONTEXT("char newline",      '\n');
+	ERROR_CONTEXT("char return",       '\r');
+	ERROR_CONTEXT("char tab",          '\t');
+	ERROR_CONTEXT("char x13",          '\u0013');
+	ABORT_F("Intentional abort");
+}
+
 void test_hang_0()
 {
 	LOG_F(INFO, "Press ctrl-C to kill.");
@@ -235,6 +254,8 @@ int main(int argc, char* argv[])
 			test_SIGSEGV_2();
 		} else if (test == "abort") {
 			test_abort_2();
+		} else if (test == "error_context") {
+			test_error_contex();
 		} else if (test == "hang") {
 			loguru::add_file("hang.log", loguru::Truncate, loguru::Verbosity_INFO);
 			test_hang_2();
