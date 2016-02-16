@@ -11,6 +11,19 @@ MESSAGE(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
 add_compile_options(-std=c++11 -Werror -Wall -Wextra)
 
+add_compile_options(
+    -Weverything
+    -Wno-c++98-compat
+    -Wno-c++98-compat-pedantic
+    -Wno-exit-time-destructors
+    -Wno-global-constructors
+    -Wno-missing-noreturn
+    -Wno-missing-prototypes
+    -Wno-old-style-cast
+    -Wno-padded
+    -Wno-pedantic
+)
+
 file(GLOB source
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../*.cpp"

@@ -103,7 +103,7 @@ void test_stream()
 }
 
 int some_expensive_operation() { static int r=31; sleep_ms(132); return r++; }
-int BAD = 32;
+const int BAD = 32;
 
 int always_increasing() { static int x = 0; return x++; }
 

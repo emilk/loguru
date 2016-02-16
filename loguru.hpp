@@ -138,6 +138,18 @@ Website: www.ilikebigbits.com
 	#define LOGURU_EC_DATA_SIZE sizeof(long double)
 #endif
 
+#ifndef LOGURU_REDEFINE_ASSERT
+	#define LOGURU_REDEFINE_ASSERT 0
+#endif
+
+#ifndef LOGURU_WITH_STREAMS
+	#define LOGURU_WITH_STREAMS 0
+#endif
+
+#ifndef LOGURU_REPLACE_GLOG
+	#define LOGURU_REPLACE_GLOG 0
+#endif
+
 // --------------------------------------------------------------------
 // Utility macros
 
@@ -353,8 +365,8 @@ namespace loguru
 
 	// Marked as 'noreturn' for the benefit of the static analyzer and optimizer.
 	// stack_trace_skip is the number of extrace stack frames to skip above log_and_abort.
-	void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(5, 6) LOGURU_NORETURN;
-	void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line) LOGURU_NORETURN;
+	LOGURU_NORETURN void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(5, 6);
+	LOGURU_NORETURN void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line);
 
 	// Flush output to stderr and files.
 	// If LOGURU_FLUSH_INTERVAL_MS is set, this will be called automatically this often.
@@ -739,11 +751,7 @@ namespace loguru
 	{
 	public:
 		StreamLogger(Verbosity verbosity, const char* file, unsigned line) : _verbosity(verbosity), _file(file), _line(line) {}
-		~StreamLogger()
-		{
-			auto message = this->str();
-			log(_verbosity, _file, _line, "%s", message.c_str());
-		}
+		~StreamLogger();
 
 	private:
 		Verbosity   _verbosity;
@@ -755,11 +763,7 @@ namespace loguru
 	{
 	public:
 		AbortLogger(const char* expr, const char* file, unsigned line) : _expr(expr), _file(file), _line(line) {}
-		~AbortLogger() LOGURU_NORETURN
-		{
-			auto message = this->str();
-			loguru::log_and_abort(1, _expr, _file, _line, "%s", message.c_str());
-		}
+		LOGURU_NORETURN ~AbortLogger();
 
 	private:
 		const char* _expr;
@@ -964,7 +968,7 @@ namespace loguru
 
 /* In one of your .cpp files you need to do the following:
 #define LOGURU_IMPLEMENTATION
-#include <loguru/loguru.hpp>
+#include <loguru.hpp>
 
 This will define all the Loguru functions so that the linker may find them.
 */
@@ -984,7 +988,7 @@ This will define all the Loguru functions so that the linker may find them.
 #include <string>
 #include <vector>
 
-#if LOGURU_FLUSH_INTERVAL_MS
+#ifdef LOGURU_FLUSH_INTERVAL_MS
 	#include <thread>
 #endif
 
@@ -1024,6 +1028,10 @@ This will define all the Loguru functions so that the linker may find them.
 	#endif
 #endif
 
+#ifndef LOGURU_PTLS_NAMES
+   #define LOGURU_PTLS_NAMES 0
+#endif
+
 namespace loguru
 {
 	using namespace std::chrono;
@@ -1036,7 +1044,7 @@ namespace loguru
 		Verbosity       verbosity; // Does not change!
 		close_handler_t close;
 		flush_handler_t flush;
-		int             indentation;
+		unsigned        indentation;
 	};
 
 	using CallbackVec = std::vector<Callback>;
@@ -1052,22 +1060,22 @@ namespace loguru
 	bool      g_alsologtostderr  = true;
 	bool      g_colorlogtostderr = true;
 
-	std::recursive_mutex s_mutex;
-	Verbosity            s_max_out_verbosity = Verbosity_NOTHING;
-	std::string          s_argv0_filename;
-	std::string          s_file_arguments;
-	CallbackVec          s_callbacks;
-	fatal_handler_t      s_fatal_handler   = nullptr;
-	StringPairList       s_user_stack_cleanups;
-	bool                 s_strip_file_path = true;
-	std::atomic<int>     s_stderr_indentation { 0 };
+	static std::recursive_mutex  s_mutex;
+	static Verbosity             s_max_out_verbosity = Verbosity_NOTHING;
+	static std::string           s_argv0_filename;
+	static std::string           s_file_arguments;
+	static CallbackVec           s_callbacks;
+	static fatal_handler_t       s_fatal_handler   = nullptr;
+	static StringPairList        s_user_stack_cleanups;
+	static bool                  s_strip_file_path = true;
+	static std::atomic<unsigned> s_stderr_indentation { 0 };
 
-#if LOGURU_FLUSH_INTERVAL_MS
-	std::thread*         s_flush_thread = nullptr;
-	bool                 s_needs_flushing = false;
+#ifdef LOGURU_FLUSH_INTERVAL_MS
+	static std::thread* s_flush_thread   = nullptr;
+	static bool         s_needs_flushing = false;
 #endif
 
-	const bool           s_terminal_has_color = [](){
+	static const bool s_terminal_has_color = [](){
 		#ifdef _MSC_VER
 			return false;
 		#else
@@ -1084,8 +1092,8 @@ namespace loguru
 		#endif
 	}();
 
-	const int THREAD_NAME_WIDTH = 16;
-	const char* PREAMBLE_EXPLAIN = "date       time         ( uptime  ) [ thread name/id ]                   file:line     v| ";
+	const auto THREAD_NAME_WIDTH = 16;
+	const auto PREAMBLE_EXPLAIN  = "date       time         ( uptime  ) [ thread name/id ]                   file:line     v| ";
 
 	#if LOGURU_PTLS_NAMES
 		pthread_once_t s_pthread_key_once = PTHREAD_ONCE_INIT;
@@ -1152,6 +1160,7 @@ namespace loguru
 
 	Text::~Text() { free(_str); }
 
+	LOGURU_PRINTF_LIKE(1, 0)
 	static Text strprintfv(const char* format, va_list vlist)
 	{
 #ifdef _MSC_VER
@@ -1316,7 +1325,7 @@ namespace loguru
 
 	const char* home_dir()
 	{
-		#if _WIN32
+		#ifdef _WIN32
 			auto user_profile = getenv("USERPROFILE");
 			CHECK_F(user_profile != nullptr, "Missing USERPROFILE");
 			return user_profile;
@@ -1861,14 +1870,16 @@ namespace loguru
 	{
 		if (_file) {
 			std::lock_guard<std::recursive_mutex> lock(s_mutex);
-			if (_indent_stderr) {
+			if (_indent_stderr && s_stderr_indentation > 0) {
 				--s_stderr_indentation;
 			}
 			for (auto& p : s_callbacks) {
 				// Note: Callback indentation cannot change!
 				if (_verbosity <= p.verbosity) {
-					// std::max, in unlikely case this callback is new!
-					p.indentation = std::max(0, p.indentation - 1);
+					// in unlikely case this callback is new
+					if (p.indentation > 0) {
+						--p.indentation;
+					}
 				}
 			}
 			auto duration_sec = (now_ns() - _start_time_ns) / 1e9;
@@ -1889,6 +1900,21 @@ namespace loguru
 	void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line)
 	{
 		log_and_abort(stack_trace_skip + 1, expr, file, line, " ");
+	}
+
+	// ----------------------------------------------------------------------------
+	// Streams:
+
+	StreamLogger::~StreamLogger()
+	{
+		auto message = this->str();
+		log(_verbosity, _file, _line, "%s", message.c_str());
+	}
+
+	AbortLogger::~AbortLogger()
+	{
+		auto message = this->str();
+		loguru::log_and_abort(1, _expr, _file, _line, "%s", message.c_str());
 	}
 
 	// ----------------------------------------------------------------------------
@@ -1938,8 +1964,8 @@ namespace loguru
 	}
 
 #else // !_WIN32
-	pthread_once_t s_ec_pthread_once = PTHREAD_ONCE_INIT;
-	pthread_key_t  s_ec_pthread_key;
+	static pthread_once_t s_ec_pthread_once = PTHREAD_ONCE_INIT;
+	static pthread_key_t  s_ec_pthread_key;
 
 	void free_error_context(void* io_error_context)
 	{
@@ -2027,12 +2053,6 @@ namespace loguru
 			write_hex_digit((n >>  0) & 0x0f);
 		};
 
-		auto write_unicode_16 = [&](uint16_t c)
-		{
-			str += "\\u";
-			write_hex_16(c);
-		};
-
 		if      (c == '\\') { str += "\\\\"; }
 		else if (c == '\"') { str += "\\\""; }
 		else if (c == '\'') { str += "\\\'"; }
@@ -2042,8 +2062,10 @@ namespace loguru
 		else if (c == '\n') { str += "\\n";  }
 		else if (c == '\r') { str += "\\r";  }
 		else if (c == '\t') { str += "\\t";  }
-		else if (0 <= c && c < 0x20) { write_unicode_16(c); }
-		else { str += c; }
+		else if (0 <= c && c < 0x20) {
+			str += "\\u";
+			write_hex_16((uint16_t)c);
+		} else { str += c; }
 
 		str += "'";
 
@@ -2091,7 +2113,8 @@ namespace loguru {
 
 namespace loguru
 {
-	struct Signal {
+	struct Signal
+	{
 		int         number;
 		const char* name;
 	};
