@@ -29,17 +29,17 @@ Website: www.ilikebigbits.com
 	* Verison 1.0 - 2015-02-14 - ERROR_CONTEXT
 
 # Compiling
-	Just include <loguru/loguru.hpp> where you want to use Loguru.
+	Just include <loguru.hpp> where you want to use Loguru.
 	Then, in one .cpp file:
 		#define LOGURU_IMPLEMENTATION
-		#include <loguru/loguru.hpp>
+		#include <loguru.hpp>
 	Make sure you compile with -std=c++11 -lpthread -ldl
 
 # Usage
-	#include <loguru/loguru.hpp>
+	#include <loguru.hpp>
 
-	// Optional, but useful to timestamp the start of the log.
-	// Will also detect verbosity level on comamnd line as -v.
+	// Optional, but useful to time-stamp the start of the log.
+	// Will also detect verbosity level on command line as -v.
 	loguru::init(argc, argv);
 
 	// Put every log message in "everything.log":
@@ -76,7 +76,7 @@ Website: www.ilikebigbits.com
 	// Turn off writing err/warn in red:
 	loguru::g_colorlogtostderr = false;
 
-	// Thow exceptions instead of aborting on CHECK fails:
+	// Throw exceptions instead of aborting on CHECK fails:
 	loguru::set_fatal_handler([](const loguru::Message& message){
 		throw std::runtime_error(message.message);
 	})
@@ -84,15 +84,15 @@ Website: www.ilikebigbits.com
 	If you prefer logging with streams:
 
 	#define LOGURU_WITH_STREAMS 1
-	#include <loguru/loguru.hpp>
+	#include <loguru.hpp>
 	...
 	LOG_S(INFO) << "Look at my custom object: " << a.cross(b);
 	CHECK_EQ_S(pi, 3.14) << "Maybe it is closer to " << M_PI;
 
-	Before including <loguru/loguru.hpp> you may optionally want to define the following to 1:
+	Before including <loguru.hpp> you may optionally want to define the following to 1:
 
 	LOGURU_REDEFINE_ASSERT:
-		Redefine "assert" call loguru version (!NDEBUG only).
+		Redefine "assert" call Loguru version (!NDEBUG only).
 
 	LOGURU_WITH_STREAMS:
 		Add support for _S versions for all LOG and CHECK functions:
@@ -103,7 +103,7 @@ Website: www.ilikebigbits.com
 	LOGURU_REPLACE_GLOG:
 		Make Loguru mimic GLOG as close as possible,
 		including #defining LOG, CHECK, FLAGS_v etc.
-		LOGURU_REPLACE_GLOG imlies LOGURU_WITH_STREAMS.
+		LOGURU_REPLACE_GLOG implies LOGURU_WITH_STREAMS.
 
 	You can also configure:
 	LOGURU_FLUSH_INTERVAL_MS:
@@ -122,8 +122,8 @@ Website: www.ilikebigbits.com
 // ----------------------------------------------------------------------------
 
 #ifndef LOGURU_SCOPE_TEXT_SIZE
-	// Maximum length of text that can be pritned by a LOG_SCOPE.
-	// This hould be long enough to get most things, but short enough not to clutter the stack.
+	// Maximum length of text that can be printed by a LOG_SCOPE.
+	// This should be long enough to get most things, but short enough not to clutter the stack.
 	#define LOGURU_SCOPE_TEXT_SIZE 196
 #endif
 

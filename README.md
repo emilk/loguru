@@ -43,7 +43,7 @@ In particular, I want logging that produces logs that are both human-readable an
 	- When configured in unbuffered mode (LOGURU_FLUSH_INTERVAL_MS not set):
 		+ 6-8 us when logging to stderr + file (rMBP + SSD + Clang).
 		+ About 25%-75% faster than GLOG on my MacBook Pro (Clang).
-		+ About the same as GLOG on my Linux Disktop (GCC).
+		+ About the same as GLOG on my Linux Desktop (GCC).
 	- With LOGURU_FLUSH_INTERVAL_MS set to ~100 ms:
 		+ 3-5 us when logging to stderr + file (rMBP + SSD + Clang).
 		+ About twice as fast as GLOG.
@@ -73,21 +73,21 @@ In particular, I want logging that produces logs that are both human-readable an
 
 ## Compiling
 
-Just include <loguru/loguru.hpp> where you want to use Loguru.
+Just include <loguru.hpp> where you want to use Loguru.
 Then, in one .cpp file:
 ``` C++
 	#define LOGURU_IMPLEMENTATION
-	#include <loguru/loguru.hpp>
+	#include <loguru.hpp>
 ```
 Make sure you compile with `-std=c++11 -lpthread -ldl`
 
 ## Usage
 
 ``` C++
-#include <loguru/loguru.hpp>
+#include <loguru.hpp>
 ...
-// Optional, but useful to timestamp the start of the log.
-// Will also detect verbosity level on comamnd line as -v.
+// Optional, but useful to time-stamp the start of the log.
+// Will also detect verbosity level on command line as -v.
 loguru::init(argc, argv);
 
 // Put every log message in "everything.log":
@@ -119,7 +119,7 @@ loguru::g_alsologtostderr = false;
 // Turn off writing err/warn in red:
 loguru::g_colorlogtostderr = false;
 
-// Thow exceptions instead of aborting on CHECK fails:
+// Throw exceptions instead of aborting on CHECK fails:
 loguru::set_fatal_handler([](const loguru::Message& message){
 	throw std::runtime_error(message.message);
 })
@@ -129,7 +129,7 @@ If you prefer logging with streams:
 
 ``` C++
 #define LOGURU_WITH_STREAMS 1
-#include <loguru/loguru.hpp>
+#include <loguru.hpp>
 ...
 LOG_S(INFO) << "Look at my custom object: " << a.cross(b);
 CHECK_EQ_S(pi, 3.14) << "Maybe it is closer to " << M_PI;
@@ -155,7 +155,7 @@ I abhor logging libraries that `#include`'s everything from `iostream` to `windo
 
 In a test of a medium-sized project, including `loguru.hpp` instead of `glog/logging.hpp` everywhere gave about 10% speedup in compilation times.
 
-Note, however, that this gives you the bare-bones version of Louru with printf-style logging. If you want std::ostream style logging (or GLOG functionality) you need to `#define LOGURU_WITH_STREAMS 1` before `#include <loguru/loguru.hpp>`, and that will make loguru.hpp include `<sstream>`. No away around it!
+Note, however, that this gives you the bare-bones version of Louru with printf-style logging. If you want std::ostream style logging (or GLOG functionality) you need to `#define LOGURU_WITH_STREAMS 1` before `#include <loguru.hpp>`, and that will make loguru.hpp include `<sstream>`. No away around it!
 
 ## Scopes
 The library supports scopes for indenting the log-file. Here's an example:
