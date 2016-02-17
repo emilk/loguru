@@ -1189,7 +1189,7 @@ namespace loguru
 	// Overloaded for variadic template matching.
 	Text strprintf()
 	{
-		return Text((char*)calloc(1, 1));
+		return Text(static_cast<char*>(calloc(1, 1)));
 	}
 
 	const char* indentation(unsigned depth)
@@ -1591,7 +1591,7 @@ namespace loguru
 						 i - skip, int(2 + sizeof(void*) * 2), callstack[i],
 						 status == 0 ? demangled :
 						 info.dli_sname == 0 ? symbols[i] : info.dli_sname,
-						 (char *)callstack[i] - (char *)info.dli_saddr);
+						 static_cast<char*>(callstack[i]) - static_cast<char*>(info.dli_saddr));
 				free(demangled);
 			} else {
 				snprintf(buf, sizeof(buf), "%-3d %*p %s\n",
@@ -1666,7 +1666,7 @@ namespace loguru
 				#else
 					uint64_t thread_id = thread;
 				#endif
-				snprintf(thread_name, sizeof(thread_name), "%16X", (unsigned)thread_id);
+				snprintf(thread_name, sizeof(thread_name), "%16X", static_cast<unsigned>(thread_id));
 			}
 		#else // LOGURU_PTHREADS
 			const char* thread_name = "";
@@ -1905,6 +1905,8 @@ namespace loguru
 	// ----------------------------------------------------------------------------
 	// Streams:
 
+	#if LOGURU_WITH_STREAMS || LOGURU_REPLACE_GLOG
+
 	StreamLogger::~StreamLogger()
 	{
 		auto message = this->str();
@@ -1916,6 +1918,8 @@ namespace loguru
 		auto message = this->str();
 		loguru::log_and_abort(1, _expr, _file, _line, "%s", message.c_str());
 	}
+
+	#endif // LOGURU_WITH_STREAMS || LOGURU_REPLACE_GLOG
 
 	// ----------------------------------------------------------------------------
 	// 888888 88""Yb 88""Yb  dP"Yb  88""Yb      dP""b8  dP"Yb  88b 88 888888 888888 Yb  dP 888888
@@ -2064,7 +2068,7 @@ namespace loguru
 		else if (c == '\t') { str += "\\t";  }
 		else if (0 <= c && c < 0x20) {
 			str += "\\u";
-			write_hex_16((uint16_t)c);
+			write_hex_16(static_cast<uint16_t>(c));
 		} else { str += c; }
 
 		str += "'";

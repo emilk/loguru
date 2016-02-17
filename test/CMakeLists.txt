@@ -19,7 +19,6 @@ add_compile_options(
     -Wno-global-constructors
     -Wno-missing-noreturn
     -Wno-missing-prototypes
-    -Wno-old-style-cast
     -Wno-padded
     -Wno-pedantic
 )
