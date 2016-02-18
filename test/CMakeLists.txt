@@ -15,6 +15,7 @@ add_compile_options(
     -Weverything
     -Wno-c++98-compat
     -Wno-c++98-compat-pedantic
+    -Wno-disabled-macro-expansion
     -Wno-exit-time-destructors
     -Wno-global-constructors
     -Wno-missing-noreturn

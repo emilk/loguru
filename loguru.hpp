@@ -1096,8 +1096,8 @@ namespace loguru
 	const auto PREAMBLE_EXPLAIN  = "date       time         ( uptime  ) [ thread name/id ]                   file:line     v| ";
 
 	#if LOGURU_PTLS_NAMES
-		pthread_once_t s_pthread_key_once = PTHREAD_ONCE_INIT;
-		pthread_key_t  s_pthread_key_name;
+		static pthread_once_t s_pthread_key_once = PTHREAD_ONCE_INIT;
+		static pthread_key_t  s_pthread_key_name;
 
 		void make_pthread_key_name()
 		{
@@ -1500,7 +1500,7 @@ namespace loguru
 	const char* get_thread_name_ptls()
 	{
 		(void)pthread_once(&s_pthread_key_once, make_pthread_key_name);
-		return (const char*)pthread_getspecific(s_pthread_key_name);
+		return static_cast<const char*>(pthread_getspecific(s_pthread_key_name));
 	}
 #endif // LOGURU_PTLS_NAMES
 
