@@ -27,6 +27,7 @@ Website: www.ilikebigbits.com
 	* Version 0.8 - 2015-10-30 - Color logging.
 	* Version 0.9 - 2015-11-26 - ABORT_S and proper handling of FATAL
 	* Verison 1.0 - 2015-02-14 - ERROR_CONTEXT
+	* Verison 1.1 - 2015-02-19 - -v off, -v INFO etc
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -283,7 +284,15 @@ namespace loguru
 		You don't need to call this, but it's nice if you do.
 		This will look for arguments meant for loguru and remove them.
 		Arguments meant for loguru are:
-			-v n   Set verbosity level */
+			-v n   Set stderr verbosity level. Examples:
+			           -v 3     Show verbosity level 3 and lower.
+			           -v 0     Only show INFO, WARNING, ERROR, FATAL (default).
+			           -v INFO     Only show INFO, WARNING, ERROR, FATAL (default).
+			           -v WARNING  Only show WARNING, ERROR, FATAL.
+			           -v ERROR    Only show ERROR, FATAL.
+			           -v FATAL    Only show FATAL.
+			           -v off      Turn off logging to stderr.
+	*/
 	void init(int& argc, char* argv[]);
 
 	// What ~ will be replaced with, e.g. "/home/your_user_name/"
@@ -1227,7 +1236,22 @@ namespace loguru
 					out_argc -= 1;
 				}
 				if (*value_str == '=') { value_str += 1; }
-				g_stderr_verbosity = atoi(value_str);
+
+				if (strcmp(value_str, "off") == 0) {
+					g_alsologtostderr = false;
+				} else if (strcmp(value_str, "INFO") == 0) {
+					g_stderr_verbosity = Verbosity_INFO;
+				} else if (strcmp(value_str, "WARNING") == 0) {
+					g_stderr_verbosity = Verbosity_WARNING;
+				} else if (strcmp(value_str, "ERROR") == 0) {
+					g_stderr_verbosity = Verbosity_ERROR;
+				} else if (strcmp(value_str, "FATAL") == 0) {
+					g_stderr_verbosity = Verbosity_FATAL;
+				} else {
+					char* end = 0;
+					g_stderr_verbosity = static_cast<int>(strtol(value_str, &end, 10));
+					CHECK_F(end && *end == '\0', "Invalid verbosity - expected integer, INFO, WARNING, ERROR or off, got %s", value_str);
+				}
 			} else {
 				argv[arg_dest++] = argv[arg_it];
 			}
