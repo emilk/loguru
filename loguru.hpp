@@ -17,17 +17,18 @@ Website: www.ilikebigbits.com
 	and his wonderful stb libraries at https://github.com/nothings/stb.
 
 # Version history
-	* Version 0.1 - 2015-03-22 - Works great on Mac.
-	* Version 0.2 - 2015-09-17 - Removed the only dependency.
-	* Version 0.3 - 2015-10-02 - Drop-in replacement for most of GLOG
-	* Version 0.4 - 2015-10-07 - Single-file!
-	* Version 0.5 - 2015-10-17 - Improved file logging
-	* Version 0.6 - 2015-10-24 - Add stack traces
-	* Version 0.7 - 2015-10-27 - Signals
-	* Version 0.8 - 2015-10-30 - Color logging.
-	* Version 0.9 - 2015-11-26 - ABORT_S and proper handling of FATAL
-	* Verison 1.0 - 2015-02-14 - ERROR_CONTEXT
-	* Verison 1.1 - 2015-02-19 - -v off, -v INFO etc
+	* Version 0.10 - 2015-03-22 - Works great on Mac.
+	* Version 0.20 - 2015-09-17 - Removed the only dependency.
+	* Version 0.30 - 2015-10-02 - Drop-in replacement for most of GLOG
+	* Version 0.40 - 2015-10-07 - Single-file!
+	* Version 0.50 - 2015-10-17 - Improved file logging
+	* Version 0.60 - 2015-10-24 - Add stack traces
+	* Version 0.70 - 2015-10-27 - Signals
+	* Version 0.80 - 2015-10-30 - Color logging.
+	* Version 0.90 - 2015-11-26 - ABORT_S and proper handling of FATAL
+	* Verison 1.00 - 2015-02-14 - ERROR_CONTEXT
+	* Verison 1.10 - 2015-02-19 - -v off, -v INFO etc
+	* Verison 1.11 - 2015-02-20 - textprintf vs strprintf
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -117,8 +118,8 @@ Website: www.ilikebigbits.com
 	* Any arguments to LOG_IF functions are only evaluated if the test passes.
 */
 
-#ifndef LOGURU_HEADER_HPP
-#define LOGURU_HEADER_HPP
+#ifndef LOGURU_HAS_DECLARED_FORMAT_HEADER
+#define LOGURU_HAS_DECLARED_FORMAT_HEADER
 
 // ----------------------------------------------------------------------------
 
@@ -149,6 +150,11 @@ Website: www.ilikebigbits.com
 
 #ifndef LOGURU_REPLACE_GLOG
 	#define LOGURU_REPLACE_GLOG 0
+#endif
+
+#if LOGURU_REPLACE_GLOG
+	#undef LOGURU_WITH_STREAMS
+	#define LOGURU_WITH_STREAMS 1
 #endif
 
 // --------------------------------------------------------------------
@@ -204,15 +210,22 @@ namespace loguru
 		const char* c_str() const { return _str; }
 		bool empty() const { return _str == nullptr || *_str == '\0'; }
 
+		char* release()
+		{
+			auto result = _str;
+			_str = nullptr;
+			return result;
+		}
+
 	private:
 		char* _str;
 	};
 
 	// Like printf, but returns the formated text.
-	Text strprintf(LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(1, 2);
+	Text textprintf(LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(1, 2);
 
 	// Overloaded for variadic template matching.
-	Text strprintf();
+	Text textprintf();
 
 	using Verbosity = int;
 
@@ -285,13 +298,13 @@ namespace loguru
 		This will look for arguments meant for loguru and remove them.
 		Arguments meant for loguru are:
 			-v n   Set stderr verbosity level. Examples:
-			           -v 3     Show verbosity level 3 and lower.
-			           -v 0     Only show INFO, WARNING, ERROR, FATAL (default).
-			           -v INFO     Only show INFO, WARNING, ERROR, FATAL (default).
-			           -v WARNING  Only show WARNING, ERROR, FATAL.
-			           -v ERROR    Only show ERROR, FATAL.
-			           -v FATAL    Only show FATAL.
-			           -v off      Turn off logging to stderr.
+					   -v 3     Show verbosity level 3 and lower.
+					   -v 0     Only show INFO, WARNING, ERROR, FATAL (default).
+					   -v INFO     Only show INFO, WARNING, ERROR, FATAL (default).
+					   -v WARNING  Only show WARNING, ERROR, FATAL.
+					   -v ERROR    Only show ERROR, FATAL.
+					   -v FATAL    Only show FATAL.
+					   -v off      Turn off logging to stderr.
 	*/
 	void init(int& argc, char* argv[]);
 
@@ -382,16 +395,16 @@ namespace loguru
 	// If not set, you do not need to call this at al.
 	void flush();
 
-	template<class T> inline Text format_value(const T&)                    { return strprintf("N/A");     }
-	template<>        inline Text format_value(const char& v)               { return strprintf("%c",   v); }
-	template<>        inline Text format_value(const int& v)                { return strprintf("%d",   v); }
-	template<>        inline Text format_value(const unsigned int& v)       { return strprintf("%u",   v); }
-	template<>        inline Text format_value(const long& v)               { return strprintf("%lu",  v); }
-	template<>        inline Text format_value(const unsigned long& v)      { return strprintf("%ld",  v); }
-	template<>        inline Text format_value(const long long& v)          { return strprintf("%llu", v); }
-	template<>        inline Text format_value(const unsigned long long& v) { return strprintf("%lld", v); }
-	template<>        inline Text format_value(const float& v)              { return strprintf("%f",   v); }
-	template<>        inline Text format_value(const double& v)             { return strprintf("%f",   v); }
+	template<class T> inline Text format_value(const T&)                    { return textprintf("N/A");     }
+	template<>        inline Text format_value(const char& v)               { return textprintf("%c",   v); }
+	template<>        inline Text format_value(const int& v)                { return textprintf("%d",   v); }
+	template<>        inline Text format_value(const unsigned int& v)       { return textprintf("%u",   v); }
+	template<>        inline Text format_value(const long& v)               { return textprintf("%lu",  v); }
+	template<>        inline Text format_value(const unsigned long& v)      { return textprintf("%ld",  v); }
+	template<>        inline Text format_value(const long long& v)          { return textprintf("%llu", v); }
+	template<>        inline Text format_value(const unsigned long long& v) { return textprintf("%lld", v); }
+	template<>        inline Text format_value(const float& v)              { return textprintf("%f",   v); }
+	template<>        inline Text format_value(const double& v)             { return textprintf("%f",   v); }
 
 	/* Thread names can be set for the benefit of readable logs.
 	   If you do not set the thread name, a hex id will be shown instead.
@@ -513,30 +526,30 @@ namespace loguru
 	};
 
 	/* 	A stack trace gives you the names of the function at the point of a crash.
-	    With ERROR_CONTEXT, you can also get the values of select local variables.
-	    Usage:
+		With ERROR_CONTEXT, you can also get the values of select local variables.
+		Usage:
 
-	    void process_customers(const std::string& filename)
-	    {
-	        ERROR_CONTEXT("Processing file", filename.c_str());
-	        for (int customer_index : ...)
-	        {
-	        	ERROR_CONTEXT("Customer index", customer_index);
-	        	...
-	        }
-	    }
+		void process_customers(const std::string& filename)
+		{
+			ERROR_CONTEXT("Processing file", filename.c_str());
+			for (int customer_index : ...)
+			{
+				ERROR_CONTEXT("Customer index", customer_index);
+				...
+			}
+		}
 
-	    The context is in effect during the scope of the ERROR_CONTEXT.
-	    To get the contents of the stack, use get_error_context().
+		The context is in effect during the scope of the ERROR_CONTEXT.
+		To get the contents of the stack, use get_error_context().
 
-	    Example result:
+		Example result:
 
-	    ------------------------------------------------
-	    [ErrorContext]                main.cpp:416   Processing file:    'customers.json'
-	    [ErrorContext]                main.cpp:417   Customer index:     42
-	    ------------------------------------------------
+		------------------------------------------------
+		[ErrorContext]                main.cpp:416   Processing file:    'customers.json'
+		[ErrorContext]                main.cpp:417   Customer index:     42
+		------------------------------------------------
 
-	    Error contexts are printed automatically on crashes.
+		Error contexts are printed automatically on crashes.
 	*/
 	#define ERROR_CONTEXT(descr, data)                                              \
 		loguru::ErrorContextScope LOGURU_ANONYMOUS_VARIABLE(error_context_scope_)(  \
@@ -680,9 +693,9 @@ namespace loguru
 		{                                                                                          \
 			auto str_left = loguru::format_value(val_left);                                        \
 			auto str_right = loguru::format_value(val_right);                                      \
-			auto fail_info = loguru::strprintf("CHECK FAILED:  %s %s %s  (%s %s %s)  ",            \
+			auto fail_info = loguru::textprintf("CHECK FAILED:  %s %s %s  (%s %s %s)  ",            \
 				#expr_left, #op, #expr_right, str_left.c_str(), #op, str_right.c_str());           \
-			auto user_msg = loguru::strprintf(__VA_ARGS__);                                        \
+			auto user_msg = loguru::textprintf(__VA_ARGS__);                                        \
 			loguru::log_and_abort(0, fail_info.c_str(), __FILE__, __LINE__,                        \
 								  "%s", user_msg.c_str());                                         \
 		}                                                                                          \
@@ -739,23 +752,35 @@ namespace loguru
 	#endif
 #endif // LOGURU_REDEFINE_ASSERT
 
+#endif // LOGURU_HAS_DECLARED_FORMAT_HEADER
+
 // ----------------------------------------------------------------------------
 // .dP"Y8 888888 88""Yb 888888    db    8b    d8 .dP"Y8
 // `Ybo."   88   88__dP 88__     dPYb   88b  d88 `Ybo."
 // o.`Y8b   88   88"Yb  88""    dP__Yb  88YbdP88 o.`Y8b
 // 8bodP'   88   88  Yb 888888 dP""""Yb 88 YY 88 8bodP'
 
-#if LOGURU_WITH_STREAMS || LOGURU_REPLACE_GLOG
+#if LOGURU_WITH_STREAMS
+#ifndef LOGURU_HAS_DECLARED_STREAMS_HEADER
+#define LOGURU_HAS_DECLARED_STREAMS_HEADER
 
 /* This file extends loguru to enable std::stream-style logging, a la Glog.
    It's an optional feature beind the LOGURU_WITH_STREAMS settings
    because including it everywhere will slow down compilation times.
 */
 
+#include <cstdarg>
 #include <sstream> // Adds about 38 kLoC on clang.
+#include <string>
 
 namespace loguru
 {
+	// Like sprintf, but returns the formated text.
+	std::string strprintf(LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(1, 2);
+
+	// Like vsprintf, but returns the formated text.
+	std::string vstrprintf(LOGURU_FORMAT_STRING_TYPE format, va_list) LOGURU_PRINTF_LIKE(1, 0);
+
 	class StreamLogger : public std::ostringstream
 	{
 	public:
@@ -964,9 +989,9 @@ namespace loguru
 
 #endif // LOGURU_REPLACE_GLOG
 
-#endif // LOGURU_WITH_STREAMS || LOGURU_REPLACE_GLOG
+#endif // LOGURU_WITH_STREAMS
 
-#endif // LOGURU_HEADER_HPP
+#endif // LOGURU_HAS_DECLARED_STREAMS_HEADER
 
 // ----------------------------------------------------------------------------
 // 88 8b    d8 88""Yb 88     888888 8b    d8 888888 88b 88 888888    db    888888 88  dP"Yb  88b 88
@@ -1090,11 +1115,11 @@ namespace loguru
 		#else
 			if (const char* term = getenv("TERM")) {
 				return 0 == strcmp(term, "cygwin")
-				    || 0 == strcmp(term, "linux")
-				    || 0 == strcmp(term, "screen")
-				    || 0 == strcmp(term, "xterm")
-				    || 0 == strcmp(term, "xterm-256color")
-				    || 0 == strcmp(term, "xterm-color");
+					|| 0 == strcmp(term, "linux")
+					|| 0 == strcmp(term, "screen")
+					|| 0 == strcmp(term, "xterm")
+					|| 0 == strcmp(term, "xterm-256color")
+					|| 0 == strcmp(term, "xterm-color");
 			} else {
 				return false;
 			}
@@ -1170,7 +1195,7 @@ namespace loguru
 	Text::~Text() { free(_str); }
 
 	LOGURU_PRINTF_LIKE(1, 0)
-	static Text strprintfv(const char* format, va_list vlist)
+	static Text vtextprintf(const char* format, va_list vlist)
 	{
 #ifdef _MSC_VER
 		int bytes_needed = vsnprintf(nullptr, 0, format, vlist);
@@ -1186,17 +1211,17 @@ namespace loguru
 #endif
 	}
 
-	Text strprintf(const char* format, ...)
+	Text textprintf(const char* format, ...)
 	{
 		va_list vlist;
 		va_start(vlist, format);
-		auto result = strprintfv(format, vlist);
+		auto result = vtextprintf(format, vlist);
 		va_end(vlist);
 		return result;
 	}
 
 	// Overloaded for variadic template matching.
-	Text strprintf()
+	Text textprintf()
 	{
 		return Text(static_cast<char*>(calloc(1, 1)));
 	}
@@ -1500,7 +1525,7 @@ namespace loguru
 	Verbosity current_verbosity_cutoff()
 	{
 		return g_stderr_verbosity > s_max_out_verbosity ?
-		       g_stderr_verbosity : s_max_out_verbosity;
+			   g_stderr_verbosity : s_max_out_verbosity;
 	}
 
 	void set_thread_name(const char* name)
@@ -1822,8 +1847,8 @@ namespace loguru
 
 	// stack_trace_skip is just if verbosity == FATAL.
 	void log_to_everywhere(int stack_trace_skip, Verbosity verbosity,
-	                       const char* file, unsigned line,
-	                       const char* prefix, const char* buff)
+						   const char* file, unsigned line,
+						   const char* prefix, const char* buff)
 	{
 		char preamble_buff[128];
 		print_preamble(preamble_buff, sizeof(preamble_buff), verbosity, file, line);
@@ -1835,7 +1860,7 @@ namespace loguru
 	{
 		va_list vlist;
 		va_start(vlist, format);
-		auto buff = strprintfv(format, vlist);
+		auto buff = vtextprintf(format, vlist);
 		log_to_everywhere(1, verbosity, file, line, "", buff.c_str());
 		va_end(vlist);
 	}
@@ -1844,7 +1869,7 @@ namespace loguru
 	{
 		va_list vlist;
 		va_start(vlist, format);
-		auto buff = strprintfv(format, vlist);
+		auto buff = vtextprintf(format, vlist);
 		auto message = Message{verbosity, file, line, "", "", "", buff.c_str()};
 		log_message(1, message, false, true);
 		va_end(vlist);
@@ -1915,7 +1940,7 @@ namespace loguru
 	{
 		va_list vlist;
 		va_start(vlist, format);
-		auto buff = strprintfv(format, vlist);
+		auto buff = vtextprintf(format, vlist);
 		log_to_everywhere(stack_trace_skip + 1, Verbosity_FATAL, file, line, expr, buff.c_str());
 		va_end(vlist);
 		abort(); // log_to_everywhere already does this, but this makes the analyzer happy.
@@ -1929,7 +1954,23 @@ namespace loguru
 	// ----------------------------------------------------------------------------
 	// Streams:
 
-	#if LOGURU_WITH_STREAMS || LOGURU_REPLACE_GLOG
+	std::string vstrprintf(const char* format, va_list vlist)
+	{
+		auto text = vtextprintf(format, vlist);
+		std::string result = text.c_str();
+		return result;
+	}
+
+	std::string strprintf(const char* format, ...)
+	{
+		va_list vlist;
+		va_start(vlist, format);
+		auto result = vstrprintf(format, vlist);
+		va_end(vlist);
+		return result;
+	}
+
+	#if LOGURU_WITH_STREAMS
 
 	StreamLogger::~StreamLogger()
 	{
@@ -1943,7 +1984,7 @@ namespace loguru
 		loguru::log_and_abort(1, _expr, _file, _line, "%s", message.c_str());
 	}
 
-	#endif // LOGURU_WITH_STREAMS || LOGURU_REPLACE_GLOG
+	#endif // LOGURU_WITH_STREAMS
 
 	// ----------------------------------------------------------------------------
 	// 888888 88""Yb 88""Yb  dP"Yb  88""Yb      dP""b8  dP"Yb  88b 88 888888 888888 Yb  dP 888888
@@ -2026,7 +2067,7 @@ namespace loguru
 			result.str += "------------------------------------------------\n";
 			for (const auto& entry : stack) {
 				const auto description = std::string(entry._descr) + ":";
-				auto prefix = strprintf("[ErrorContext] %23s:%-5u %-20s ",
+				auto prefix = textprintf("[ErrorContext] %23s:%-5u %-20s ",
 					filename(entry._file), entry._line, description.c_str());
 				result.str += prefix.c_str();
 				entry._payload._printer(&result, entry._payload._ec_data);
