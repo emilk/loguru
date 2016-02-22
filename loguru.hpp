@@ -27,8 +27,9 @@ Website: www.ilikebigbits.com
 	* Version 0.80 - 2015-10-30 - Color logging.
 	* Version 0.90 - 2015-11-26 - ABORT_S and proper handling of FATAL
 	* Verison 1.00 - 2015-02-14 - ERROR_CONTEXT
-	* Verison 1.10 - 2015-02-19 - -v off, -v INFO etc
+	* Verison 1.10 - 2015-02-19 - -v OFF, -v INFO etc
 	* Verison 1.11 - 2015-02-20 - textprintf vs strprintf
+	* Verison 1.12 - 2015-02-22 - remove g_alsologtostderr
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -73,7 +74,7 @@ Website: www.ilikebigbits.com
 	DLOG_F("Only written in debug-builds");
 
 	// Turn off writing to stderr:
-	loguru::g_alsologtostderr = false;
+	loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
 
 	// Turn off writing err/warn in red:
 	loguru::g_colorlogtostderr = false;
@@ -104,7 +105,7 @@ Website: www.ilikebigbits.com
 
 	LOGURU_REPLACE_GLOG:
 		Make Loguru mimic GLOG as close as possible,
-		including #defining LOG, CHECK, FLAGS_v etc.
+		including #defining LOG, CHECK, VLOG_IS_ON etc.
 		LOGURU_REPLACE_GLOG implies LOGURU_WITH_STREAMS.
 
 	You can also configure:
@@ -237,7 +238,8 @@ namespace loguru
 
 	enum NamedVerbosity : Verbosity
 	{
-		Verbosity_NOTHING = -9, // If set as output, nothing is written
+		// You may use Verbosity_OFF on g_stderr_verbosity, but for nothing else!
+		Verbosity_OFF     = -9, // Never do LOG_F(OFF)
 
 		// Prefer to use ABORT_F or ABORT_S over LOG_F(FATAL) or LOG_S(FATAL).
 		Verbosity_FATAL   = -3,
@@ -278,11 +280,12 @@ namespace loguru
 		const char* message;     // User message goes here.
 	};
 
-	// Control with -v argument.
-	extern Verbosity g_stderr_verbosity; // 0 by default (only log ERROR, WARNING and INFO)
-
-	// By default, Loguru writes everything above g_stderr_verbosity to stdout.
-	extern bool      g_alsologtostderr;  // True by default.
+	/* Everything with a verbosity equal or greater than g_stderr_verbosity will be
+	written to stderr. You can set this in code or via the -v argument.
+	Set to logurur::Verbosity_OFF to write nothing to stderr.
+	Default is 0, i.e. only log ERROR, WARNING and INFO are written to stderr.
+	*/
+	extern Verbosity g_stderr_verbosity;
 	extern bool      g_colorlogtostderr; // True by default.
 
 	// May not throw!
@@ -298,13 +301,16 @@ namespace loguru
 		This will look for arguments meant for loguru and remove them.
 		Arguments meant for loguru are:
 			-v n   Set stderr verbosity level. Examples:
-					   -v 3     Show verbosity level 3 and lower.
-					   -v 0     Only show INFO, WARNING, ERROR, FATAL (default).
+					   -v 3        Show verbosity level 3 and lower.
+					   -v 0        Only show INFO, WARNING, ERROR, FATAL (default).
 					   -v INFO     Only show INFO, WARNING, ERROR, FATAL (default).
 					   -v WARNING  Only show WARNING, ERROR, FATAL.
 					   -v ERROR    Only show ERROR, FATAL.
 					   -v FATAL    Only show FATAL.
-					   -v off      Turn off logging to stderr.
+					   -v OFF      Turn off logging to stderr.
+
+		Tip: You can set g_stderr_verbosity before calling loguru::init.
+		That way you can set the default but have the user override it with the -v flag.
 	*/
 	void init(int& argc, char* argv[]);
 
@@ -983,10 +989,6 @@ namespace loguru
 	#define DCHECK_GE      DCHECK_GE_S
 	#define VLOG_IS_ON(verbosity) ((verbosity) <= loguru::current_verbosity_cutoff())
 
-	#define FLAGS_v                loguru::g_stderr_verbosity
-	#define FLAGS_alsologtostderr  loguru::g_alsologtostderr
-	#define FLAGS_colorlogtostderr loguru::g_colorlogtostderr
-
 #endif // LOGURU_REPLACE_GLOG
 
 #endif // LOGURU_WITH_STREAMS
@@ -1091,11 +1093,10 @@ namespace loguru
 	const auto s_start_time = system_clock::now();
 
 	Verbosity g_stderr_verbosity = Verbosity_0;
-	bool      g_alsologtostderr  = true;
 	bool      g_colorlogtostderr = true;
 
 	static std::recursive_mutex  s_mutex;
-	static Verbosity             s_max_out_verbosity = Verbosity_NOTHING;
+	static Verbosity             s_max_out_verbosity = Verbosity_OFF;
 	static std::string           s_argv0_filename;
 	static std::string           s_file_arguments;
 	static CallbackVec           s_callbacks;
@@ -1262,8 +1263,8 @@ namespace loguru
 				}
 				if (*value_str == '=') { value_str += 1; }
 
-				if (strcmp(value_str, "off") == 0) {
-					g_alsologtostderr = false;
+				if (strcmp(value_str, "OFF") == 0) {
+					g_stderr_verbosity = Verbosity_OFF;
 				} else if (strcmp(value_str, "INFO") == 0) {
 					g_stderr_verbosity = Verbosity_INFO;
 				} else if (strcmp(value_str, "WARNING") == 0) {
@@ -1275,7 +1276,8 @@ namespace loguru
 				} else {
 					char* end = 0;
 					g_stderr_verbosity = static_cast<int>(strtol(value_str, &end, 10));
-					CHECK_F(end && *end == '\0', "Invalid verbosity - expected integer, INFO, WARNING, ERROR or off, got %s", value_str);
+					CHECK_F(end && *end == '\0',
+						"Invalid verbosity. Expected integer, INFO, WARNING, ERROR or OFF, got '%s'", value_str);
 				}
 			} else {
 				argv[arg_dest++] = argv[arg_it];
@@ -1341,7 +1343,7 @@ namespace loguru
 			}
 		#endif // LOGURU_PTHREADS
 
-		if (g_alsologtostderr) {
+		if (g_stderr_verbosity >= Verbosity_INFO) {
 			if (g_colorlogtostderr && s_terminal_has_color) {
 				fprintf(stderr, "%s%s%s\n", terminal_reset(), terminal_dim(), PREAMBLE_EXPLAIN);
 			} else {
@@ -1493,7 +1495,7 @@ namespace loguru
 
 	static void on_callback_change()
 	{
-		s_max_out_verbosity = Verbosity_NOTHING;
+		s_max_out_verbosity = Verbosity_OFF;
 		for (const auto& callback : s_callbacks)
 		{
 			s_max_out_verbosity = std::max(s_max_out_verbosity, callback.verbosity);
@@ -1766,7 +1768,7 @@ namespace loguru
 			message.indentation = indentation(s_stderr_indentation);
 		}
 
-		if (g_alsologtostderr && verbosity <= g_stderr_verbosity) {
+		if (verbosity <= g_stderr_verbosity) {
 			if (g_colorlogtostderr && s_terminal_has_color) {
 				if (verbosity > Verbosity_WARNING) {
 					fprintf(stderr, "%s%s%s%s%s%s%s%s%s\n",

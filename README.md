@@ -114,7 +114,7 @@ DCHECK_F(expensive_check(x)); // Only checked #if !NDEBUG
 DLOG_F("Only written in debug-builds");
 
 // Turn off writing to stderr:
-loguru::g_alsologtostderr = false;
+loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
 
 // Turn off writing err/warn in red:
 loguru::g_colorlogtostderr = false;
@@ -259,3 +259,4 @@ Loguru allows you to use whatever style you prefer.
 	* No colored terminal output.
 	* No stack-traces (you can add them yourself with `loguru::set_fatal_handler`).
 	* No signal handlers.
+	* NO ERROR_CONTEXT.
