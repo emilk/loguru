@@ -204,7 +204,7 @@ Scopes affects logging on all threads.
 
 
 ## Error context
-A stack trace gives you the names of the function at the point of a crash. With ERROR_CONTEXT, you can also get the values of select local variables. `ERROR_CONTEXT` is in effect a logging that only occurs if there is a crash.
+A stack trace gives you the names of the function at the point of a crash. With `ERROR_CONTEXT`, you can also get the values of select local variables. `ERROR_CONTEXT` is in effect a logging that only occurs if there is a crash.
 
 Usage:
 
@@ -230,7 +230,7 @@ Example result:
 	[ErrorContext]                main.cpp:417   Customer index:     42
 	------------------------------------------------
 
-Error contexts are printed automatically on crashes. Note that values captured by `ERROR_CONTEXT` are **only printed on a crash**. They do not litter the log file otherwise.
+Error contexts are printed automatically on crashes. Note that values captured by `ERROR_CONTEXT` are **only printed on a crash**. They do not litter the log file otherwise. They also have a very small performance hit (about 15 nanoseconds per `ERROR_CONTEXT` on my MacBook Pro, compared to about 4 milliseconds a line in the logfile).
 
 `ERROR_CONTEXT` works with built-in types (`float`, `int`, `char` etc) as well as `const char*`. You can also add support for your own types using `LOGURU_DECLARE_EC_TYPE` and `ec_printer_impl` (see `loguru.hpp` for details).
 
