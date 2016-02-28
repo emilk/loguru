@@ -4,7 +4,6 @@
 #include <iostream>
 #include <vector>
 
-#define LOGURU_FLUSH_INTERVAL_MS 100 // Try commenting this line
 #define LOGURU_WITH_STREAMS 1
 #define LOGURU_REDEFINE_ASSERT 1
 #define LOGURU_IMPLEMENTATION 1
@@ -22,7 +21,7 @@ static long long now_ns()
 template<typename Function>
 void bench(const std::string& name, const Function& function, size_t num_iterations)
 {
-	printf("%-50s ", name.c_str());
+	printf("%-30s ", name.c_str());
 	fflush(stdout);
 	std::vector<double> times;
 	double sum = 0;
@@ -103,6 +102,14 @@ int main(int argc, char* argv[])
 	loguru::init(argc, argv);
 	loguru::add_file("loguru_bench.log", loguru::Truncate, loguru::Verbosity_INFO);
 
+	loguru::g_flush_interval_ms = 200;
+	bench("LOG_F string (buffered):", format_strings,   kNumIterations);
+	bench("LOG_F float  (buffered):", format_float,     kNumIterations);
+	bench("LOG_S string (buffered):", stream_strings,   kNumIterations);
+	bench("LOG_S float  (buffered):", stream_float,     kNumIterations);
+	bench("RAW_LOG_F    (buffered):", raw_string_float, kNumIterations);
+
+	loguru::g_flush_interval_ms = 0;
 	bench("LOG_F string (unbuffered):", format_strings,   kNumIterations);
 	bench("LOG_F float  (unbuffered):", format_float,     kNumIterations);
 	bench("LOG_S string (unbuffered):", stream_strings,   kNumIterations);

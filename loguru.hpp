@@ -109,9 +109,10 @@ Website: www.ilikebigbits.com
 		LOGURU_REPLACE_GLOG implies LOGURU_WITH_STREAMS.
 
 	You can also configure:
-	LOGURU_FLUSH_INTERVAL_MS:
-		If set, Loguru will flush outputs every LOGURU_FLUSH_INTERVAL_MS ms.
-		If not set, Loguru will flush on every line.
+	loguru::g_flush_interval_ms:
+		If set to zero Loguru will flush on every line (unbuffered mode).
+		Else Loguru will flush outputs every g_flush_interval_ms milliseconds (buffered mode).
+		The default is g_flush_interval_ms=0, i.e. unbuffered mode.
 
 # Notes:
 	* Any arguments to CHECK:s are only evaluated once.
@@ -287,6 +288,7 @@ namespace loguru
 	*/
 	extern Verbosity g_stderr_verbosity;
 	extern bool      g_colorlogtostderr; // True by default.
+	extern unsigned  g_flush_interval_ms; // 0 (unbuffered) by default.
 
 	// May not throw!
 	typedef void (*log_handler_t)(void* user_data, const Message& message);
@@ -397,7 +399,7 @@ namespace loguru
 	LOGURU_NORETURN void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line);
 
 	// Flush output to stderr and files.
-	// If LOGURU_FLUSH_INTERVAL_MS is set, this will be called automatically this often.
+	// If g_flush_interval_ms is set to non-zero, this will be called automatically this often.
 	// If not set, you do not need to call this at al.
 	void flush();
 
@@ -1022,11 +1024,8 @@ This will define all the Loguru functions so that the linker may find them.
 #include <mutex>
 #include <regex>
 #include <string>
+#include <thread>
 #include <vector>
-
-#ifdef LOGURU_FLUSH_INTERVAL_MS
-	#include <thread>
-#endif
 
 #ifdef _MSC_VER
 	#include <direct.h>
@@ -1092,8 +1091,9 @@ namespace loguru
 
 	const auto s_start_time = system_clock::now();
 
-	Verbosity g_stderr_verbosity = Verbosity_0;
-	bool      g_colorlogtostderr = true;
+	Verbosity g_stderr_verbosity  = Verbosity_0;
+	bool      g_colorlogtostderr  = true;
+	unsigned  g_flush_interval_ms = 0;
 
 	static std::recursive_mutex  s_mutex;
 	static Verbosity             s_max_out_verbosity = Verbosity_OFF;
@@ -1105,10 +1105,9 @@ namespace loguru
 	static bool                  s_strip_file_path = true;
 	static std::atomic<unsigned> s_stderr_indentation { 0 };
 
-#ifdef LOGURU_FLUSH_INTERVAL_MS
+	// For periodic flushing:
 	static std::thread* s_flush_thread   = nullptr;
 	static bool         s_needs_flushing = false;
-#endif
 
 	static const bool s_terminal_has_color = [](){
 		#ifdef _MSC_VER
@@ -1172,9 +1171,9 @@ namespace loguru
 		FILE* file = reinterpret_cast<FILE*>(user_data);
 		fprintf(file, "%s%s%s%s\n",
 			message.preamble, message.indentation, message.prefix, message.message);
-		#ifndef LOGURU_FLUSH_INTERVAL_MS
+		if (g_flush_interval_ms == 0) {
 			fflush(file);
-		#endif
+		}
 	}
 
 	void file_close(void* user_data)
@@ -1797,11 +1796,11 @@ namespace loguru
 					message.preamble, message.indentation, message.prefix, message.message);
 			}
 
-			#ifdef LOGURU_FLUSH_INTERVAL_MS
-				s_needs_flushing = true;
-			#else
+			if (g_flush_interval_ms == 0) {
 				fflush(stderr);
-			#endif
+			} else {
+				s_needs_flushing = true;
+			}
 		}
 
 		for (auto& p : s_callbacks) {
@@ -1810,24 +1809,22 @@ namespace loguru
 					message.indentation = indentation(p.indentation);
 				}
 				p.callback(p.user_data, message);
-				#ifdef LOGURU_FLUSH_INTERVAL_MS
+				if (g_flush_interval_ms > 0) {
 					s_needs_flushing = true;
-				#endif
+				}
 			}
 		}
 
-		#ifdef LOGURU_FLUSH_INTERVAL_MS
-			if (!s_flush_thread) {
-				s_flush_thread = new std::thread([](){
-					for (;;) {
-						if (s_needs_flushing) {
-							flush();
-						}
-						std::this_thread::sleep_for(std::chrono::milliseconds(LOGURU_FLUSH_INTERVAL_MS));
+		if (g_flush_interval_ms > 0 && !s_flush_thread) {
+			s_flush_thread = new std::thread([](){
+				for (;;) {
+					if (s_needs_flushing) {
+						flush();
 					}
-				});
-			}
-		#endif
+					std::this_thread::sleep_for(std::chrono::milliseconds(g_flush_interval_ms));
+				}
+			});
+		}
 
 		if (message.verbosity == Verbosity_FATAL) {
 			flush();
@@ -1885,9 +1882,7 @@ namespace loguru
 		{
 			callback.flush(callback.user_data);
 		}
-		#ifdef LOGURU_FLUSH_INTERVAL_MS
-			s_needs_flushing = false;
-		#endif
+		s_needs_flushing = false;
 	}
 
 	LogScopeRAII::LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)

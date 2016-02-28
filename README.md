@@ -40,11 +40,11 @@ In particular, I want logging that produces logs that are both human-readable an
 		* Chronological order with the most relevant at the end.
 * (most) signals writes stack traces.
 * Fast:
-	- When configured in unbuffered mode (LOGURU_FLUSH_INTERVAL_MS not set):
+	- When configured in unbuffered mode (loguru::g_flush_interval_ms = 0):
 		+ 6-8 us when logging to stderr + file (rMBP + SSD + Clang).
 		+ About 25%-75% faster than GLOG on my MacBook Pro (Clang).
 		+ About the same as GLOG on my Linux Desktop (GCC).
-	- With LOGURU_FLUSH_INTERVAL_MS set to ~100 ms:
+	- With loguru::g_flush_interval_ms set to ~100 ms:
 		+ 3-5 us when logging to stderr + file (rMBP + SSD + Clang).
 		+ About twice as fast as GLOG.
 * Drop-in replacement for most of GLOG (except for setup code).
@@ -55,7 +55,7 @@ In particular, I want logging that produces logs that are both human-readable an
 	* With colors on supported terminals.
 * Thread-safe.
 * Can be configured to either:
-	* Flush every `LOGURU_FLUSH_INTERVAL_MS` in a background thread
+	* Flush every `loguru::g_flush_interval_ms` in a background thread
 	* Flushes output on each call so you won't miss anything even on hard crashes (and still faster than buffered GLOG!).
 * Prefixes each log line with:
 	* Date and time to millisecond precision.
@@ -212,8 +212,7 @@ Usage:
 void process_customers(const std::string& filename)
 {
     ERROR_CONTEXT("Processing file", filename.c_str());
-    for (size_t i = 0; i < num_customers; ++i)
-    {
+    for (size_t i = 0; i < num_customers; ++i) {
 	    ERROR_CONTEXT("Customer index", i);
 	    if (i == 42) { crashy_code(); }
     }
@@ -230,9 +229,17 @@ Example result:
 	[ErrorContext]                main.cpp:417   Customer index:     42
 	------------------------------------------------
 
-Error contexts are printed automatically on crashes. Note that values captured by `ERROR_CONTEXT` are **only printed on a crash**. They do not litter the log file otherwise. They also have a very small performance hit (about 15 nanoseconds per `ERROR_CONTEXT` on my MacBook Pro, compared to about 4 milliseconds a line in the logfile).
+Error contexts are printed automatically on crashes. Note that values captured by `ERROR_CONTEXT` are **only printed on a crash**. They do not litter the log file otherwise. They also have a very small performance hit (about 15 nanoseconds per `ERROR_CONTEXT` on my MacBook Pro, compared to about 4-7 milliseconds a line in the logfile).
 
-`ERROR_CONTEXT` works with built-in types (`float`, `int`, `char` etc) as well as `const char*`. You can also add support for your own types using `LOGURU_DECLARE_EC_TYPE` and `ec_printer_impl` (see `loguru.hpp` for details).
+`ERROR_CONTEXT` works with built-in types (`float`, `int`, `char` etc) as well as `const char*`. You can also add support for your own types using `LOGURU_DECLARE_EC_TYPE` and `ec_printer_impl` (see [`loguru.hpp`](https://github.com/emilk/loguru/blob/master/loguru.hpp) for details).
+
+The `ERROR_CONTEXT` feature of Loguru is actually orthogonal to the logging. If you want to, you can use Loguru just for its `ERROR_CONTEXT` (and use some other library for logging). You can print the error context stack at any time like this:
+
+```
+auto text = loguru::get_error_context();
+printf("%s", text.c_str());
+some_stream << text.c_str(); // Or like this
+```
 
 ## Streams vs printf#
 Some logging libraries only supports stream style logging, not printf-style. This means that what in Loguru is:

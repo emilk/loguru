@@ -27,7 +27,7 @@ double time_sec(const Function& function)
 template<typename Function>
 void bench(const std::string& name, const Function& function)
 {
-	printf("%-50s ", name.c_str());
+	printf("%-30s ", name.c_str());
 	fflush(stdout);
 	std::vector<double> times;
 	double sum = 0;
