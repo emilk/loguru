@@ -29,7 +29,8 @@ Website: www.ilikebigbits.com
 	* Verison 1.00 - 2015-02-14 - ERROR_CONTEXT
 	* Verison 1.10 - 2015-02-19 - -v OFF, -v INFO etc
 	* Verison 1.11 - 2015-02-20 - textprintf vs strprintf
-	* Verison 1.12 - 2015-02-22 - remove g_alsologtostderr
+	* Verison 1.12 - 2015-02-22 - Remove g_alsologtostderr
+	* Verison 1.13 - 2015-02-29 - ERROR_CONTEXT as linked list
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -134,12 +135,6 @@ Website: www.ilikebigbits.com
 #ifndef LOGURU_CATCH_SIGABRT
 	// Should Loguru catch SIGABRT to print stack trace etc?
 	#define LOGURU_CATCH_SIGABRT 1
-#endif
-
-// The data of ERROR_CONTEXT must fit in LOGURU_EC_DATA_SIZE bytes.
-// If your data does not fit, maybe a pointer to it will?
-#ifndef LOGURU_EC_DATA_SIZE
-	#define LOGURU_EC_DATA_SIZE sizeof(long double)
 #endif
 
 #ifndef LOGURU_REDEFINE_ASSERT
@@ -489,49 +484,82 @@ namespace loguru
 	const char* terminal_reset();
 
 	// --------------------------------------------------------------------
-	// Error-context related:
-
-	struct EcData { char data[LOGURU_EC_DATA_SIZE]; };
+	// Error context related:
 
 	struct StringStream;
 
-	// Use this in your ec_printer_impl overload.
-	void stream_print(StringStream* string_stream, const char* text);
+	// Use this in your EcEntryBase::print_value overload.
+	void stream_print(StringStream& out_string_stream, const char* text);
 
-
-	template<typename T>
-	inline EcData as_ec_data(const T& value)
+	class EcEntryBase
 	{
-		static_assert(sizeof(T) <= sizeof(EcData),
-			"Data too large - consider using a pointer or increase LOGURU_EC_DATA_SIZE.");
-		return *reinterpret_cast<const EcData*>(&value);
-	}
+	public:
+		EcEntryBase(const char* file, unsigned line, const char* descr);
+		~EcEntryBase();
+		EcEntryBase(const EcEntryBase&) = delete;
+		EcEntryBase(EcEntryBase&&) = delete;
+		EcEntryBase& operator=(const EcEntryBase&) = delete;
+		EcEntryBase& operator=(EcEntryBase&&) = delete;
 
-	template<typename T>
-	inline T from_ec_data(const EcData& ec_data)
-	{
-		static_assert(sizeof(T) <= sizeof(EcData),
-			"Data too large - consider using a pointer or increase LOGURU_EC_DATA_SIZE.");
-		return *reinterpret_cast<const T*>(&ec_data);
-	}
+		virtual void print_value(StringStream& out_string_stream) const = 0;
 
-	using EcPrinter = void(*)(StringStream* string_stream, EcData ec_data);
+		EcEntryBase* previous() const { return _previous; }
 
-	struct EcPayload
-	{
-		EcData    _ec_data;
-		EcPrinter _printer;
+	// private:
+		const char*  _file;
+		unsigned     _line;
+		const char*  _descr;
+		EcEntryBase* _previous;
 	};
 
-	struct ErrorContextScope
+	template<typename T>
+	class EcEntryData : public EcEntryBase
 	{
-		ErrorContextScope(const char* file, unsigned line, const char* desc, EcPayload&& se);
-		~ErrorContextScope();
-		ErrorContextScope(ErrorContextScope&) = delete;
-		ErrorContextScope(ErrorContextScope&&) = delete;
-		ErrorContextScope& operator=(ErrorContextScope&) = delete;
-		ErrorContextScope& operator=(ErrorContextScope&&) = delete;
+	public:
+		using Printer = Text(*)(T data);
+
+		EcEntryData(const char* file, unsigned line, const char* descr, T&& data, Printer&& printer)
+			: EcEntryBase(file, line, descr), _data(std::move(data)), _printer(std::move(printer)) {}
+
+		virtual void print_value(StringStream& out_string_stream) const override
+		{
+			const auto str = _printer(_data);
+			stream_print(out_string_stream, str.c_str());
+		}
+
+	private:
+		T   _data;
+		Printer _printer;
 	};
+
+	// template<typename Printer>
+	// class EcEntryLambda : public EcEntryBase
+	// {
+	// public:
+	// 	EcEntryLambda(const char* file, unsigned line, const char* descr, Printer&& printer)
+	// 		: EcEntryBase(file, line, descr), _printer(std::move(printer)) {}
+
+	// 	virtual void print_value(StringStream& out_string_stream) const override
+	// 	{
+	// 		const auto str = _printer();
+	// 		stream_print(out_string_stream, str.c_str());
+	// 	}
+
+	// private:
+	// 	Printer _printer;
+	// };
+
+	// template<typename Printer>
+	// EcEntryLambda<Printer> make_ec_entry_lambda(const char* file, unsigned line, const char* descr, Printer&& printer)
+	// {
+	// 	return {file, line, descr, std::move(printer)};
+	// }
+
+	template <class T>
+	struct decay_char_array { using type = T; };
+
+	template <unsigned long long  N>
+	struct decay_char_array<const char(&)[N]> { using type = const char*; };
 
 	/* 	A stack trace gives you the names of the function at the point of a crash.
 		With ERROR_CONTEXT, you can also get the values of select local variables.
@@ -548,80 +576,68 @@ namespace loguru
 		}
 
 		The context is in effect during the scope of the ERROR_CONTEXT.
-		To get the contents of the stack, use get_error_context().
+		Use loguru::get_error_context() to get the contents of the active error contexts.
 
 		Example result:
 
 		------------------------------------------------
-		[ErrorContext]                main.cpp:416   Processing file:    'customers.json'
+		[ErrorContext]                main.cpp:416   Processing file:    "customers.json"
 		[ErrorContext]                main.cpp:417   Customer index:     42
 		------------------------------------------------
 
-		Error contexts are printed automatically on crashes.
+		Error contexts are printed automatically on crashes, and only on crashes.
+		This makes them much faster than logging the value of a variable.
 	*/
-	#define ERROR_CONTEXT(descr, data)                                              \
-		loguru::ErrorContextScope LOGURU_ANONYMOUS_VARIABLE(error_context_scope_)(  \
-			__FILE__, __LINE__, descr, loguru::make_ec_payload(data)                \
-		)
+	#define ERROR_CONTEXT(descr, data)                                             \
+		const loguru::EcEntryData<loguru::decay_char_array<decltype(data)>::type>  \
+			LOGURU_ANONYMOUS_VARIABLE(error_context_scope_)(                       \
+				__FILE__, __LINE__, descr, data, loguru::ec_to_text )
+
+	// #define ERROR_CONTEXT(descr, data)                              \
+	// 	const auto LOGURU_ANONYMOUS_VARIABLE(error_context_scope_)(    \
+	// 		loguru::make_ec_entry_lambda(__FILE__, __LINE__, descr,    \
+	// 			[=](){ return loguru::ec_to_text(data); }))
 
 	// Get a string describing the current stack of error context. Empty string if there is none.
 	Text get_error_context();
 
-	// These are called when the get_error_context() is called.
-	template<typename T>
-	void ec_printer_impl(StringStream* string_stream, T ec_data);
-
-	template<typename T>
-	inline void ec_format(StringStream* string_stream, EcData ec_data)
-	{
-		ec_printer_impl(string_stream, from_ec_data<T>(ec_data));
-	}
-
 	// ------------------------------------------------------------------------
 
-	#define LOGURU_DECLARE_EC_TYPE(Type)                   \
-		inline EcPayload make_ec_payload(Type data) {       \
-			return { as_ec_data(data), ec_format<Type> };  \
-		}
-
-	LOGURU_DECLARE_EC_TYPE(const char*);
-	LOGURU_DECLARE_EC_TYPE(char);
-	LOGURU_DECLARE_EC_TYPE(int);
-	LOGURU_DECLARE_EC_TYPE(unsigned int);
-	LOGURU_DECLARE_EC_TYPE(long);
-	LOGURU_DECLARE_EC_TYPE(unsigned long);
-	LOGURU_DECLARE_EC_TYPE(long long);
-	LOGURU_DECLARE_EC_TYPE(unsigned long long);
-	LOGURU_DECLARE_EC_TYPE(float);
-	LOGURU_DECLARE_EC_TYPE(double);
-	LOGURU_DECLARE_EC_TYPE(long double);
+	Text ec_to_text(const char* data);
+	Text ec_to_text(char data);
+	Text ec_to_text(int data);
+	Text ec_to_text(unsigned int data);
+	Text ec_to_text(long data);
+	Text ec_to_text(unsigned long data);
+	Text ec_to_text(long long data);
+	Text ec_to_text(unsigned long long data);
+	Text ec_to_text(float data);
+	Text ec_to_text(double data);
+	Text ec_to_text(long double data);
 
 	/*
-	You can add ERROR_CONTEXT support for your own types with the help of
-	LOGURU_DECLARE_EC_TYPE and ec_printer_impl. Here's how:
+	You can add ERROR_CONTEXT support for your own types by overloading ec_to_text. Here's how:
 
 	some.hpp:
 		namespace loguru {
-			LOGURU_DECLARE_EC_TYPE(MySmallType)
-			LOGURU_DECLARE_EC_TYPE(const MyBigType*)
+			Text ec_to_text(MySmallType data)
+			Text ec_to_text(const MyBigType* data)
 		} // namespace loguru
 
 	some.cpp:
 		namespace loguru {
-			template<>
-			void ec_printer_impl(StringStream* string_stream, MySmallType value)
+			Text ec_to_text(MySmallType small_value)
 			{
 				// Called only when needed, i.e. on a crash.
-				std::string str = value.as_string(); // Format 'value' here somehow.
-				stream_print(string_stream, str.c_str());
+				std::string str = small_value.as_string(); // Format 'small_value' here somehow.
+				return Text{strdup(str.c_str())};
 			}
 
-			template<>
-			void ec_printer_impl(StringStream* string_stream, const MyBigType* value)
+			Text ec_to_text(const MyBigType* big_value)
 			{
 				// Called only when needed, i.e. on a crash.
-				std::string str = value->as_string(); // Format 'value' here somehow.
-				stream_print(string_stream, str.c_str());
+				std::string str = big_value->as_string(); // Format 'big_value' here somehow.
+				return Text{strdup(str.c_str())};
 			}
 		} // namespace loguru
 
@@ -1033,6 +1049,10 @@ This will define all the Loguru functions so that the linker may find them.
 	#include <signal.h>
 	#include <sys/stat.h> // mkdir
 	#include <unistd.h>   // STDERR_FILENO
+#endif
+
+#if __APPLE__
+    #include "TargetConditionals.h"
 #endif
 
 // TODO: use defined(_POSIX_VERSION) for some of these things?
@@ -1996,78 +2016,75 @@ namespace loguru
 	};
 
 	// Use this in your EcPrinter implementations.
-	void stream_print(StringStream* string_stream, const char* text)
+	void stream_print(StringStream& out_string_stream, const char* text)
 	{
-		string_stream->str += text;
+		out_string_stream.str += text;
 	}
 
 	// ----------------------------------------------------------------------------
 
-	struct EcEntry
+	using ECPtr = EcEntryBase*;
+
+#if defined(_WIN32) || (defined(TARGET_OS_MAC) && TARGET_OS_MAC)
+	#ifdef __APPLE__
+		#define LOGURU_THREAD_LOCAL __thread
+	#else
+		#define LOGURU_THREAD_LOCAL thread_local
+	#endif
+	static LOGURU_THREAD_LOCAL ECPtr thread_ec_ptr = nullptr;
+
+	ECPtr& get_thread_ec_head_ref()
 	{
-		const char* _file;
-		unsigned    _line;
-		const char* _descr;
-		EcPayload   _payload;
-	};
-
-	using EcStack = std::vector<EcEntry>;
-
-	// ----------------------------------------------------------------------------
-
-#ifdef _WIN32
-	Text as_string()
-	{
-		return Text(strdup(""));
+		return thread_ec_ptr;
 	}
-
-	ErrorContextScope::ErrorContextScope(const char*, unsigned, const char*, EcPayload&&)
-	{
-	}
-
-	ErrorContextScope::~ErrorContextScope()
-	{
-	}
-
-#else // !_WIN32
+#else // !thread_local
 	static pthread_once_t s_ec_pthread_once = PTHREAD_ONCE_INIT;
 	static pthread_key_t  s_ec_pthread_key;
 
-	void free_error_context(void* io_error_context)
+	void free_ec_head_ref(void* io_error_context)
 	{
-		delete reinterpret_cast<EcStack*>(io_error_context);
+		delete reinterpret_cast<ECPtr*>(io_error_context);
 	}
 
 	void ec_make_pthread_key()
 	{
-		(void)pthread_key_create(&s_ec_pthread_key, free_error_context);
+		(void)pthread_key_create(&s_ec_pthread_key, free_ec_head_ref);
 	}
 
-	EcStack& get_thread_error_context_stack()
+	ECPtr& get_thread_ec_head_ref()
 	{
 		(void)pthread_once(&s_ec_pthread_once, ec_make_pthread_key);
-		auto ec = reinterpret_cast<EcStack*>(pthread_getspecific(s_ec_pthread_key));
+		auto ec = reinterpret_cast<ECPtr*>(pthread_getspecific(s_ec_pthread_key));
 		if (ec == nullptr) {
-			ec = new EcStack();
+			ec = new ECPtr(nullptr);
 			(void)pthread_setspecific(s_ec_pthread_key, ec);
 		}
 		return *ec;
 	}
+#endif // !thread_local
 
 	// ----------------------------------------------------------------------------
 
 	Text get_error_context()
 	{
-		const auto& stack = get_thread_error_context_stack();
+		const EcEntryBase* ec_head = get_thread_ec_head_ref();
+
+		std::vector<const EcEntryBase*> stack;
+		while (ec_head) {
+			stack.push_back(ec_head);
+			ec_head = ec_head->_previous;
+		}
+		std::reverse(stack.begin(), stack.end());
+
 		StringStream result;
 		if (!stack.empty()) {
 			result.str += "------------------------------------------------\n";
-			for (const auto& entry : stack) {
-				const auto description = std::string(entry._descr) + ":";
+			for (auto entry : stack) {
+				const auto description = std::string(entry->_descr) + ":";
 				auto prefix = textprintf("[ErrorContext] %23s:%-5u %-20s ",
-					filename(entry._file), entry._line, description.c_str());
+					filename(entry->_file), entry->_line, description.c_str());
 				result.str += prefix.c_str();
-				entry._payload._printer(&result, entry._payload._ec_data);
+				entry->print_value(result);
 				result.str += "\n";
 			}
 			result.str += "------------------------------------------------";
@@ -2075,32 +2092,30 @@ namespace loguru
 		return Text(strdup(result.str.c_str()));
 	}
 
-	ErrorContextScope::ErrorContextScope(const char* file, unsigned line, const char* desc, EcPayload&& se)
+	EcEntryBase::EcEntryBase(const char* file, unsigned line, const char* descr)
+		: _file(file), _line(line), _descr(descr)
 	{
-		get_thread_error_context_stack().emplace_back(EcEntry{file, line, desc, se});
+		EcEntryBase*& ec_head = get_thread_ec_head_ref();
+		_previous = ec_head;
+		ec_head = this;
 	}
 
-	ErrorContextScope::~ErrorContextScope()
+	EcEntryBase::~EcEntryBase()
 	{
-		auto& stack = get_thread_error_context_stack();
-		CHECK_F(!stack.empty());
-		stack.pop_back();
+		get_thread_ec_head_ref() = _previous;
 	}
-#endif // !_WIN32
 
 	// ------------------------------------------------------------------------
 
-	template<>
-	void ec_printer_impl(StringStream* string_stream, const char* value)
+	Text ec_to_text(const char* value)
 	{
 		// Add quotes around the string to make it obvious where it begin and ends.
 		// This is great for detecting erroneous leading or trailing spaces in e.g. an identifier.
 		auto str = "\"" + std::string(value) + "\"";
-		stream_print(string_stream, str.c_str());
+		return Text{strdup(str.c_str())};
 	}
 
-	template<>
-	void ec_printer_impl(StringStream* string_stream, char c)
+	Text ec_to_text(char c)
 	{
 		// Add quotes around the character to make it obvious where it begin and ends.
 		std::string str = "'";
@@ -2135,15 +2150,14 @@ namespace loguru
 
 		str += "'";
 
-		stream_print(string_stream, str.c_str());
+		return Text{strdup(str.c_str())};
 	}
 
-	#define DEFINE_EC(Type) \
-		template<>                                                          \
-		void ec_printer_impl(StringStream* string_stream, Type value)       \
-		{                                                                   \
-			auto str = std::to_string(value);                               \
-			stream_print(string_stream, str.c_str());                       \
+	#define DEFINE_EC(Type)                        \
+		Text ec_to_text(Type value)                \
+		{                                          \
+			auto str = std::to_string(value);      \
+			return Text{strdup(str.c_str())};      \
 		}
 
 	DEFINE_EC(int);

@@ -20,8 +20,10 @@ add_compile_options(
     -Wno-global-constructors
     -Wno-missing-noreturn
     -Wno-missing-prototypes
+    -Wno-non-virtual-dtor
     -Wno-padded
     -Wno-pedantic
+    -Wno-weak-vtables
 )
 
 file(GLOB source

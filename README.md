@@ -225,13 +225,13 @@ To get the contents of the stack manually, use `loguru::get_error_context()`.
 Example result:
 
 	------------------------------------------------
-	[ErrorContext]                main.cpp:416   Processing file:    'customers.json'
+	[ErrorContext]                main.cpp:416   Processing file:    "customers.json"
 	[ErrorContext]                main.cpp:417   Customer index:     42
 	------------------------------------------------
 
-Error contexts are printed automatically on crashes. Note that values captured by `ERROR_CONTEXT` are **only printed on a crash**. They do not litter the log file otherwise. They also have a very small performance hit (about 15 nanoseconds per `ERROR_CONTEXT` on my MacBook Pro, compared to about 4-7 milliseconds a line in the logfile).
+Error contexts are printed automatically on crashes. Note that values captured by `ERROR_CONTEXT` are **only printed on a crash**. They do not litter the log file otherwise. They also have a very small performance hit (about 12 nanoseconds per `ERROR_CONTEXT` on my MacBook Pro, compared to about 4-7 milliseconds a line in the logfile).
 
-`ERROR_CONTEXT` works with built-in types (`float`, `int`, `char` etc) as well as `const char*`. You can also add support for your own types using `LOGURU_DECLARE_EC_TYPE` and `ec_printer_impl` (see [`loguru.hpp`](https://github.com/emilk/loguru/blob/master/loguru.hpp) for details).
+`ERROR_CONTEXT` works with built-in types (`float`, `int`, `char` etc) as well as `const char*`. You can also add support for your own types by overloading `loguru::ec_to_text` (see [`loguru.hpp`](https://github.com/emilk/loguru/blob/master/loguru.hpp) for details).
 
 The `ERROR_CONTEXT` feature of Loguru is actually orthogonal to the logging. If you want to, you can use Loguru just for its `ERROR_CONTEXT` (and use some other library for logging). You can print the error context stack at any time like this:
 
@@ -266,4 +266,3 @@ Loguru allows you to use whatever style you prefer.
 	* No colored terminal output.
 	* No stack-traces (you can add them yourself with `loguru::set_fatal_handler`).
 	* No signal handlers.
-	* NO ERROR_CONTEXT.

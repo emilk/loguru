@@ -142,21 +142,29 @@ void test_abort_2() { test_abort_1(); }
 
 void test_error_contex()
 {
-	ERROR_CONTEXT("const char*",       "test string");
-	ERROR_CONTEXT("integer",           42);
-	ERROR_CONTEXT("double",             3.14);
-	ERROR_CONTEXT("char A",            'A');
-	ERROR_CONTEXT("char backslash",    '\\');
-	ERROR_CONTEXT("char double-quote", '\"');
-	ERROR_CONTEXT("char single-quote", '\'');
-	ERROR_CONTEXT("char zero",         '\0');
-	ERROR_CONTEXT("char bell",         '\b');
-	ERROR_CONTEXT("char feed",         '\f');
-	ERROR_CONTEXT("char newline",      '\n');
-	ERROR_CONTEXT("char return",       '\r');
-	ERROR_CONTEXT("char tab",          '\t');
-	ERROR_CONTEXT("char x13",          '\u0013');
-	ABORT_F("Intentional abort");
+	ERROR_CONTEXT("THIS SHOULDN'T BE PRINTED", "wrong_thread");
+
+	std::thread([]{
+		loguru::set_thread_name("EC test thread");
+		{ ERROR_CONTEXT("THIS SHOULDN'T BE PRINTED", "scoped"); }
+		ERROR_CONTEXT("const char*",       "test string");
+		ERROR_CONTEXT("integer",           42);
+		ERROR_CONTEXT("double",             3.14);
+		{ ERROR_CONTEXT("THIS SHOULDN'T BE PRINTED", "scoped"); }
+		ERROR_CONTEXT("char A",            'A');
+		ERROR_CONTEXT("char backslash",    '\\');
+		ERROR_CONTEXT("char double-quote", '\"');
+		ERROR_CONTEXT("char single-quote", '\'');
+		ERROR_CONTEXT("char zero",         '\0');
+		ERROR_CONTEXT("char bell",         '\b');
+		ERROR_CONTEXT("char feed",         '\f');
+		ERROR_CONTEXT("char newline",      '\n');
+		ERROR_CONTEXT("char return",       '\r');
+		ERROR_CONTEXT("char tab",          '\t');
+		ERROR_CONTEXT("char x13",          '\u0013');
+		{ ERROR_CONTEXT("THIS SHOULDN'T BE PRINTED", "scoped"); }
+		ABORT_F("Intentional abort");
+	}).join();
 }
 
 void test_hang_0()
