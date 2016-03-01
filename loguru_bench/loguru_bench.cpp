@@ -21,6 +21,8 @@ static long long now_ns()
 template<typename Function>
 void bench(const std::string& name, const Function& function, size_t num_iterations)
 {
+	function(num_iterations); // Warm-up.
+
 	printf("%-30s ", name.c_str());
 	fflush(stdout);
 	std::vector<double> times;
@@ -102,6 +104,8 @@ int main(int argc, char* argv[])
 	loguru::init(argc, argv);
 	loguru::add_file("loguru_bench.log", loguru::Truncate, loguru::Verbosity_INFO);
 
+	bench("ERROR_CONTEXT", error_context, kNumIterations * 100);
+
 	loguru::g_flush_interval_ms = 200;
 	bench("LOG_F string (buffered):", format_strings,   kNumIterations);
 	bench("LOG_F float  (buffered):", format_float,     kNumIterations);
@@ -115,6 +119,4 @@ int main(int argc, char* argv[])
 	bench("LOG_S string (unbuffered):", stream_strings,   kNumIterations);
 	bench("LOG_S float  (unbuffered):", stream_float,     kNumIterations);
 	bench("RAW_LOG_F    (unbuffered):", raw_string_float, kNumIterations);
-
-	bench("ERROR_CONTEXT", error_context, kNumIterations * 100);
 }
