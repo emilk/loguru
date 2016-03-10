@@ -121,6 +121,13 @@ Website: www.ilikebigbits.com
 	* Any arguments to LOG_IF functions are only evaluated if the test passes.
 */
 
+// Disable all warnings from gcc/clang:
+#if defined(__clang__)
+	#pragma clang system_header
+#elif defined(__GNUC__)
+	#pragma GCC system_header
+#endif
+
 #ifndef LOGURU_HAS_DECLARED_FORMAT_HEADER
 #define LOGURU_HAS_DECLARED_FORMAT_HEADER
 
@@ -593,10 +600,12 @@ namespace loguru
 			LOGURU_ANONYMOUS_VARIABLE(error_context_scope_)(                       \
 				__FILE__, __LINE__, descr, data, loguru::ec_to_text )
 
-	// #define ERROR_CONTEXT(descr, data)                              \
-	// 	const auto LOGURU_ANONYMOUS_VARIABLE(error_context_scope_)(    \
-	// 		loguru::make_ec_entry_lambda(__FILE__, __LINE__, descr,    \
-	// 			[=](){ return loguru::ec_to_text(data); }))
+/*
+	#define ERROR_CONTEXT(descr, data)                                 \
+		const auto LOGURU_ANONYMOUS_VARIABLE(error_context_scope_)(    \
+			loguru::make_ec_entry_lambda(__FILE__, __LINE__, descr,    \
+				[=](){ return loguru::ec_to_text(data); }))
+*/
 
 	// Get a string describing the current stack of error context. Empty string if there is none.
 	Text get_error_context();
@@ -1051,7 +1060,7 @@ This will define all the Loguru functions so that the linker may find them.
 	#include <unistd.h>   // STDERR_FILENO
 #endif
 
-#if __APPLE__
+#ifdef __APPLE__
     #include "TargetConditionals.h"
 #endif
 
@@ -2160,15 +2169,15 @@ namespace loguru
 			return Text{strdup(str.c_str())};      \
 		}
 
-	DEFINE_EC(int);
-	DEFINE_EC(unsigned int);
-	DEFINE_EC(long);
-	DEFINE_EC(unsigned long);
-	DEFINE_EC(long long);
-	DEFINE_EC(unsigned long long);
-	DEFINE_EC(float);
-	DEFINE_EC(double);
-	DEFINE_EC(long double);
+	DEFINE_EC(int)
+	DEFINE_EC(unsigned int)
+	DEFINE_EC(long)
+	DEFINE_EC(unsigned long)
+	DEFINE_EC(long long)
+	DEFINE_EC(unsigned long long)
+	DEFINE_EC(float)
+	DEFINE_EC(double)
+	DEFINE_EC(long double)
 
 	// ----------------------------------------------------------------------------
 
