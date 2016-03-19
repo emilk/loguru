@@ -31,6 +31,7 @@ Website: www.ilikebigbits.com
 	* Verison 1.11 - 2015-02-20 - textprintf vs strprintf
 	* Verison 1.12 - 2015-02-22 - Remove g_alsologtostderr
 	* Verison 1.13 - 2015-02-29 - ERROR_CONTEXT as linked list
+	* Verison 1.20 - 2015-03-19 - Add get_thread_name()
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -419,8 +420,19 @@ namespace loguru
 	/* Thread names can be set for the benefit of readable logs.
 	   If you do not set the thread name, a hex id will be shown instead.
 	   These thread names may or may not be the same as the system thread names,
-	   depending on the system. */
+	   depending on the system.
+	   Try to limit the thread name to 15 characters or less. */
 	void set_thread_name(const char* name);
+
+	/* Returns the thread name for this thread.
+	   On OSX this will return the system thread name (setable from both within and without Loguru).
+	   On other systems it will return whatever you set in set_thread_name();
+	   If no thread name is set, this will return a hexadecimal thread id.
+	   length should be the number of bytes available in the buffer.
+	   17 is a good number for length.
+	   right_align_hext_id means any hexadecimal thread id will be written to the end of buffer.
+	*/
+	void get_thread_name(char* buffer, size_t length, bool right_align_hext_id);
 
 	/* Generates a readable stacktrace as a string.
 	   'skip' specifies how many stack frames to skip.
@@ -1359,7 +1371,7 @@ namespace loguru
 		#if LOGURU_PTLS_NAMES
 			set_thread_name("main thread");
 		#elif LOGURU_PTHREADS
-			char old_thread_name[128] = {0};
+			char old_thread_name[16] = {0};
 			auto this_thread = pthread_self();
 			pthread_getname_np(this_thread, old_thread_name, sizeof(old_thread_name));
 			if (old_thread_name[0] == 0) {
@@ -1583,6 +1595,41 @@ namespace loguru
 	}
 #endif // LOGURU_PTLS_NAMES
 
+	void get_thread_name(char* buffer, size_t length, bool right_align_hext_id)
+	{
+		CHECK_NE_F(length, 0u, "Zero length buffer in get_thread_name");
+		CHECK_NOTNULL_F(buffer, "nullptr in get_thread_name");
+#if LOGURU_PTHREADS
+		auto thread = pthread_self();
+		#if LOGURU_PTLS_NAMES
+			if (const char* name = get_thread_name_ptls()) {
+				snprintf(buffer, length, "%s", name);
+			} else {
+				buffer[0] = 0;
+			}
+		#else
+			pthread_getname_np(thread, buffer, length);
+		#endif
+
+		if (buffer[0] == 0) {
+			#ifdef __APPLE__
+				uint64_t thread_id;
+				pthread_threadid_np(thread, &thread_id);
+			#else
+				uint64_t thread_id = thread;
+			#endif
+			if (right_align_hext_id) {
+				snprintf(buffer, length, "%*X", length - 1, static_cast<unsigned>(thread_id));
+			} else {
+				snprintf(buffer, length, "%X", static_cast<unsigned>(thread_id));
+			}
+		}
+#else // LOGURU_PTHREADS
+		buffer[0] = 0;
+#endif // LOGURU_PTHREADS
+
+	}
+
 	// ------------------------------------------------------------------------
 	// Stack traces
 
@@ -1724,32 +1771,8 @@ namespace loguru
 		auto uptime_ms = duration_cast<milliseconds>(now - s_start_time).count();
 		auto uptime_sec = uptime_ms / 1000.0;
 
-		#if LOGURU_PTHREADS
-			char thread_name[THREAD_NAME_WIDTH + 1] = {0};
-
-			auto thread = pthread_self();
-			#if LOGURU_PTLS_NAMES
-				if (const char* name = get_thread_name_ptls()) {
-					snprintf(thread_name, sizeof(thread_name), "%s", name);
-				} else {
-					thread_name[0] = 0;
-				}
-			#else
-				pthread_getname_np(thread, thread_name, sizeof(thread_name));
-			#endif
-
-			if (thread_name[0] == 0) {
-				#ifdef __APPLE__
-					uint64_t thread_id;
-					pthread_threadid_np(thread, &thread_id);
-				#else
-					uint64_t thread_id = thread;
-				#endif
-				snprintf(thread_name, sizeof(thread_name), "%16X", static_cast<unsigned>(thread_id));
-			}
-		#else // LOGURU_PTHREADS
-			const char* thread_name = "";
-		#endif // LOGURU_PTHREADS
+		char thread_name[THREAD_NAME_WIDTH + 1] = {0};
+		get_thread_name(thread_name, THREAD_NAME_WIDTH + 1, true);
 
 		if (s_strip_file_path) {
 			file = filename(file);

@@ -33,20 +33,30 @@ void test_thread_names()
 {
 	LOG_SCOPE_FUNCTION(INFO);
 
-	LOG_F(INFO, "Hello from main thread!");
+	{
+		char thread_name[17];
+		loguru::get_thread_name(thread_name, sizeof(thread_name), false);
+		LOG_F(INFO, "Hello from main thread ('%s')", thread_name);
+	}
 
 	auto a = std::thread([](){
-		LOG_F(INFO, "Hello from nameless thread!");
+		char thread_name[17];
+		loguru::get_thread_name(thread_name, sizeof(thread_name), false);
+		LOG_F(INFO, "Hello from nameless thread ('%s')", thread_name);
 	});
 
 	auto b = std::thread([](){
 		loguru::set_thread_name("renderer");
-		LOG_F(INFO, "Hello from render thread!");
+		char thread_name[17];
+		loguru::get_thread_name(thread_name, sizeof(thread_name), false);
+		LOG_F(INFO, "Hello from render thread ('%s')", thread_name);
 	});
 
 	auto c = std::thread([](){
 		loguru::set_thread_name("abcdefghijklmnopqrstuvwxyz");
-		LOG_F(INFO, "Hello from thread with a very long name");
+		char thread_name[17];
+		loguru::get_thread_name(thread_name, sizeof(thread_name), false);
+		LOG_F(INFO, "Hello from thread with a very long name ('%s')", thread_name);
 	});
 
 	a.join();
