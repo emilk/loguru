@@ -1,13 +1,14 @@
+// Include loguru first to show it needs no dependencies:
+#define LOGURU_WITH_STREAMS 1
+#define LOGURU_REDEFINE_ASSERT 1
+#define LOGURU_IMPLEMENTATION 1
+#include "../loguru.hpp"
+
 #include <chrono>
 #include <string>
 #include <thread>
 
 #include <fstream>
-
-#define LOGURU_WITH_STREAMS 1
-#define LOGURU_REDEFINE_ASSERT 1
-#define LOGURU_IMPLEMENTATION 1
-#include "../loguru.hpp"
 
 void the_one_where_the_problem_is(const std::vector<std::string>& v) {
 	ABORT_F("Abort deep in stack trace, msg: %s", v[0].c_str());
