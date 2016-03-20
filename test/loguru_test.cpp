@@ -150,6 +150,18 @@ void test_abort_0()
 void test_abort_1() { test_abort_0(); }
 void test_abort_2() { test_abort_1(); }
 
+struct CustomType
+{
+	std::string contents;
+};
+
+namespace loguru {
+Text ec_to_text(const CustomType* custom)
+{
+	return Text(strdup(custom->contents.c_str()));
+}
+} // namespace loguru
+
 void test_error_contex()
 {
 	ERROR_CONTEXT("THIS SHOULDN'T BE PRINTED", "wrong_thread");
@@ -173,6 +185,8 @@ void test_error_contex()
 		ERROR_CONTEXT("char tab",          '\t');
 		ERROR_CONTEXT("char x13",          '\u0013');
 		{ ERROR_CONTEXT("THIS SHOULDN'T BE PRINTED", "scoped"); }
+		CustomType custom{"custom_contents"};
+		ERROR_CONTEXT("CustomType", &custom);
 		ABORT_F("Intentional abort");
 	}).join();
 }

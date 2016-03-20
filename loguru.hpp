@@ -32,6 +32,7 @@ Website: www.ilikebigbits.com
 	* Verison 1.12 - 2015-02-22 - Remove g_alsologtostderr
 	* Verison 1.13 - 2015-02-29 - ERROR_CONTEXT as linked list
 	* Verison 1.20 - 2015-03-19 - Add get_thread_name()
+	* Verison 1.21 - 2015-03-20 - Minor fixes
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -537,8 +538,8 @@ namespace loguru
 	public:
 		using Printer = Text(*)(T data);
 
-		EcEntryData(const char* file, unsigned line, const char* descr, T&& data, Printer&& printer)
-			: EcEntryBase(file, line, descr), _data(std::move(data)), _printer(std::move(printer)) {}
+		EcEntryData(const char* file, unsigned line, const char* descr, T data, Printer&& printer)
+			: EcEntryBase(file, line, descr), _data(data), _printer(printer) {}
 
 		virtual void print_value(StringStream& out_string_stream) const override
 		{
@@ -580,6 +581,16 @@ namespace loguru
 	template <unsigned long long  N>
 	struct decay_char_array<const char(&)[N]> { using type = const char*; };
 
+	template <class T>
+	struct make_const_ptr { using type = T; };
+
+	template <class T>
+	struct make_const_ptr<T*> { using type = const T*; };
+
+	template <class T>
+	struct make_ec_type { using type = typename make_const_ptr<typename decay_char_array<T>::type>::type; };
+
+
 	/* 	A stack trace gives you the names of the function at the point of a crash.
 		With ERROR_CONTEXT, you can also get the values of select local variables.
 		Usage:
@@ -608,9 +619,10 @@ namespace loguru
 		This makes them much faster than logging the value of a variable.
 	*/
 	#define ERROR_CONTEXT(descr, data)                                             \
-		const loguru::EcEntryData<loguru::decay_char_array<decltype(data)>::type>  \
+		const loguru::EcEntryData<loguru::make_ec_type<decltype(data)>::type>      \
 			LOGURU_ANONYMOUS_VARIABLE(error_context_scope_)(                       \
-				__FILE__, __LINE__, descr, data, loguru::ec_to_text )
+				__FILE__, __LINE__, descr, data,                                   \
+				static_cast<loguru::EcEntryData<loguru::make_ec_type<decltype(data)>::type>::Printer>(loguru::ec_to_text) ) // For better error messages
 
 /*
 	#define ERROR_CONTEXT(descr, data)                                 \
