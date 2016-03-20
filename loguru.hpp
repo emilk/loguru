@@ -433,7 +433,7 @@ namespace loguru
 	   17 is a good number for length.
 	   right_align_hext_id means any hexadecimal thread id will be written to the end of buffer.
 	*/
-	void get_thread_name(char* buffer, size_t length, bool right_align_hext_id);
+	void get_thread_name(char* buffer, unsigned long long length, bool right_align_hext_id);
 
 	/* Generates a readable stacktrace as a string.
 	   'skip' specifies how many stack frames to skip.
@@ -1607,7 +1607,7 @@ namespace loguru
 	}
 #endif // LOGURU_PTLS_NAMES
 
-	void get_thread_name(char* buffer, size_t length, bool right_align_hext_id)
+	void get_thread_name(char* buffer, unsigned long long length, bool right_align_hext_id)
 	{
 		CHECK_NE_F(length, 0u, "Zero length buffer in get_thread_name");
 		CHECK_NOTNULL_F(buffer, "nullptr in get_thread_name");
