@@ -103,6 +103,7 @@ void test_stream()
 {
 	LOG_SCOPE_FUNCTION(INFO);
 	LOG_S(INFO) << "Testing stream-logging.";
+	LOG_S(INFO) << "First line" << std::endl << "Seconds line.";
 	LOG_S(1) << "Stream-logging with verbosity 1";
 	LOG_S(2) << "Stream-logging with verbosity 2";
 	LOG_S(3) << "Stream-logging with verbosity 3";

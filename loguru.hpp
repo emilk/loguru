@@ -857,6 +857,13 @@ namespace loguru
 			return *this;
 		}
 
+		// std::endl and other iomanip:s.
+		StreamLogger& operator<<(std::ostream&(*f)(std::ostream&))
+		{
+			f(_ss);
+			return *this;
+		}
+
 	private:
 		Verbosity   _verbosity;
 		const char* _file;
@@ -874,6 +881,13 @@ namespace loguru
 		AbortLogger& operator<<(const T& t)
 		{
 			_ss << t;
+			return *this;
+		}
+
+		// std::endl and other iomanip:s.
+		AbortLogger& operator<<(std::ostream&(*f)(std::ostream&))
+		{
+			f(_ss);
 			return *this;
 		}
 
@@ -1396,9 +1410,9 @@ namespace loguru
 		else { out.push_back(char('A' + num - 10)); }
 	}
 
-	void write_hex_8(std::string& out, uint8_t n)
+	void write_hex_byte(std::string& out, uint8_t n)
 	{
-		write_hex_digit(out, n >> 4);
+		write_hex_digit(out, n >> 4u);
 		write_hex_digit(out, n & 0x0f);
 	}
 
@@ -1419,7 +1433,7 @@ namespace loguru
 			else if (0 <= c && c < 0x20) { // ASCI control character:
 			// else if (c < 0x20 || c != (c & 127)) { // ASCII control character or UTF-8:
 				out += "\\x";
-				write_hex_8(out, static_cast<uint8_t>(c));
+				write_hex_byte(out, static_cast<uint8_t>(c));
 			} else { out += c; }
 		}
 	}
@@ -2230,10 +2244,10 @@ namespace loguru
 
 		auto write_hex_16 = [&](uint16_t n)
 		{
-			write_hex_digit((n >> 12) & 0x0f);
-			write_hex_digit((n >>  8) & 0x0f);
-			write_hex_digit((n >>  4) & 0x0f);
-			write_hex_digit((n >>  0) & 0x0f);
+			write_hex_digit((n >> 12u) & 0x0f);
+			write_hex_digit((n >>  8u) & 0x0f);
+			write_hex_digit((n >>  4u) & 0x0f);
+			write_hex_digit((n >>  0u) & 0x0f);
 		};
 
 		if      (c == '\\') { str += "\\\\"; }
