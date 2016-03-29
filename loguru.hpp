@@ -163,6 +163,11 @@ Website: www.ilikebigbits.com
 	#define LOGURU_WITH_STREAMS 1
 #endif
 
+#if LOGURU_IMPLEMENTATION
+	#undef LOGURU_WITH_STREAMS
+	#define LOGURU_WITH_STREAMS 1
+#endif
+
 // --------------------------------------------------------------------
 // Utility macros
 
@@ -1085,7 +1090,7 @@ This will define all the Loguru functions so that the linker may find them.
 #endif
 
 #ifdef __APPLE__
-    #include "TargetConditionals.h"
+	#include "TargetConditionals.h"
 #endif
 
 // TODO: use defined(_POSIX_VERSION) for some of these things?
@@ -1366,13 +1371,48 @@ namespace loguru
 
 	void install_signal_handlers();
 
+	void write_hex_digit(std::string& out, unsigned num)
+	{
+		DCHECK_LT_F(num, 16u);
+		if (num < 10u) { out.push_back(char('0' + num)); }
+		else { out.push_back(char('A' + num - 10)); }
+	}
+
+	void write_hex_8(std::string& out, uint8_t n)
+	{
+		write_hex_digit(out, n >> 4);
+		write_hex_digit(out, n & 0x0f);
+	}
+
+	void escape(std::string& out, const std::string& str)
+	{
+		for (char c : str) {
+			/**/ if (c == '\a') { out += "\\a";  }
+			else if (c == '\b') { out += "\\b";  }
+			else if (c == '\f') { out += "\\f";  }
+			else if (c == '\n') { out += "\\n";  }
+			else if (c == '\r') { out += "\\r";  }
+			else if (c == '\t') { out += "\\t";  }
+			else if (c == '\v') { out += "\\v";  }
+			else if (c == '\\') { out += "\\\\"; }
+			else if (c == '\'') { out += "\\\'"; }
+			else if (c == '\"') { out += "\\\""; }
+			else if (c == ' ')  { out += "\\ ";  }
+			else if (0 <= c && c < 0x20) { // ASCI control character:
+			// else if (c < 0x20 || c != (c & 127)) { // ASCII control character or UTF-8:
+				out += "\\x";
+				write_hex_8(out, static_cast<uint8_t>(c));
+			} else { out += c; }
+		}
+	}
+
 	void init(int& argc, char* argv[])
 	{
 		s_argv0_filename = filename(argv[0]);
 
 		s_file_arguments = "";
 		for (int i = 0; i < argc; ++i) {
-			s_file_arguments += argv[i];
+			escape(s_file_arguments, argv[i]);
 			if (i + 1 < argc) {
 				s_file_arguments += " ";
 			}

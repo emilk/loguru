@@ -1,5 +1,5 @@
 // Include loguru first to show it needs no dependencies:
-#define LOGURU_WITH_STREAMS 1
+#define LOGURU_WITH_STREAMS 0
 #define LOGURU_REDEFINE_ASSERT 1
 #define LOGURU_IMPLEMENTATION 1
 #include "../loguru.hpp"
@@ -98,6 +98,7 @@ void test_levels()
 	LOG_F(ERROR,   "This is a serious ERROR");
 }
 
+#if LOGURU_WITH_STREAMS
 void test_stream()
 {
 	LOG_SCOPE_FUNCTION(INFO);
@@ -112,6 +113,7 @@ void test_stream()
 	CHECK_LT_S(1, 2);
 	CHECK_GT_S(3, 2) << "Weird";
 }
+#endif
 
 int some_expensive_operation() { static int r=31; sleep_ms(132); return r++; }
 const int BAD = 32;
@@ -232,7 +234,9 @@ int main(int argc, char* argv[])
 
 		test_scopes();
 		test_levels();
+		#if LOGURU_WITH_STREAMS
 		test_stream();
+		#endif
 	}
 	else
 	{
@@ -272,15 +276,15 @@ int main(int argc, char* argv[])
 			CHECK_EQ_F(always_increasing(), 42, "Should fail");
 		} else if (test == "CHECK_EQ_S") {
 			std::string str = "right";
-			CHECK_EQ_S(str, "wrong") << "Expected to fail, since `str` isn't \"wrong\" but \"" << str << "\"";
+			CHECK_EQ_F(str, "wrong", "Expected to fail, since `str` isn't \"wrong\" but \"%s\"", str.c_str());
 		} else if (test == "CHECK_LT_S") {
-			CHECK_EQ_S(always_increasing(), 0);
-			CHECK_EQ_S(always_increasing(), 1);
-			CHECK_EQ_S(always_increasing(), 42);
+			CHECK_EQ_F(always_increasing(), 0);
+			CHECK_EQ_F(always_increasing(), 1);
+			CHECK_EQ_F(always_increasing(), 42);
 		} else if (test == "CHECK_LT_S_message") {
-			CHECK_EQ_S(always_increasing(),  0) << "Should pass";
-			CHECK_EQ_S(always_increasing(),  1) << "Should pass";
-			CHECK_EQ_S(always_increasing(), 42) << "Should fail!";
+			CHECK_EQ_F(always_increasing(),  0, "Should pass");
+			CHECK_EQ_F(always_increasing(),  1, "Should pass");
+			CHECK_EQ_F(always_increasing(), 42, "Should fail!");
 		} else if (test == "deep_abort") {
 			deep_abort_10({"deep_abort"});
 		} else if (test == "SIGSEGV") {
