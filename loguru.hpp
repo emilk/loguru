@@ -33,6 +33,7 @@ Website: www.ilikebigbits.com
 	* Verison 1.13 - 2015-02-29 - ERROR_CONTEXT as linked list
 	* Verison 1.20 - 2015-03-19 - Add get_thread_name()
 	* Verison 1.21 - 2015-03-20 - Minor fixes
+	* Verison 1.22 - 2015-03-29 - Fix issues with set_fatal_handler throwing an exception
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -84,8 +85,8 @@ Website: www.ilikebigbits.com
 
 	// Throw exceptions instead of aborting on CHECK fails:
 	loguru::set_fatal_handler([](const loguru::Message& message){
-		throw std::runtime_error(message.message);
-	})
+		throw std::runtime_error(std::string(message.prefix) + message.message);
+	});
 
 	If you prefer logging with streams:
 
@@ -843,28 +844,44 @@ namespace loguru
 	// Like vsprintf, but returns the formated text.
 	std::string vstrprintf(LOGURU_FORMAT_STRING_TYPE format, va_list) LOGURU_PRINTF_LIKE(1, 0);
 
-	class StreamLogger : public std::ostringstream
+	class StreamLogger
 	{
 	public:
 		StreamLogger(Verbosity verbosity, const char* file, unsigned line) : _verbosity(verbosity), _file(file), _line(line) {}
-		~StreamLogger();
+		~StreamLogger() noexcept(false);
+
+		template<typename T>
+		StreamLogger& operator<<(const T& t)
+		{
+			_ss << t;
+			return *this;
+		}
 
 	private:
 		Verbosity   _verbosity;
 		const char* _file;
 		unsigned    _line;
+		std::ostringstream _ss;
 	};
 
-	class AbortLogger : public std::ostringstream
+	class AbortLogger
 	{
 	public:
-		AbortLogger(const char* expr, const char* file, unsigned line) : _expr(expr), _file(file), _line(line) {}
-		LOGURU_NORETURN ~AbortLogger();
+		AbortLogger(const char* expr, const char* file, unsigned line) : _expr(expr), _file(file), _line(line) { }
+		LOGURU_NORETURN ~AbortLogger() noexcept(false);
+
+		template<typename T>
+		AbortLogger& operator<<(const T& t)
+		{
+			_ss << t;
+			return *this;
+		}
 
 	private:
-		const char* _expr;
-		const char* _file;
-		unsigned    _line;
+		const char*        _expr;
+		const char*        _file;
+		unsigned           _line;
+		std::ostringstream _ss;
 	};
 
 	class Voidify
@@ -872,7 +889,8 @@ namespace loguru
 	public:
 		Voidify() {}
 		// This has to be an operator with a precedence lower than << but higher than ?:
-		void operator&(const std::ostream&) {}
+		void operator&(const StreamLogger&) { }
+		void operator&(const AbortLogger&)  { }
 	};
 
 	/*  Helper functions for CHECK_OP_S macro.
@@ -2073,15 +2091,15 @@ namespace loguru
 
 	#if LOGURU_WITH_STREAMS
 
-	StreamLogger::~StreamLogger()
+	StreamLogger::~StreamLogger() noexcept(false)
 	{
-		auto message = this->str();
+		auto message = _ss.str();
 		log(_verbosity, _file, _line, "%s", message.c_str());
 	}
 
-	AbortLogger::~AbortLogger()
+	AbortLogger::~AbortLogger() noexcept(false)
 	{
-		auto message = this->str();
+		auto message = _ss.str();
 		loguru::log_and_abort(1, _expr, _file, _line, "%s", message.c_str());
 	}
 
@@ -2353,7 +2371,12 @@ namespace loguru
 		char preamble_buff[128];
 		print_preamble(preamble_buff, sizeof(preamble_buff), Verbosity_FATAL, "", 0);
 		auto message = Message{Verbosity_FATAL, "", 0, preamble_buff, "", "Signal: ", signal_name};
-		log_message(1, message, false, false);
+		try {
+			log_message(1, message, false, false);
+		} catch (...) {
+			// This can happed due to s_fatal_handler.
+			write_to_stderr("Exception caught and ignored by Loguru signal handler.\n");
+		}
 		flush();
 
 		call_default_signal_handler(signal_number);

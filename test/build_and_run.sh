@@ -6,6 +6,7 @@ set -e # Fail on error
 ROOT_DIR=$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)
 
 cd "$ROOT_DIR"
+cd build
 
 function test_failure
 {
@@ -38,6 +39,8 @@ test_failure "deep_abort"
 test_failure "SIGSEGV"
 test_failure "abort"
 test_failure "error_context"
+test_failure "throw_on_fatal"
+test_failure "throw_on_signal"
 echo "---------------------------------------------------------"
 echo "ALL TESTS PASSED!"
 echo "---------------------------------------------------------"

@@ -121,8 +121,8 @@ loguru::g_colorlogtostderr = false;
 
 // Throw exceptions instead of aborting on CHECK fails:
 loguru::set_fatal_handler([](const loguru::Message& message){
-	throw std::runtime_error(message.message);
-})
+	throw std::runtime_error(std::string(message.prefix) + message.message);
+});
 ```
 
 If you prefer logging with streams:

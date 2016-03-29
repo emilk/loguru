@@ -1,5 +1,5 @@
 // Include loguru first to show it needs no dependencies:
-#define LOGURU_WITH_STREAMS 0
+#define LOGURU_WITH_STREAMS 1
 #define LOGURU_REDEFINE_ASSERT 1
 #define LOGURU_IMPLEMENTATION 1
 #include "../loguru.hpp"
@@ -204,6 +204,45 @@ void test_hang_0()
 void test_hang_1() { test_hang_0(); }
 void test_hang_2() { test_hang_1(); }
 
+void throw_on_fatal()
+{
+	loguru::set_fatal_handler([](const loguru::Message& message){
+		LOG_F(INFO, "Throwing exception...");
+		throw std::runtime_error(std::string(message.prefix) + message.message);
+	});
+	{
+		LOG_SCOPE_F(INFO, "CHECK_F throw + catch");
+		try {
+			CHECK_F(false, "some CHECK_F message");
+		} catch (std::runtime_error& e) {
+			LOG_F(INFO, "CHECK_F threw this: '%s'", e.what());
+		}
+	}
+#if LOGURU_WITH_STREAMS
+	{
+		LOG_SCOPE_F(INFO, "CHECK_S throw + catch");
+		try {
+			CHECK_S(false) << "Some CHECK_S message";
+		} catch (std::runtime_error& e) {
+			LOG_F(INFO, "CHECK_S threw this: '%s'", e.what());
+		}
+	}
+	LOG_F(INFO, "Trying an uncaught exception:");
+	CHECK_S(false);
+#else
+	CHECK_F(false);
+#endif // LOGURU_WITH_STREAMS
+}
+
+void throw_on_signal()
+{
+	loguru::set_fatal_handler([](const loguru::Message& message){
+		LOG_F(INFO, "Throwing exception...");
+		throw std::runtime_error(std::string(message.prefix) + message.message);
+	});
+	test_SIGSEGV_0();
+}
+
 // void die(std::ofstream& of)
 // {
 // 	(void)of;
@@ -293,6 +332,10 @@ int main(int argc, char* argv[])
 			test_abort_2();
 		} else if (test == "error_context") {
 			test_error_contex();
+		} else if (test == "throw_on_fatal") {
+			throw_on_fatal();
+		} else if (test == "throw_on_signal") {
+			throw_on_signal();
 		} else if (test == "hang") {
 			loguru::add_file("hang.log", loguru::Truncate, loguru::Verbosity_INFO);
 			test_hang_2();
