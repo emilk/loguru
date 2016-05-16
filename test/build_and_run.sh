@@ -1,12 +1,11 @@
 #!/bin/bash
 set -e # Fail on error
 
-"./build.sh"
-
 ROOT_DIR=$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)
 
-cd "$ROOT_DIR"
-cd build
+$ROOT_DIR/build.sh
+
+cd $ROOT_DIR/build/
 
 function test_failure
 {

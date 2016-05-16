@@ -26,14 +26,15 @@ Website: www.ilikebigbits.com
 	* Version 0.70 - 2015-10-27 - Signals
 	* Version 0.80 - 2015-10-30 - Color logging.
 	* Version 0.90 - 2015-11-26 - ABORT_S and proper handling of FATAL
-	* Verison 1.00 - 2015-02-14 - ERROR_CONTEXT
-	* Verison 1.10 - 2015-02-19 - -v OFF, -v INFO etc
-	* Verison 1.11 - 2015-02-20 - textprintf vs strprintf
-	* Verison 1.12 - 2015-02-22 - Remove g_alsologtostderr
-	* Verison 1.13 - 2015-02-29 - ERROR_CONTEXT as linked list
-	* Verison 1.20 - 2015-03-19 - Add get_thread_name()
-	* Verison 1.21 - 2015-03-20 - Minor fixes
-	* Verison 1.22 - 2015-03-29 - Fix issues with set_fatal_handler throwing an exception
+	* Verison 1.00 - 2016-02-14 - ERROR_CONTEXT
+	* Verison 1.10 - 2016-02-19 - -v OFF, -v INFO etc
+	* Verison 1.11 - 2016-02-20 - textprintf vs strprintf
+	* Verison 1.12 - 2016-02-22 - Remove g_alsologtostderr
+	* Verison 1.13 - 2016-02-29 - ERROR_CONTEXT as linked list
+	* Verison 1.20 - 2016-03-19 - Add get_thread_name()
+	* Verison 1.21 - 2016-03-20 - Minor fixes
+	* Verison 1.22 - 2016-03-29 - Fix issues with set_fatal_handler throwing an exception
+	* Version 1.23 - 2016-05-16 - Log current working directory in loguru::init().
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -333,6 +334,9 @@ namespace loguru
 	   That is, if argv[0] is "../foo/app" this will return "app".
 	*/
 	const char* argv0_filename();
+
+	// Returns the path to the current working dir when loguru::init() was called.
+	const char* current_dir();
 
 	// Returns the part of the path after the last / or \ (if any).
 	const char* filename(const char* path);
@@ -1188,6 +1192,7 @@ namespace loguru
 	static std::recursive_mutex  s_mutex;
 	static Verbosity             s_max_out_verbosity = Verbosity_OFF;
 	static std::string           s_argv0_filename;
+	static char                  s_current_dir[PATH_MAX];
 	static std::string           s_file_arguments;
 	static CallbackVec           s_callbacks;
 	static fatal_handler_t       s_fatal_handler   = nullptr;
@@ -1438,9 +1443,36 @@ namespace loguru
 		}
 	}
 
+	std::string string_from_errno()
+	{
+		char buff[256];
+	#ifdef __linux__
+		return strerror_r(errno, buff, sizeof(buff));
+	#elif __APPLE__
+		strerror_r(errno, buff, sizeof(buff));
+		return buff;
+	#elif WINDOWS
+		_strerror_s(buff, sizeof(buff));
+		return buff;
+	#else
+		// Not thread-safe.
+		return strerror(errno);
+	#endif
+	}
+
 	void init(int& argc, char* argv[])
 	{
 		s_argv0_filename = filename(argv[0]);
+
+		#ifdef WINDOWS
+			#define getcwd _getcwd
+		#endif
+
+		if (!getcwd(s_current_dir, sizeof(s_current_dir)))
+		{
+			const auto error_str = string_from_errno();
+			LOG_F(WARNING, "Failed to get current working directory: %s", error_str.c_str());
+		}
 
 		s_file_arguments = "";
 		for (int i = 0; i < argc; ++i) {
@@ -1476,6 +1508,10 @@ namespace loguru
 			fflush(stderr);
 		}
 		LOG_F(INFO, "arguments: %s", s_file_arguments.c_str());
+		if (strlen(s_current_dir) != 0)
+		{
+			LOG_F(INFO, "Current dir: %s", s_current_dir);
+		}
 		LOG_F(INFO, "stderr verbosity: %d", g_stderr_verbosity);
 		LOG_F(INFO, "-----------------------------------");
 
@@ -1496,7 +1532,15 @@ namespace loguru
 			time_info.tm_hour, time_info.tm_min, time_info.tm_sec, ms_since_epoch % 1000);
 	}
 
-	const char* argv0_filename() { return s_argv0_filename.c_str(); }
+	const char* argv0_filename()
+	{
+		return s_argv0_filename.c_str();
+	}
+
+	const char* current_dir()
+	{
+		return s_current_dir;
+	}
 
 	const char* home_dir()
 	{
@@ -1591,7 +1635,14 @@ namespace loguru
 			fprintf(file, "\n\n\n\n\n");
 		}
 
-		fprintf(file, "arguments: %s\n", s_file_arguments.c_str());
+		if (!s_file_arguments.empty())
+		{
+			fprintf(file, "arguments: %s\n", s_file_arguments.c_str());
+		}
+		if (strlen(s_current_dir) != 0)
+		{
+			fprintf(file, "Current dir: %s\n", s_current_dir);
+		}
 		fprintf(file, "File verbosity level: %d\n", verbosity);
 		fprintf(file, "%s\n", PREAMBLE_EXPLAIN);
 		fflush(file);
