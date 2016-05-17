@@ -1125,6 +1125,10 @@ This will define all the Loguru functions so that the linker may find them.
 	#include <unistd.h>   // STDERR_FILENO
 #endif
 
+#ifdef __linux__
+	#include <linux/limits.h> // MAX_PATH
+#endif
+
 #ifdef __APPLE__
 	#include "TargetConditionals.h"
 #endif
