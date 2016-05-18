@@ -357,6 +357,9 @@ namespace loguru
 	// Writes date and time with millisecond precision, e.g. "20151017_161503.123"
 	void write_date_time(char* buff, unsigned buff_size);
 
+	// Helper: thread-safe version strerror
+	Text errno_as_text();
+
 	/* Given a prefix of e.g. "~/loguru/" this might return
 	   "/home/your_username/loguru/app_name/20151017_161503.123.log"
 
@@ -1367,7 +1370,7 @@ namespace loguru
 		return Text(static_cast<char*>(calloc(1, 1)));
 	}
 
-	const char* indentation(unsigned depth)
+	static const char* indentation(unsigned depth)
 	{
 		static const char buff[] =
 		".   .   .   .   .   .   .   .   .   .   " ".   .   .   .   .   .   .   .   .   .   "
@@ -1450,22 +1453,22 @@ namespace loguru
 		flush();
 	}
 
-	void install_signal_handlers();
+	static void install_signal_handlers();
 
-	void write_hex_digit(std::string& out, unsigned num)
+	static void write_hex_digit(std::string& out, unsigned num)
 	{
 		DCHECK_LT_F(num, 16u);
 		if (num < 10u) { out.push_back(char('0' + num)); }
 		else { out.push_back(char('A' + num - 10)); }
 	}
 
-	void write_hex_byte(std::string& out, uint8_t n)
+	static void write_hex_byte(std::string& out, uint8_t n)
 	{
 		write_hex_digit(out, n >> 4u);
 		write_hex_digit(out, n & 0x0f);
 	}
 
-	void escape(std::string& out, const std::string& str)
+	static void escape(std::string& out, const std::string& str)
 	{
 		for (char c : str) {
 			/**/ if (c == '\a') { out += "\\a";  }
@@ -1487,20 +1490,20 @@ namespace loguru
 		}
 	}
 
-	std::string string_from_errno()
+	Text errno_as_text()
 	{
 		char buff[256];
 	#ifdef __linux__
-		return strerror_r(errno, buff, sizeof(buff));
+		return Text(strdup(strerror_r(errno, buff, sizeof(buff))));
 	#elif __APPLE__
 		strerror_r(errno, buff, sizeof(buff));
-		return buff;
+		return Text(strdup(buff));
 	#elif WINDOWS
 		_strerror_s(buff, sizeof(buff));
-		return buff;
+		return Text(strdup(buff));
 	#else
 		// Not thread-safe.
-		return strerror(errno);
+		return Text(strdup(strerror(errno)));
 	#endif
 	}
 
@@ -1517,8 +1520,8 @@ namespace loguru
 
 		if (!getcwd(s_current_dir, sizeof(s_current_dir)))
 		{
-			const auto error_str = string_from_errno();
-			LOG_F(WARNING, "Failed to get current working directory: %s", error_str.c_str());
+			const auto error_text = errno_as_text();
+			LOG_F(WARNING, "Failed to get current working directory: %s", error_text.c_str());
 		}
 
 		s_file_arguments = "";
