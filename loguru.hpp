@@ -26,16 +26,17 @@ Website: www.ilikebigbits.com
 	* Version 0.70 - 2015-10-27 - Signals
 	* Version 0.80 - 2015-10-30 - Color logging.
 	* Version 0.90 - 2015-11-26 - ABORT_S and proper handling of FATAL
-	* Verison 1.00 - 2016-02-14 - ERROR_CONTEXT
-	* Verison 1.10 - 2016-02-19 - -v OFF, -v INFO etc
-	* Verison 1.11 - 2016-02-20 - textprintf vs strprintf
-	* Verison 1.12 - 2016-02-22 - Remove g_alsologtostderr
-	* Verison 1.13 - 2016-02-29 - ERROR_CONTEXT as linked list
-	* Verison 1.20 - 2016-03-19 - Add get_thread_name()
-	* Verison 1.21 - 2016-03-20 - Minor fixes
-	* Verison 1.22 - 2016-03-29 - Fix issues with set_fatal_handler throwing an exception
+	* Version 1.00 - 2016-02-14 - ERROR_CONTEXT
+	* Version 1.10 - 2016-02-19 - -v OFF, -v INFO etc
+	* Version 1.11 - 2016-02-20 - textprintf vs strprintf
+	* Version 1.12 - 2016-02-22 - Remove g_alsologtostderr
+	* Version 1.13 - 2016-02-29 - ERROR_CONTEXT as linked list
+	* Version 1.20 - 2016-03-19 - Add get_thread_name()
+	* Version 1.21 - 2016-03-20 - Minor fixes
+	* Version 1.22 - 2016-03-29 - Fix issues with set_fatal_handler throwing an exception
 	* Version 1.23 - 2016-05-16 - Log current working directory in loguru::init().
-	* Version 1.24 - 2016-05-18 - custom replacement for -v in loguru::init() by bjoernpollex
+	* Version 1.24 - 2016-05-18 - Custom replacement for -v in loguru::init() by bjoernpollex
+	* Version 1.25 - 2016-05-18 - Add ability to print ERROR_CONTEXT of parent thread.
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -653,8 +654,36 @@ namespace loguru
 				[=](){ return loguru::ec_to_text(data); }))
 */
 
+	using EcHandle = const EcEntryBase*;
+
+	/*
+		Get a light-weight handle to the error context stack on this thread.
+		The handle is valid as long as the current thread has no changes to its error context stack.
+		You can pass the handle to loguru::get_error_context on another thread.
+		This can be very useful for when you have a parent thread spawning several working thread,
+		and you want the error context of the parent thread to get printed (too) when there is an
+		error on the child thread. You can accomplish this thusly:
+
+		void foo(const char* parameter)
+		{
+			ERROR_CONTEXT("parameter", parameter)
+			const auto parent_ec_handle = loguru::get_thread_ec_handle();
+
+			std::thread([=]{
+				loguru::set_thread_name("child thread");
+				ERROR_CONTEXT("parent context", parent_ec_handle);
+				dangerous_code();
+			}.join();
+		}
+
+	*/
+	EcHandle get_thread_ec_handle();
+
 	// Get a string describing the current stack of error context. Empty string if there is none.
 	Text get_error_context();
+
+	// Get a string describing the error context of the given thread handle.
+	Text get_error_context_for(EcHandle ec_handle);
 
 	// ------------------------------------------------------------------------
 
@@ -669,6 +698,7 @@ namespace loguru
 	Text ec_to_text(float data);
 	Text ec_to_text(double data);
 	Text ec_to_text(long double data);
+	Text ec_to_text(EcHandle);
 
 	/*
 	You can add ERROR_CONTEXT support for your own types by overloading ec_to_text. Here's how:
@@ -2251,10 +2281,18 @@ namespace loguru
 
 	// ----------------------------------------------------------------------------
 
+	EcHandle get_thread_ec_handle()
+	{
+		return get_thread_ec_head_ref();
+	}
+
 	Text get_error_context()
 	{
-		const EcEntryBase* ec_head = get_thread_ec_head_ref();
+		return get_error_context_for(get_thread_ec_head_ref());
+	}
 
+	Text get_error_context_for(const EcEntryBase* ec_head)
+	{
 		std::vector<const EcEntryBase*> stack;
 		while (ec_head) {
 			stack.push_back(ec_head);
@@ -2355,6 +2393,17 @@ namespace loguru
 	DEFINE_EC(float)
 	DEFINE_EC(double)
 	DEFINE_EC(long double)
+
+	#undef DEFINE_EC
+
+	Text ec_to_text(EcHandle ec_handle)
+	{
+		Text parent_ec = get_error_context_for(ec_handle);
+		char* with_newline = (char*)malloc(strlen(parent_ec.c_str()) + 2);
+		with_newline[0] = '\n';
+		strcpy(with_newline + 1, parent_ec.c_str());
+		return Text(with_newline);
+	}
 
 	// ----------------------------------------------------------------------------
 

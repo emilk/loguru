@@ -168,13 +168,22 @@ Text ec_to_text(const CustomType* custom)
 
 void test_error_contex()
 {
-	ERROR_CONTEXT("THIS SHOULDN'T BE PRINTED", "wrong_thread");
+	{ ERROR_CONTEXT("THIS SHOULDN'T BE PRINTED", "scoped"); }
+	ERROR_CONTEXT("Parent thread value", 42);
+	{ ERROR_CONTEXT("THIS SHOULDN'T BE PRINTED", "scoped"); }
+	char parent_thread_name[17];
+	loguru::get_thread_name(parent_thread_name, sizeof(parent_thread_name), false);
+	ERROR_CONTEXT("Parent thread name", &parent_thread_name[0]);
 
-	std::thread([]{
+	const auto parent_ec_handle = loguru::get_thread_ec_handle();
+
+	std::thread([=]{
 		loguru::set_thread_name("EC test thread");
+		ERROR_CONTEXT("parent error context", parent_ec_handle);
 		{ ERROR_CONTEXT("THIS SHOULDN'T BE PRINTED", "scoped"); }
 		ERROR_CONTEXT("const char*",       "test string");
 		ERROR_CONTEXT("integer",           42);
+		ERROR_CONTEXT("float",              3.14f);
 		ERROR_CONTEXT("double",             3.14);
 		{ ERROR_CONTEXT("THIS SHOULDN'T BE PRINTED", "scoped"); }
 		ERROR_CONTEXT("char A",            'A');
