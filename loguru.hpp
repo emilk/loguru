@@ -35,6 +35,7 @@ Website: www.ilikebigbits.com
 	* Verison 1.21 - 2016-03-20 - Minor fixes
 	* Verison 1.22 - 2016-03-29 - Fix issues with set_fatal_handler throwing an exception
 	* Version 1.23 - 2016-05-16 - Log current working directory in loguru::init().
+	* Version 1.24 - 2016-05-18 - custom replacement for -v in loguru::init() by bjoernpollex
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -310,22 +311,33 @@ namespace loguru
 	typedef void (*fatal_handler_t)(const Message& message);
 
 	/*  Should be called from the main thread.
-		You don't need to call this, but it's nice if you do.
-		This will look for arguments meant for loguru and remove them.
+		You don't *need* to call this, but if you do you get:
+			* Signal handlers installed
+			* Program arguments logged
+			* Working dir logged
+			* Optional -v verbosity flag parsed
+			* Main thread name set to "main thread"
+			* Explanation of the preamble (date, threanmae etc) logged
+
+		loguru::init() will look for arguments meant for loguru and remove them.
 		Arguments meant for loguru are:
-			-v n   Set stderr verbosity level. Examples:
-					   -v 3        Show verbosity level 3 and lower.
-					   -v 0        Only show INFO, WARNING, ERROR, FATAL (default).
-					   -v INFO     Only show INFO, WARNING, ERROR, FATAL (default).
-					   -v WARNING  Only show WARNING, ERROR, FATAL.
-					   -v ERROR    Only show ERROR, FATAL.
-					   -v FATAL    Only show FATAL.
-					   -v OFF      Turn off logging to stderr.
+			-v n   Set loguru::g_stderr_verbosity level. Examples:
+				-v 3        Show verbosity level 3 and lower.
+				-v 0        Only show INFO, WARNING, ERROR, FATAL (default).
+				-v INFO     Only show INFO, WARNING, ERROR, FATAL (default).
+				-v WARNING  Only show WARNING, ERROR, FATAL.
+				-v ERROR    Only show ERROR, FATAL.
+				-v FATAL    Only show FATAL.
+				-v OFF      Turn off logging to stderr.
 
 		Tip: You can set g_stderr_verbosity before calling loguru::init.
 		That way you can set the default but have the user override it with the -v flag.
+		Note that -v does not affect file logging (see loguru::add_file).
+
+		You can use something else instead of "-v" via verbosity_flag.
+		You can also set verbosity_flag to nullptr.
 	*/
-	void init(int& argc, char* argv[]);
+	void init(int& argc, char* argv[], const char* verbosity_flag = "-v");
 
 	// What ~ will be replaced with, e.g. "/home/your_user_name/"
 	const char* home_dir();
@@ -1339,24 +1351,21 @@ namespace loguru
 		return buff + INDENTATION_WIDTH * (NUM_INDENTATIONS - depth);
 	}
 
-	static void parse_args(int& argc, char* argv[], const char* arg_name)
+	static void parse_args(int& argc, char* argv[], const char* verbosity_flag)
 	{
-		CHECK_GT_F(argc,       0,       "Expected proper argc/argv");
-		CHECK_EQ_F(argv[argc], nullptr, "Expected proper argc/argv");
-
 		int arg_dest = 1;
 		int out_argc = argc;
 
 		for (int arg_it = 1; arg_it < argc; ++arg_it) {
 			auto cmd = argv[arg_it];
-			auto arg_len = strlen(arg_name);
-			if (strncmp(cmd, arg_name, arg_len) == 0 && !std::isalpha(cmd[arg_len])) {
+			auto arg_len = strlen(verbosity_flag);
+			if (strncmp(cmd, verbosity_flag, arg_len) == 0 && !std::isalpha(cmd[arg_len])) {
 				out_argc -= 1;
 				auto value_str = cmd + arg_len;
 				if (value_str[0] == '\0') {
 					// Value in separate argument
 					arg_it += 1;
-					CHECK_LT_F(arg_it, argc, "Missing verbosiy level after %s", arg_name);
+					CHECK_LT_F(arg_it, argc, "Missing verbosiy level after %s", verbosity_flag);
 					value_str = argv[arg_it];
 					out_argc -= 1;
 				}
@@ -1465,8 +1474,11 @@ namespace loguru
 	#endif
 	}
 
-	void init(int& argc, char* argv[], const char* arg_name)
+	void init(int& argc, char* argv[], const char* verbosity_flag)
 	{
+		CHECK_GT_F(argc,       0,       "Expected proper argc/argv");
+		CHECK_EQ_F(argv[argc], nullptr, "Expected proper argc/argv");
+
 		s_argv0_filename = filename(argv[0]);
 
 		#ifdef WINDOWS
@@ -1487,7 +1499,9 @@ namespace loguru
 			}
 		}
 
-		parse_args(argc, argv, arg_name);
+		if (verbosity_flag) {
+			parse_args(argc, argv, verbosity_flag);
+		}
 
 		#if LOGURU_PTLS_NAMES
 			set_thread_name("main thread");
@@ -1523,10 +1537,6 @@ namespace loguru
 		install_signal_handlers();
 
 		atexit(on_atexit);
-	}
-
-	void init(int& argc, char* argv[]) {
-		init(argc, argv, "-v");
 	}
 
 	void write_date_time(char* buff, size_t buff_size)
