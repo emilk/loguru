@@ -1125,6 +1125,10 @@ This will define all the Loguru functions so that the linker may find them.
 	#include <unistd.h>   // STDERR_FILENO
 #endif
 
+#ifdef __linux__
+	#include <linux/limits.h> // MAX_PATH
+#endif
+
 #ifdef __APPLE__
 	#include "TargetConditionals.h"
 #endif
@@ -1335,7 +1339,7 @@ namespace loguru
 		return buff + INDENTATION_WIDTH * (NUM_INDENTATIONS - depth);
 	}
 
-	static void parse_args(int& argc, char* argv[])
+	static void parse_args(int& argc, char* argv[], const char* arg_name)
 	{
 		CHECK_GT_F(argc,       0,       "Expected proper argc/argv");
 		CHECK_EQ_F(argv[argc], nullptr, "Expected proper argc/argv");
@@ -1345,13 +1349,14 @@ namespace loguru
 
 		for (int arg_it = 1; arg_it < argc; ++arg_it) {
 			auto cmd = argv[arg_it];
-			if (strncmp(cmd, "-v", 2) == 0 && !std::isalpha(cmd[2])) {
+			auto arg_len = strlen(arg_name);
+			if (strncmp(cmd, arg_name, arg_len) == 0 && !std::isalpha(cmd[arg_len])) {
 				out_argc -= 1;
-				auto value_str = cmd + 2;
+				auto value_str = cmd + arg_len;
 				if (value_str[0] == '\0') {
 					// Value in separate argument
 					arg_it += 1;
-					CHECK_LT_F(arg_it, argc, "Missing verbosiy level after -v");
+					CHECK_LT_F(arg_it, argc, "Missing verbosiy level after %s", arg_name);
 					value_str = argv[arg_it];
 					out_argc -= 1;
 				}
@@ -1460,7 +1465,7 @@ namespace loguru
 	#endif
 	}
 
-	void init(int& argc, char* argv[])
+	void init(int& argc, char* argv[], const char* arg_name)
 	{
 		s_argv0_filename = filename(argv[0]);
 
@@ -1482,7 +1487,7 @@ namespace loguru
 			}
 		}
 
-		parse_args(argc, argv);
+		parse_args(argc, argv, arg_name);
 
 		#if LOGURU_PTLS_NAMES
 			set_thread_name("main thread");
@@ -1518,6 +1523,10 @@ namespace loguru
 		install_signal_handlers();
 
 		atexit(on_atexit);
+	}
+
+	void init(int& argc, char* argv[]) {
+		init(argc, argv, "-v");
 	}
 
 	void write_date_time(char* buff, size_t buff_size)
