@@ -37,6 +37,7 @@ Website: www.ilikebigbits.com
 	* Version 1.23 - 2016-05-16 - Log current working directory in loguru::init().
 	* Version 1.24 - 2016-05-18 - Custom replacement for -v in loguru::init() by bjoernpollex
 	* Version 1.25 - 2016-05-18 - Add ability to print ERROR_CONTEXT of parent thread.
+	* Version 1.26 - 2016-05-19 - Bug fix regarding VLOG verbosity argument lacking ().
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -744,14 +745,14 @@ namespace loguru
 
 // LOG_F(2, "Only logged if verbosity is 2 or higher: %d", some_number);
 #define VLOG_F(verbosity, ...)                                                                     \
-	(verbosity > loguru::current_verbosity_cutoff()) ? (void)0                                     \
+	((verbosity) > loguru::current_verbosity_cutoff()) ? (void)0                                   \
 									  : loguru::log(verbosity, __FILE__, __LINE__, __VA_ARGS__)
 
 // LOG_F(INFO, "Foo: %d", some_number);
 #define LOG_F(verbosity_name, ...) VLOG_F(loguru::Verbosity_ ## verbosity_name, __VA_ARGS__)
 
 #define VLOG_IF_F(verbosity, cond, ...)                                                            \
-	(verbosity > loguru::current_verbosity_cutoff() || (cond) == false)                            \
+	((verbosity) > loguru::current_verbosity_cutoff() || (cond) == false)                          \
 		? (void)0                                                                                  \
 		: loguru::log(verbosity, __FILE__, __LINE__, __VA_ARGS__)
 
@@ -759,13 +760,13 @@ namespace loguru
 	VLOG_IF_F(loguru::Verbosity_ ## verbosity_name, cond, __VA_ARGS__)
 
 #define VLOG_SCOPE_F(verbosity, ...)                                                               \
-	loguru::LogScopeRAII LOGURU_ANONYMOUS_VARIABLE(error_context_RAII_) =                  \
+	loguru::LogScopeRAII LOGURU_ANONYMOUS_VARIABLE(error_context_RAII_) =                          \
 	((verbosity) > loguru::current_verbosity_cutoff()) ? loguru::LogScopeRAII() :                  \
 	loguru::LogScopeRAII{verbosity, __FILE__, __LINE__, __VA_ARGS__}
 
 // Raw logging - no preamble, no indentation. Slightly faster than full logging.
-#define RAW_VLOG_F(verbosity, ...)                                                                  \
-	(verbosity > loguru::current_verbosity_cutoff()) ? (void)0                                      \
+#define RAW_VLOG_F(verbosity, ...)                                                                 \
+	((verbosity) > loguru::current_verbosity_cutoff()) ? (void)0                                   \
 									  : loguru::raw_log(verbosity, __FILE__, __LINE__, __VA_ARGS__)
 
 #define RAW_LOG_F(verbosity_name, ...) RAW_VLOG_F(loguru::Verbosity_ ## verbosity_name, __VA_ARGS__)
@@ -1003,7 +1004,7 @@ namespace loguru
 
 // usage:  LOG_STREAM(INFO) << "Foo " << std::setprecision(10) << some_value;
 #define VLOG_IF_S(verbosity, cond)                                                                 \
-	(verbosity > loguru::current_verbosity_cutoff() || (cond) == false)                                           \
+	((verbosity) > loguru::current_verbosity_cutoff() || (cond) == false)                          \
 		? (void)0                                                                                  \
 		: loguru::Voidify() & loguru::StreamLogger(verbosity, __FILE__, __LINE__)
 #define LOG_IF_S(verbosity_name, cond) VLOG_IF_S(loguru::Verbosity_ ## verbosity_name, cond)
@@ -1056,7 +1057,7 @@ namespace loguru
 #else // NDEBUG
 	// Release:
 	#define DVLOG_IF_S(verbosity, cond)                                                     \
-		(true || verbosity > loguru::current_verbosity_cutoff() || (cond) == false)                        \
+		(true || (verbosity) > loguru::current_verbosity_cutoff() || (cond) == false)       \
 			? (void)0                                                                       \
 			: loguru::Voidify() & loguru::StreamLogger(verbosity, __FILE__, __LINE__)
 
