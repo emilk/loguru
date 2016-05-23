@@ -38,6 +38,7 @@ Website: www.ilikebigbits.com
 	* Version 1.24 - 2016-05-18 - Custom replacement for -v in loguru::init() by bjoernpollex
 	* Version 1.25 - 2016-05-18 - Add ability to print ERROR_CONTEXT of parent thread.
 	* Version 1.26 - 2016-05-19 - Bug fix regarding VLOG verbosity argument lacking ().
+	* Version 1.27 - 2016-05-23 - Fix PATH_MAX problem.
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -1172,7 +1173,13 @@ This will define all the Loguru functions so that the linker may find them.
 #endif
 
 #ifdef __linux__
-	#include <linux/limits.h> // MAX_PATH
+	#include <linux/limits.h> // PATH_MAX
+#elif !defined(_WIN32)
+	#include <limits.h> // PATH_MAX
+#endif
+
+#ifndef PATH_MAX
+	#define PATH_MAX 1024
 #endif
 
 #ifdef __APPLE__
