@@ -39,6 +39,7 @@ Website: www.ilikebigbits.com
 	* Version 1.25 - 2016-05-18 - Add ability to print ERROR_CONTEXT of parent thread.
 	* Version 1.26 - 2016-05-19 - Bug fix regarding VLOG verbosity argument lacking ().
 	* Version 1.27 - 2016-05-23 - Fix PATH_MAX problem.
+	* Version 1.28 - 2016-05-26 - Add shutdown() and remove_all_callbacks()
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -342,6 +343,9 @@ namespace loguru
 	*/
 	void init(int& argc, char* argv[], const char* verbosity_flag = "-v");
 
+	// Will call remove_all_cllbacks(). After calling this, logging will still go to stderr.
+	void shutdown();
+
 	// What ~ will be replaced with, e.g. "/home/your_user_name/"
 	const char* home_dir();
 
@@ -376,6 +380,7 @@ namespace loguru
 		the given verbosity will be included.
 		The function will create all directories in 'path' if needed.
 		If path starts with a ~, it will be replaced with loguru::home_dir()
+		To stop the file logging, just call loguru::remove_callback(path) with the same path.
 	*/
 	bool add_file(const char* path, FileMode mode, Verbosity verbosity);
 
@@ -391,7 +396,12 @@ namespace loguru
 					  Verbosity verbosity,
 					  close_handler_t on_close = nullptr,
 					  flush_handler_t on_flush = nullptr);
-	void remove_callback(const char* id);
+
+	// Returns true iff the callback was found (and removed).
+	bool remove_callback(const char* id);
+
+	// Shut down all file logging and any other callback hooks installed.
+	void remove_all_callbacks();
 
 	// Returns the maximum of g_stderr_verbosity and all file/custom outputs.
 	Verbosity current_verbosity_cutoff();
@@ -1580,6 +1590,13 @@ namespace loguru
 		atexit(on_atexit);
 	}
 
+	void shutdown()
+	{
+		LOG_F(INFO, "loguru::shutdown()");
+		remove_all_callbacks();
+		set_fatal_handler(nullptr);
+	}
+
 	void write_date_time(char* buff, size_t buff_size)
 	{
 		auto now = system_clock::now();
@@ -1689,7 +1706,7 @@ namespace loguru
 			LOG_F(ERROR, "Failed to open '%s'", path);
 			return false;
 		}
-		add_callback(path, file_log, file, verbosity, file_close, file_flush);
+		add_callback(path_in, file_log, file, verbosity, file_close, file_flush);
 
 		if (mode == FileMode::Append) {
 			fprintf(file, "\n\n\n\n\n");
@@ -1745,16 +1762,25 @@ namespace loguru
 		on_callback_change();
 	}
 
-	void remove_callback(const char* id)
+	bool remove_callback(const char* id)
 	{
 		std::lock_guard<std::recursive_mutex> lock(s_mutex);
 		auto it = std::find_if(begin(s_callbacks), end(s_callbacks), [&](const Callback& c) { return c.id == id; });
 		if (it != s_callbacks.end()) {
 			if (it->close) { it->close(it->user_data); }
 			s_callbacks.erase(it);
+			on_callback_change();
+			return true;
 		} else {
 			LOG_F(ERROR, "Failed to locate callback with id '%s'", id);
+			return false;
 		}
+	}
+
+	void remove_all_callbacks()
+	{
+		std::lock_guard<std::recursive_mutex> lock(s_mutex);
+		s_callbacks.clear();
 		on_callback_change();
 	}
 

@@ -286,6 +286,10 @@ int main(int argc, char* argv[])
 		#if LOGURU_WITH_STREAMS
 		test_stream();
 		#endif
+
+		loguru::shutdown();
+
+		LOG_F(INFO, "goes to stderr, but not to file");
 	}
 	else
 	{
