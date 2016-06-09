@@ -40,6 +40,7 @@ Website: www.ilikebigbits.com
 	* Version 1.26 - 2016-05-19 - Bug fix regarding VLOG verbosity argument lacking ().
 	* Version 1.27 - 2016-05-23 - Fix PATH_MAX problem.
 	* Version 1.28 - 2016-05-26 - Add shutdown() and remove_all_callbacks()
+	* Version 1.29 - 2016-06-09 - Use a monotonic clock for uptime.
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -1250,7 +1251,7 @@ namespace loguru
 
 	const auto SCOPE_TIME_PRECISION = 3; // 3=ms, 6≈us, 9=ns
 
-	const auto s_start_time = system_clock::now();
+	const auto s_start_time = steady_clock::now();
 
 	Verbosity g_stderr_verbosity  = Verbosity_0;
 	bool      g_colorlogtostderr  = true;
@@ -1983,13 +1984,12 @@ namespace loguru
 
 	static void print_preamble(char* out_buff, size_t out_buff_size, Verbosity verbosity, const char* file, unsigned line)
 	{
-		auto now = system_clock::now();
-		long long ms_since_epoch = duration_cast<milliseconds>(now.time_since_epoch()).count();
+		long long ms_since_epoch = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 		time_t sec_since_epoch = time_t(ms_since_epoch / 1000);
 		tm time_info;
 		localtime_r(&sec_since_epoch, &time_info);
 
-		auto uptime_ms = duration_cast<milliseconds>(now - s_start_time).count();
+		auto uptime_ms = duration_cast<milliseconds>(steady_clock::now() - s_start_time).count();
 		auto uptime_sec = uptime_ms / 1000.0;
 
 		char thread_name[THREAD_NAME_WIDTH + 1] = {0};
