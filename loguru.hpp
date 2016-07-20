@@ -43,6 +43,7 @@ Website: www.ilikebigbits.com
 	* Version 1.29 - 2016-06-09 - Use a monotonic clock for uptime.
 	* Version 1.30 - 2016-07-20 - Fix issues with callback flush/close not being called.
 	* Version 1.31 - 2016-07-20 - Add LOGURU_UNSAFE_SIGNAL_HANDLER to toggle stacktrace on signals.
+	* Version 1.32 - 2016-07-20 - Add loguru::arguments()
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -365,6 +366,9 @@ namespace loguru
 	   That is, if argv[0] is "../foo/app" this will return "app".
 	*/
 	const char* argv0_filename();
+
+	// Returns all arguments given to loguru::init(), but escaped with a single space as separator.
+	const char* arguments();
 
 	// Returns the path to the current working dir when loguru::init() was called.
 	const char* current_dir();
@@ -1272,8 +1276,8 @@ namespace loguru
 	static std::recursive_mutex  s_mutex;
 	static Verbosity             s_max_out_verbosity = Verbosity_OFF;
 	static std::string           s_argv0_filename;
+	static std::string           s_arguments;
 	static char                  s_current_dir[PATH_MAX];
-	static std::string           s_file_arguments;
 	static CallbackVec           s_callbacks;
 	static fatal_handler_t       s_fatal_handler   = nullptr;
 	static StringPairList        s_user_stack_cleanups;
@@ -1555,11 +1559,11 @@ namespace loguru
 			LOG_F(WARNING, "Failed to get current working directory: %s", error_text.c_str());
 		}
 
-		s_file_arguments = "";
+		s_arguments = "";
 		for (int i = 0; i < argc; ++i) {
-			escape(s_file_arguments, argv[i]);
+			escape(s_arguments, argv[i]);
 			if (i + 1 < argc) {
-				s_file_arguments += " ";
+				s_arguments += " ";
 			}
 		}
 
@@ -1590,7 +1594,7 @@ namespace loguru
 			}
 			fflush(stderr);
 		}
-		LOG_F(INFO, "arguments: %s", s_file_arguments.c_str());
+		LOG_F(INFO, "arguments: %s", s_arguments.c_str());
 		if (strlen(s_current_dir) != 0)
 		{
 			LOG_F(INFO, "Current dir: %s", s_current_dir);
@@ -1625,6 +1629,11 @@ namespace loguru
 	const char* argv0_filename()
 	{
 		return s_argv0_filename.c_str();
+	}
+
+	const char* arguments()
+	{
+		return s_arguments.c_str();
 	}
 
 	const char* current_dir()
@@ -1725,9 +1734,9 @@ namespace loguru
 			fprintf(file, "\n\n\n\n\n");
 		}
 
-		if (!s_file_arguments.empty())
+		if (!s_arguments.empty())
 		{
-			fprintf(file, "arguments: %s\n", s_file_arguments.c_str());
+			fprintf(file, "arguments: %s\n", s_arguments.c_str());
 		}
 		if (strlen(s_current_dir) != 0)
 		{
@@ -2540,7 +2549,6 @@ namespace loguru
 		   but writing to stderr is one of them.
 		   So we first print out what happened to stderr so we're sure that gets out,
 		   then we do the unsafe things, like logging the stack trace.
-		   In practice, I've never seen any problems with doing these unsafe things in the signal handler.
 		*/
 
 		if (g_colorlogtostderr && s_terminal_has_color) {
@@ -2578,7 +2586,7 @@ namespace loguru
 		flush();
 
 		// --------------------------------------------------------------------
-#endif
+#endif // LOGURU_UNSAFE_SIGNAL_HANDLER
 
 		call_default_signal_handler(signal_number);
 	}
