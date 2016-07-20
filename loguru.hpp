@@ -41,11 +41,12 @@ Website: www.ilikebigbits.com
 	* Version 1.27 - 2016-05-23 - Fix PATH_MAX problem.
 	* Version 1.28 - 2016-05-26 - Add shutdown() and remove_all_callbacks()
 	* Version 1.29 - 2016-06-09 - Use a monotonic clock for uptime.
+	* Version 1.30 - 2016-07-20 - Fix issues with callback flush/close not being called.
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
 	Then, in one .cpp file:
-		#define LOGURU_IMPLEMENTATION
+		#define LOGURU_IMPLEMENTATION 1
 		#include <loguru.hpp>
 	Make sure you compile with -std=c++11 -lpthread -ldl
 
@@ -344,13 +345,13 @@ namespace loguru
 	*/
 	void init(int& argc, char* argv[], const char* verbosity_flag = "-v");
 
-	// Will call remove_all_cllbacks(). After calling this, logging will still go to stderr.
+	// Will call remove_all_callbacks(). After calling this, logging will still go to stderr.
 	void shutdown();
 
 	// What ~ will be replaced with, e.g. "/home/your_user_name/"
 	const char* home_dir();
 
-	/* Returns the name of the app as given in argv[0] but wtihout leadin path.
+	/* Returns the name of the app as given in argv[0] but without leading path.
 	   That is, if argv[0] is "../foo/app" this will return "app".
 	*/
 	const char* argv0_filename();
@@ -370,7 +371,7 @@ namespace loguru
 	/* Given a prefix of e.g. "~/loguru/" this might return
 	   "/home/your_username/loguru/app_name/20151017_161503.123.log"
 
-	   where "app_name" is a sanatized version of argv[0].
+	   where "app_name" is a sanitized version of argv[0].
 	*/
 	void suggest_log_path(const char* prefix, char* buff, unsigned buff_size);
 
@@ -392,6 +393,7 @@ namespace loguru
 
 	/*  Will be called on each log messages with a verbosity less or equal to the given one.
 		Useful for displaying messages on-screen in a game, for example.
+		The given on_close is also expected to flush (if desired).
 	*/
 	void add_callback(const char* id, log_handler_t callback, void* user_data,
 					  Verbosity verbosity,
@@ -1153,7 +1155,7 @@ namespace loguru
 
 
 /* In one of your .cpp files you need to do the following:
-#define LOGURU_IMPLEMENTATION
+#define LOGURU_IMPLEMENTATION 1
 #include <loguru.hpp>
 
 This will define all the Loguru functions so that the linker may find them.
@@ -1781,6 +1783,11 @@ namespace loguru
 	void remove_all_callbacks()
 	{
 		std::lock_guard<std::recursive_mutex> lock(s_mutex);
+		for (auto& callback : s_callbacks) {
+			if (callback.close) {
+				callback.close(callback.user_data);
+			}
+		}
 		s_callbacks.clear();
 		on_callback_change();
 	}
@@ -2082,7 +2089,9 @@ namespace loguru
 					message.indentation = indentation(p.indentation);
 				}
 				p.callback(p.user_data, message);
-				if (g_flush_interval_ms > 0) {
+				if (g_flush_interval_ms == 0) {
+					if (p.flush) { p.flush(p.user_data); }
+				} else {
 					s_needs_flushing = true;
 				}
 			}
@@ -2153,7 +2162,9 @@ namespace loguru
 		fflush(stderr);
 		for (const auto& callback : s_callbacks)
 		{
-			callback.flush(callback.user_data);
+			if (callback.flush) {
+				callback.flush(callback.user_data);
+			}
 		}
 		s_needs_flushing = false;
 	}

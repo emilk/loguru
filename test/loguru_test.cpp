@@ -259,6 +259,52 @@ void throw_on_signal()
 // 	test_hang_2();
 // }
 
+// ----------------------------------------------------------------------------
+
+struct CallbackTester
+{
+	size_t num_print = 0;
+	size_t num_flush = 0;
+	size_t num_close = 0;
+};
+
+void callbackPrint(void* user_data, const loguru::Message& message)
+{
+    printf("Custom callback: %s%s\n", message.prefix, message.message);
+    reinterpret_cast<CallbackTester*>(user_data)->num_print += 1;
+}
+
+void callbackFlush(void* user_data)
+{
+	printf("Custom callback flush\n");
+    reinterpret_cast<CallbackTester*>(user_data)->num_flush += 1;
+}
+
+void callbackClose(void* user_data)
+{
+	printf("Custom callback close\n");
+    reinterpret_cast<CallbackTester*>(user_data)->num_close += 1;
+}
+
+void test_log_callback()
+{
+	CallbackTester tester;
+	loguru::add_callback(
+		"user_callback", callbackPrint, &tester,
+		loguru::Verbosity_INFO, callbackClose, callbackFlush);
+	CHECK_EQ_F(tester.num_print, 0u);
+	LOG_F(INFO, "Test print");
+	CHECK_EQ_F(tester.num_print, 1u);
+	CHECK_EQ_F(tester.num_close, 0u);
+	CHECK_EQ_F(tester.num_flush, 1u);
+	loguru::flush();
+	CHECK_EQ_F(tester.num_flush, 2u);
+	loguru::remove_callback("user_callback");
+	CHECK_EQ_F(tester.num_close, 1u);
+}
+
+// ----------------------------------------------------------------------------
+
 int main(int argc, char* argv[])
 {
 	if (argc > 1 && argv[1] == std::string("test"))
@@ -350,6 +396,8 @@ int main(int argc, char* argv[])
 			throw_on_fatal();
 		} else if (test == "throw_on_signal") {
 			throw_on_signal();
+		} else if (test == "callback") {
+			test_log_callback();
 		} else if (test == "hang") {
 			loguru::add_file("hang.log", loguru::Truncate, loguru::Verbosity_INFO);
 			test_hang_2();
