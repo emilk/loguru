@@ -42,6 +42,7 @@ Website: www.ilikebigbits.com
 	* Version 1.28 - 2016-05-26 - Add shutdown() and remove_all_callbacks()
 	* Version 1.29 - 2016-06-09 - Use a monotonic clock for uptime.
 	* Version 1.30 - 2016-07-20 - Fix issues with callback flush/close not being called.
+	* Version 1.31 - 2016-07-20 - Add LOGURU_UNSAFE_SIGNAL_HANDLER to toggle stacktrace on signals.
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -106,19 +107,24 @@ Website: www.ilikebigbits.com
 
 	Before including <loguru.hpp> you may optionally want to define the following to 1:
 
-	LOGURU_REDEFINE_ASSERT:
+	LOGURU_REDEFINE_ASSERT (default 0):
 		Redefine "assert" call Loguru version (!NDEBUG only).
 
-	LOGURU_WITH_STREAMS:
+	LOGURU_WITH_STREAMS (default 0):
 		Add support for _S versions for all LOG and CHECK functions:
 			LOG_S(INFO) << "My vec3: " << x.cross(y);
 			CHECK_EQ_S(a, b) << "I expected a and b to be the same!";
 		This is off by default to keep down compilation times.
 
-	LOGURU_REPLACE_GLOG:
+	LOGURU_REPLACE_GLOG (default 0):
 		Make Loguru mimic GLOG as close as possible,
 		including #defining LOG, CHECK, VLOG_IS_ON etc.
 		LOGURU_REPLACE_GLOG implies LOGURU_WITH_STREAMS.
+
+	LOGURU_UNSAFE_SIGNAL_HANDLER (default 1):
+		Make Loguru try to do unsafe but useful things,
+		like printing a stack trace, when catching signals.
+		This may lead to bad things like deadlocks in certain situations.
 
 	You can also configure:
 	loguru::g_flush_interval_ms:
@@ -170,6 +176,10 @@ Website: www.ilikebigbits.com
 #if LOGURU_REPLACE_GLOG
 	#undef LOGURU_WITH_STREAMS
 	#define LOGURU_WITH_STREAMS 1
+#endif
+
+#ifndef LOGURU_UNSAFE_SIGNAL_HANDLER
+	#define LOGURU_UNSAFE_SIGNAL_HANDLER 1
 #endif
 
 #if LOGURU_IMPLEMENTATION
@@ -2548,6 +2558,13 @@ namespace loguru
 
 		// --------------------------------------------------------------------
 
+#if LOGURU_UNSAFE_SIGNAL_HANDLER
+		// --------------------------------------------------------------------
+		/* Now we do unsafe things. This can for example lead to deadlocks if
+		   the signal was triggered from the system's memory management functions
+		   and the code below tries to do allocations.
+		*/
+
 		flush();
 		char preamble_buff[128];
 		print_preamble(preamble_buff, sizeof(preamble_buff), Verbosity_FATAL, "", 0);
@@ -2559,6 +2576,9 @@ namespace loguru
 			write_to_stderr("Exception caught and ignored by Loguru signal handler.\n");
 		}
 		flush();
+
+		// --------------------------------------------------------------------
+#endif
 
 		call_default_signal_handler(signal_number);
 	}
