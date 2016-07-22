@@ -1215,7 +1215,7 @@ This will define all the Loguru functions so that the linker may find them.
 
 // TODO: use defined(_POSIX_VERSION) for some of these things?
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__CYGWIN__)
 	#define LOGURU_PTHREADS    0
 	#define LOGURU_STACKTRACES 0
 #else
@@ -1989,7 +1989,7 @@ namespace loguru
 #else // LOGURU_STACKTRACES
 	Text demangle(const char* name)
 	{
-		return name;
+		return Text(strdup(name));
 	}
 
 	std::string stacktrace_as_stdstring(int)
