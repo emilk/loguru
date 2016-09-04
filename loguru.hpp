@@ -149,6 +149,10 @@ Website: www.ilikebigbits.com
 #ifndef LOGURU_HAS_DECLARED_FORMAT_HEADER
 #define LOGURU_HAS_DECLARED_FORMAT_HEADER
 
+#if defined(_MSC_VER)
+#include <sal.h>	// Needed for _In_z_ etc annotations
+#endif
+
 // ----------------------------------------------------------------------------
 
 #ifndef LOGURU_SCOPE_TEXT_SIZE
@@ -214,10 +218,23 @@ Website: www.ilikebigbits.com
 #endif
 
 // Used to mark log_and_abort for the benefit of the static analyzer and optimizer.
+#if defined(_MSC_VER)
+#define LOGURU_NORETURN
+#else
 #define LOGURU_NORETURN __attribute__((noreturn))
+#endif
 
+#if defined(_MSC_VER)
+#define LOGURU_PREDICT_FALSE(x) (x)
+#define LOGURU_PREDICT_TRUE(x)  (x)
+#else
 #define LOGURU_PREDICT_FALSE(x) (__builtin_expect(x,     0))
 #define LOGURU_PREDICT_TRUE(x)  (__builtin_expect(!!(x), 1))
+#endif
+
+#if defined(_MSC_VER) && !defined(__PRETTY_FUNCTION__)
+#define __PRETTY_FUNCTION__ __FUNCTION__
+#endif
 
 // --------------------------------------------------------------------
 
@@ -1193,6 +1210,8 @@ This will define all the Loguru functions so that the linker may find them.
 
 #ifdef _MSC_VER
 	#include <direct.h>
+
+	#define localtime_r(a, b) localtime_s(b, a) // No localtime_r with MSVC, but arguments are swapped for localtime_s
 #else
 	#include <signal.h>
 	#include <sys/stat.h> // mkdir
@@ -1377,11 +1396,11 @@ namespace loguru
 	static Text vtextprintf(const char* format, va_list vlist)
 	{
 #ifdef _MSC_VER
-		int bytes_needed = vsnprintf(nullptr, 0, format, vlist);
+		int bytes_needed = _vscprintf(format, vlist);
 		CHECK_F(bytes_needed >= 0, "Bad string format: '%s'", format);
-		char* buff = (char*)malloc(bytes_needed + 1);
-		vsnprintf(buff, bytes_needed, format, vlist);
-		return buff;
+		char* buff = (char*)malloc(bytes_needed+1);
+		vsnprintf(buff, bytes_needed+1, format, vlist);
+		return Text(buff);
 #else
 		char* buff = nullptr;
 		int result = vasprintf(&buff, format, vlist);
@@ -1427,7 +1446,7 @@ namespace loguru
 		for (int arg_it = 1; arg_it < argc; ++arg_it) {
 			auto cmd = argv[arg_it];
 			auto arg_len = strlen(verbosity_flag);
-			if (strncmp(cmd, verbosity_flag, arg_len) == 0 && !std::isalpha(cmd[arg_len])) {
+			if (strncmp(cmd, verbosity_flag, arg_len) == 0 && !std::isalpha(cmd[arg_len], std::locale(""))) {
 				out_argc -= 1;
 				auto value_str = cmd + arg_len;
 				if (value_str[0] == '\0') {
@@ -1994,7 +2013,11 @@ namespace loguru
 
 	std::string stacktrace_as_stdstring(int)
 	{
+		#if defined(_MSC_VER)
+		#pragma message ( "Loguru: No stacktraces available on this platform" )
+		#else
 		#warning "Loguru: No stacktraces available on this platform"
+		#endif
 		return "";
 	}
 
@@ -2487,7 +2510,11 @@ namespace loguru
 namespace loguru {
 	void install_signal_handlers()
 	{
+		#if defined(_MSC_VER)
+		#pragma message ( "No signal handlers on Win32" )
+		#else
 		#warning "No signal handlers on Win32"
+		#endif
 	}
 } // namespace loguru
 
