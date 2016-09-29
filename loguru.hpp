@@ -45,6 +45,7 @@ Website: www.ilikebigbits.com
 	* Version 1.3.1 - 2016-07-20 - Add LOGURU_UNSAFE_SIGNAL_HANDLER to toggle stacktrace on signals.
 	* Version 1.3.2 - 2016-07-20 - Add loguru::arguments()
 	* Version 1.4.0 - 2016-09-15 - Semantic versioning + add loguru::create_directories
+	* Version 1.4.1 - 2016-09-29 - Customize formating with LOGURU_FILENAME_WIDTH
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -160,6 +161,16 @@ Website: www.ilikebigbits.com
 	// Maximum length of text that can be printed by a LOG_SCOPE.
 	// This should be long enough to get most things, but short enough not to clutter the stack.
 	#define LOGURU_SCOPE_TEXT_SIZE 196
+#endif
+
+#ifndef LOGURU_FILENAME_WIDTH
+	// Width of the column containing the file name
+	#define LOGURU_FILENAME_WIDTH 23
+#endif
+
+#ifndef LOGURU_THREADNAME_WIDTH
+	// Width of the column containing the thread name
+	#define LOGURU_THREADNAME_WIDTH 16
 #endif
 
 #ifndef LOGURU_CATCH_SIGABRT
@@ -1328,8 +1339,9 @@ namespace loguru
 		#endif
 	}();
 
-	const auto THREAD_NAME_WIDTH = 16;
-	const auto PREAMBLE_EXPLAIN  = "date       time         ( uptime  ) [ thread name/id ]                   file:line     v| ";
+	const auto PREAMBLE_EXPLAIN = textprintf("date       time         ( uptime  ) [%-*s]%*s:line     v| ",
+	                                         LOGURU_THREADNAME_WIDTH, " thread name/id",
+	                                         LOGURU_FILENAME_WIDTH, "file");
 
 	#if LOGURU_PTLS_NAMES
 		static pthread_once_t s_pthread_key_once = PTHREAD_ONCE_INIT;
@@ -1611,9 +1623,9 @@ namespace loguru
 
 		if (g_stderr_verbosity >= Verbosity_INFO) {
 			if (g_colorlogtostderr && s_terminal_has_color) {
-				fprintf(stderr, "%s%s%s\n", terminal_reset(), terminal_dim(), PREAMBLE_EXPLAIN);
+				fprintf(stderr, "%s%s%s\n", terminal_reset(), terminal_dim(), PREAMBLE_EXPLAIN.c_str());
 			} else {
-				fprintf(stderr, "%s\n", PREAMBLE_EXPLAIN);
+				fprintf(stderr, "%s\n", PREAMBLE_EXPLAIN.c_str());
 			}
 			fflush(stderr);
 		}
@@ -1766,7 +1778,7 @@ namespace loguru
 			fprintf(file, "Current dir: %s\n", s_current_dir);
 		}
 		fprintf(file, "File verbosity level: %d\n", verbosity);
-		fprintf(file, "%s\n", PREAMBLE_EXPLAIN);
+		fprintf(file, "%s\n", PREAMBLE_EXPLAIN.c_str());
 		fflush(file);
 
 		LOG_F(INFO, "Logging to '%s', mode: '%s', verbosity: %d", path, mode_str, verbosity);
@@ -2045,8 +2057,8 @@ namespace loguru
 		auto uptime_ms = duration_cast<milliseconds>(steady_clock::now() - s_start_time).count();
 		auto uptime_sec = uptime_ms / 1000.0;
 
-		char thread_name[THREAD_NAME_WIDTH + 1] = {0};
-		get_thread_name(thread_name, THREAD_NAME_WIDTH + 1, true);
+		char thread_name[LOGURU_THREADNAME_WIDTH + 1] = {0};
+		get_thread_name(thread_name, LOGURU_THREADNAME_WIDTH + 1, true);
 
 		if (s_strip_file_path) {
 			file = filename(file);
@@ -2063,11 +2075,12 @@ namespace loguru
 			snprintf(level_buff, sizeof(level_buff) - 1, "% 4d", verbosity);
 		}
 
-		snprintf(out_buff, out_buff_size, "%04d-%02d-%02d %02d:%02d:%02d.%03lld (%8.3fs) [%-*s]%23s:%-5u %4s| ",
+		snprintf(out_buff, out_buff_size, "%04d-%02d-%02d %02d:%02d:%02d.%03lld (%8.3fs) [%-*s]%*s:%-5u %4s| ",
 			1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday,
 			time_info.tm_hour, time_info.tm_min, time_info.tm_sec, ms_since_epoch % 1000,
 			uptime_sec,
-			THREAD_NAME_WIDTH, thread_name,
+			LOGURU_THREADNAME_WIDTH, thread_name,
+			LOGURU_FILENAME_WIDTH,
 			file, line, level_buff);
 	}
 
@@ -2399,8 +2412,8 @@ namespace loguru
 			result.str += "------------------------------------------------\n";
 			for (auto entry : stack) {
 				const auto description = std::string(entry->_descr) + ":";
-				auto prefix = textprintf("[ErrorContext] %23s:%-5u %-20s ",
-					filename(entry->_file), entry->_line, description.c_str());
+				auto prefix = textprintf("[ErrorContext] %*s:%-5u %-20s ",
+					LOGURU_FILENAME_WIDTH, filename(entry->_file), entry->_line, description.c_str());
 				result.str += prefix.c_str();
 				entry->print_value(result);
 				result.str += "\n";
