@@ -79,7 +79,7 @@ Then, in one .cpp file:
 	#define LOGURU_IMPLEMENTATION
 	#include <loguru.hpp>
 ```
-Make sure you compile with `-std=c++11 -lpthread -ldl`
+Make sure you compile with `-std=c++11 -lstdc++ -lpthread -ldl`
 
 ## Usage
 
@@ -91,10 +91,10 @@ Make sure you compile with `-std=c++11 -lpthread -ldl`
 loguru::init(argc, argv);
 
 // Put every log message in "everything.log":
-loguru::add_file("everything.log", loguru::Append);
+loguru::add_file("everything.log", loguru::Append, loguru::Verbosity_MAX);
 
 // Only log INFO, WARNING, ERROR and FATAL to "latest_readable.log":
-loguru::add_file("latest_readable.log", loguru::Truncate, loguru::INFO);
+loguru::add_file("latest_readable.log", loguru::Truncate, loguru::Verbosity_INFO);
 
 // Only show most relevant things on stderr:
 loguru::g_stderr_verbosity = 1;
