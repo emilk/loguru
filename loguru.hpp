@@ -248,6 +248,10 @@ Website: www.ilikebigbits.com
 #define __PRETTY_FUNCTION__ __FUNCTION__
 #endif
 
+#if LOGURU_USE_FMTLIB
+	#include <fmt/format.h>
+#endif
+
 // --------------------------------------------------------------------
 
 namespace loguru
@@ -455,11 +459,22 @@ namespace loguru
 	// Returns the maximum of g_stderr_verbosity and all file/custom outputs.
 	Verbosity current_verbosity_cutoff();
 
+	#if LOGURU_USE_FMTLIB
+	// Actual logging function. Use the LOG macro instead of calling this directly.
+	void log(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, fmt::ArgList args);
+	FMT_VARIADIC(void, log, Verbosity, const char*, unsigned, const char*)
+
+	// Log without any preamble or indentation.
+	void raw_log(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, fmt::ArgList args);
+	FMT_VARIADIC(void, raw_log, Verbosity, const char*, unsigned, LOGURU_FORMAT_STRING_TYPE)
+
+	#else
 	// Actual logging function. Use the LOG macro instead of calling this directly.
 	void log(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(4, 5);
 
 	// Log without any preamble or indentation.
 	void raw_log(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(4, 5);
+	#endif
 
 	// Helper class for LOG_SCOPE_F
 	class LogScopeRAII
@@ -2196,6 +2211,21 @@ namespace loguru
 		log_message(stack_trace_skip + 1, message, true, true);
 	}
 
+#if LOGURU_USE_FMTLIB
+	void log(Verbosity verbosity, const char* file, unsigned line, const char* format, fmt::ArgList args)
+	{
+		auto formatted = fmt::format(format, args);
+		log_to_everywhere(1, verbosity, file, line, "", formatted.c_str());
+	}
+
+	void raw_log(Verbosity verbosity, const char* file, unsigned line, const char* format, fmt::ArgList args)
+	{
+		auto formatted = fmt::format(format, args);
+		auto message = Message{verbosity, file, line, "", "", "", formatted.c_str()};
+		log_message(1, message, false, true);
+	}
+
+#else
 	void log(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
 	{
 		va_list vlist;
@@ -2214,6 +2244,7 @@ namespace loguru
 		log_message(1, message, false, true);
 		va_end(vlist);
 	}
+#endif
 
 	void flush()
 	{
