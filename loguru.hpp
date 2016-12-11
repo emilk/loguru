@@ -128,6 +128,9 @@ Website: www.ilikebigbits.com
 		Make Loguru try to do unsafe but useful things,
 		like printing a stack trace, when catching signals.
 		This may lead to bad things like deadlocks in certain situations.
+	
+	LOGURU_USE_FMTLIB (default 0):
+		Use fmtlib formatting. See https://github.com/fmtlib/fmt
 
 	You can also configure:
 	loguru::g_flush_interval_ms:
@@ -202,6 +205,10 @@ Website: www.ilikebigbits.com
 #if LOGURU_IMPLEMENTATION
 	#undef LOGURU_WITH_STREAMS
 	#define LOGURU_WITH_STREAMS 1
+#endif
+
+#ifndef LOGURU_USE_FMTLIB
+	#define LOGURU_USE_FMTLIB 0
 #endif
 
 // --------------------------------------------------------------------
