@@ -462,7 +462,7 @@ namespace loguru
 	#if LOGURU_USE_FMTLIB
 	// Actual logging function. Use the LOG macro instead of calling this directly.
 	void log(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, fmt::ArgList args);
-	FMT_VARIADIC(void, log, Verbosity, const char*, unsigned, const char*)
+	FMT_VARIADIC(void, log, Verbosity, const char*, unsigned, LOGURU_FORMAT_STRING_TYPE)
 
 	// Log without any preamble or indentation.
 	void raw_log(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, fmt::ArgList args);
