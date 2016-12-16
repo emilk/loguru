@@ -71,7 +71,7 @@ Website: www.ilikebigbits.com
 	loguru::g_stderr_verbosity = 1;
 
 	// Or just go with what Loguru suggests:
-	char log_path[1024];
+	char log_path[PATH_MAX];
 	loguru::suggest_log_path("~/loguru/", log_path, sizeof(log_path));
 	loguru::add_file(log_path, loguru::FileMode::Truncate, loguru::Verbosity_MAX);
 
@@ -431,6 +431,14 @@ namespace loguru
 		To stop the file logging, just call loguru::remove_callback(path) with the same path.
 	*/
 	bool add_file(const char* path, FileMode mode, Verbosity verbosity);
+
+#ifdef FILE_ABS
+	/*  similar to add_file, but always compare the inode opened with
+		the inode of 'path', and re-open the 'path' if the inodes differ
+		e.g. file has been moved or deleted.
+	*/
+	bool add_file_abs(const char* path, FileMode mode, Verbosity verbosity);
+#endif
 
 	/*  Will be called right before abort().
 		You can for instance use this to print custom error messages, or throw an exception.
@@ -1281,6 +1289,17 @@ This will define all the Loguru functions so that the linker may find them.
 
 namespace loguru
 {
+#ifdef LOGURU_WITH_FILEABS
+	struct FileAbs {
+		char path[PATH_MAX];
+		char mode_str[4];
+		struct stat st;
+		FILE* fp;
+		explicit operator FILE*(){return fp;}
+	};
+#else
+	typedef FILE* FileAbs;
+#endif
 	using namespace std::chrono;
 
 	struct Callback
@@ -1379,10 +1398,51 @@ namespace loguru
 	const char* terminal_reset()      { return s_terminal_has_color ? "\e[0m" : ""; }
 
 	// ------------------------------------------------------------------------------
-
+#ifdef LOGURU_WITH_FILEABS
+	void file_reopen(void* user_data)
+	{
+		FileAbs * file_abs = reinterpret_cast<FileAbs*>(user_data);
+		struct stat st;
+		int ret;
+		if ( (ret = stat(file_abs->path, &st)) == -1 || (st.st_ino != file_abs->st.st_ino) )
+		{
+			if (ret < 0 ) {
+				LOG_F(INFO, "Reopening file '%s' due to %m", file_abs->path); // still logging to previous fd;
+			} else {
+				LOG_F(INFO, "Reopening file '%s' due to file changed", file_abs->path);
+			}
+			// try reopen current file.
+			if (!create_directories(file_abs->path)) {
+				LOG_F(ERROR, "Failed to create directories to '%s'", file_abs->path);
+			}
+			file_abs->fp = fopen(file_abs->path, file_abs->mode_str);
+			if (!file_abs->fp) {
+				LOG_F(ERROR, "Failed to open '%s'", file_abs->path);
+				return;
+			}
+		}
+	}
+	inline FILE* to_file(void* user_data)
+	{
+		return reinterpret_cast<FileAbs*>(user_data)->fp;
+	}
+#else
+	inline FILE* to_file(void* user_data)
+	{
+		return reinterpret_cast<FILE*>(user_data);
+	}
+#endif
 	void file_log(void* user_data, const Message& message)
 	{
-		FILE* file = reinterpret_cast<FILE*>(user_data);
+#ifdef LOGURU_WITH_FILEABS
+		file_reopen(user_data);
+		FILE* file = to_file(user_data);
+		if(!file) {
+			return;
+		}
+#else
+		FILE* file = to_file(user_data);
+#endif
 		fprintf(file, "%s%s%s%s\n",
 			message.preamble, message.indentation, message.prefix, message.message);
 		if (g_flush_interval_ms == 0) {
@@ -1392,13 +1452,13 @@ namespace loguru
 
 	void file_close(void* user_data)
 	{
-		FILE* file = reinterpret_cast<FILE*>(user_data);
+		FILE* file = to_file(user_data);
 		fclose(file);
 	}
 
 	void file_flush(void* user_data)
 	{
-		FILE* file = reinterpret_cast<FILE*>(user_data);
+		FILE* file = to_file(user_data);
 		fflush(file);
 	}
 
@@ -1746,7 +1806,7 @@ namespace loguru
 
 	bool add_file(const char* path_in, FileMode mode, Verbosity verbosity)
 	{
-		char path[1024];
+		char path[PATH_MAX];
 		if (path_in[0] == '~') {
 			snprintf(path, sizeof(path) - 1, "%s%s", home_dir(), path_in + 1);
 		} else {
@@ -1759,11 +1819,20 @@ namespace loguru
 
 		const char* mode_str = (mode == FileMode::Truncate ? "w" : "a");
 		auto file = fopen(path, mode_str);
+#ifdef LOGURU_WITH_FILEABS
+		FileAbs* file_abs = new FileAbs(); // this needs to be released manually in file_close;
+		snprintf(file_abs->path, sizeof(file_abs->path) - 1, "%s", path);
+		snprintf(file_abs->mode_str, sizeof(file_abs->mode_str) - 1, "%s", mode_str);
+		stat(file_abs->path, &file_abs->st);
+		file_abs->fp = file;
+#else
+		auto file_abs = file;
+#endif
 		if (!file) {
 			LOG_F(ERROR, "Failed to open '%s'", path);
 			return false;
 		}
-		add_callback(path_in, file_log, file, verbosity, file_close, file_flush);
+		add_callback(path_in, file_log, file_abs, verbosity, file_close, file_flush);
 
 		if (mode == FileMode::Append) {
 			fprintf(file, "\n\n\n\n\n");
