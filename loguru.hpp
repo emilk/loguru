@@ -1427,6 +1427,9 @@ namespace loguru
 		if(file) {
 			fclose(file);
 		}
+#ifdef LOGURU_WITH_FILEABS
+		delete reinterpret_cast<FileAbs*>(user_data);
+#endif
 	}
 
 	void file_flush(void* user_data)
@@ -1436,13 +1439,33 @@ namespace loguru
 	}
 
 #ifdef LOGURU_WITH_FILEABS
+	void add_callback_abs(const char* id, log_handler_t callback, void* user_data,
+						  Verbosity verbosity, close_handler_t on_close, flush_handler_t on_flush)
+	{
+		std::lock_guard<std::recursive_mutex> lock(s_mutex);
+		s_callbacks.push_back(Callback{id, callback, user_data, verbosity, on_close, on_flush, 0});
+	}
+
+	bool remove_callback_abs(const char* id)
+	{
+		std::lock_guard<std::recursive_mutex> lock(s_mutex);
+		auto it = std::find_if(begin(s_callbacks), end(s_callbacks), [&](const Callback& c) { return c.id == id; });
+		if (it != s_callbacks.end()) {
+			s_callbacks.erase(it);
+			return true;
+		} else {
+			LOG_F(ERROR, "Failed to locate callback with id '%s'", id);
+			return false;
+		}
+	}
+
 	void file_reopen(void* user_data)
 	{
 		FileAbs * file_abs = reinterpret_cast<FileAbs*>(user_data);
 		struct stat st;
 		int ret;
 		if (!file_abs->fp || (ret = stat(file_abs->path, &st)) == -1 || (st.st_ino != file_abs->st.st_ino)) {
-			remove_callback(file_abs->path);
+			remove_callback_abs(file_abs->path); //adapted version, only remove from callback vector s_callbacks;
 			if (ret < 0) {
 				LOG_F(INFO, "Reopening file '%s' due to %m", file_abs->path); // still logging to previous fd;
 			} else {
@@ -1458,7 +1481,8 @@ namespace loguru
 			} else {
 				stat(file_abs->path, &file_abs->st);
 			}
-			add_callback(file_abs->path, file_log, file_abs, file_abs->verbosity, file_close, file_flush);
+			// adapted version, only add to callback vector s_callbacks;
+			add_callback_abs(file_abs->path, file_log, file_abs, file_abs->verbosity, file_close, file_flush);
 		}
 	}
 #endif
@@ -1819,7 +1843,7 @@ namespace loguru
 		const char* mode_str = (mode == FileMode::Truncate ? "w" : "a");
 		auto file = fopen(path, mode_str);
 #ifdef LOGURU_WITH_FILEABS
-		FileAbs* file_abs = new FileAbs(); // this needs to be released manually in file_close;
+		FileAbs* file_abs = new FileAbs(); // this is deleted file_close;
 		snprintf(file_abs->path, sizeof(file_abs->path) - 1, "%s", path);
 		snprintf(file_abs->mode_str, sizeof(file_abs->mode_str) - 1, "%s", mode_str);
 		stat(file_abs->path, &file_abs->st);
