@@ -432,14 +432,6 @@ namespace loguru
 	*/
 	bool add_file(const char* path, FileMode mode, Verbosity verbosity);
 
-#ifdef FILE_ABS
-	/*  similar to add_file, but always compare the inode opened with
-		the inode of 'path', and re-open the 'path' if the inodes differ
-		e.g. file has been moved or deleted.
-	*/
-	bool add_file_abs(const char* path, FileMode mode, Verbosity verbosity);
-#endif
-
 	/*  Will be called right before abort().
 		You can for instance use this to print custom error messages, or throw an exception.
 		Feel free to call LOG:ing function from this, but not FATAL ones! */
@@ -1291,11 +1283,12 @@ namespace loguru
 {
 #ifdef LOGURU_WITH_FILEABS
 	struct FileAbs {
+		pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 		char path[PATH_MAX];
 		char mode_str[4];
+		Verbosity verbosity;
 		struct stat st;
 		FILE* fp;
-		explicit operator FILE*(){return fp;}
 	};
 #else
 	typedef FILE* FileAbs;
@@ -1399,29 +1392,7 @@ namespace loguru
 
 	// ------------------------------------------------------------------------------
 #ifdef LOGURU_WITH_FILEABS
-	void file_reopen(void* user_data)
-	{
-		FileAbs * file_abs = reinterpret_cast<FileAbs*>(user_data);
-		struct stat st;
-		int ret;
-		if ( (ret = stat(file_abs->path, &st)) == -1 || (st.st_ino != file_abs->st.st_ino) )
-		{
-			if (ret < 0 ) {
-				LOG_F(INFO, "Reopening file '%s' due to %m", file_abs->path); // still logging to previous fd;
-			} else {
-				LOG_F(INFO, "Reopening file '%s' due to file changed", file_abs->path);
-			}
-			// try reopen current file.
-			if (!create_directories(file_abs->path)) {
-				LOG_F(ERROR, "Failed to create directories to '%s'", file_abs->path);
-			}
-			file_abs->fp = fopen(file_abs->path, file_abs->mode_str);
-			if (!file_abs->fp) {
-				LOG_F(ERROR, "Failed to open '%s'", file_abs->path);
-				return;
-			}
-		}
-	}
+	inline void file_reopen(void* user_data);
 	inline FILE* to_file(void* user_data)
 	{
 		return reinterpret_cast<FileAbs*>(user_data)->fp;
@@ -1435,9 +1406,11 @@ namespace loguru
 	void file_log(void* user_data, const Message& message)
 	{
 #ifdef LOGURU_WITH_FILEABS
+		pthread_mutex_lock(&(reinterpret_cast<FileAbs*>(user_data)->lock));
 		file_reopen(user_data);
 		FILE* file = to_file(user_data);
 		if(!file) {
+			pthread_mutex_unlock(&(reinterpret_cast<FileAbs*>(user_data)->lock));
 			return;
 		}
 #else
@@ -1448,6 +1421,9 @@ namespace loguru
 		if (g_flush_interval_ms == 0) {
 			fflush(file);
 		}
+#ifdef LOGURU_WITH_FILEABS
+		pthread_mutex_unlock(&(reinterpret_cast<FileAbs*>(user_data)->lock));
+#endif
 	}
 
 	void file_close(void* user_data)
@@ -1462,6 +1438,35 @@ namespace loguru
 		fflush(file);
 	}
 
+#ifdef LOGURU_WITH_FILEABS
+	void file_reopen(void* user_data)
+	{
+		FileAbs * file_abs = reinterpret_cast<FileAbs*>(user_data);
+		struct stat st;
+		int ret;
+		if ( (ret = stat(file_abs->path, &st)) == -1 || (st.st_ino != file_abs->st.st_ino) )
+		{
+			remove_callback(file_abs->path);
+			if (ret < 0 ) {
+				LOG_F(INFO, "Reopening file '%s' due to %m", file_abs->path); // still logging to previous fd;
+			} else {
+				LOG_F(INFO, "Reopening file '%s' due to file changed", file_abs->path);
+			}
+			// try reopen current file.
+			if (!create_directories(file_abs->path)) {
+				LOG_F(ERROR, "Failed to create directories to '%s'", file_abs->path);
+			}
+			FILE* new_fp = fopen(file_abs->path, file_abs->mode_str);
+			if (!new_fp) {
+				LOG_F(ERROR, "Failed to open '%s'", file_abs->path);
+			} else {
+				file_abs->fp = new_fp;
+				stat(file_abs->path, &file_abs->st);
+			}
+			add_callback(file_abs->path, file_log, file_abs, file_abs->verbosity, file_close, file_flush);
+		}
+	}
+#endif
 	// ------------------------------------------------------------------------------
 
 	// Helpers:
@@ -1803,7 +1808,6 @@ namespace loguru
 		free(file_path);
 		return true;
 	}
-
 	bool add_file(const char* path_in, FileMode mode, Verbosity verbosity)
 	{
 		char path[PATH_MAX];
@@ -1825,6 +1829,7 @@ namespace loguru
 		snprintf(file_abs->mode_str, sizeof(file_abs->mode_str) - 1, "%s", mode_str);
 		stat(file_abs->path, &file_abs->st);
 		file_abs->fp = file;
+		file_abs->verbosity = verbosity;
 #else
 		auto file_abs = file;
 #endif
