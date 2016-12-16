@@ -1392,7 +1392,7 @@ namespace loguru
 
 	// ------------------------------------------------------------------------------
 #ifdef LOGURU_WITH_FILEABS
-	inline void file_reopen(void* user_data);
+	void file_reopen(void* user_data);
 	inline FILE* to_file(void* user_data)
 	{
 		return reinterpret_cast<FileAbs*>(user_data)->fp;
@@ -1429,7 +1429,9 @@ namespace loguru
 	void file_close(void* user_data)
 	{
 		FILE* file = to_file(user_data);
-		fclose(file);
+		if(file) {
+			fclose(file);
+		}
 	}
 
 	void file_flush(void* user_data)
@@ -1444,7 +1446,7 @@ namespace loguru
 		FileAbs * file_abs = reinterpret_cast<FileAbs*>(user_data);
 		struct stat st;
 		int ret;
-		if ( (ret = stat(file_abs->path, &st)) == -1 || (st.st_ino != file_abs->st.st_ino) )
+		if ( !file_abs->fp || (ret = stat(file_abs->path, &st)) == -1 || (st.st_ino != file_abs->st.st_ino) )
 		{
 			remove_callback(file_abs->path);
 			if (ret < 0 ) {
@@ -1456,11 +1458,10 @@ namespace loguru
 			if (!create_directories(file_abs->path)) {
 				LOG_F(ERROR, "Failed to create directories to '%s'", file_abs->path);
 			}
-			FILE* new_fp = fopen(file_abs->path, file_abs->mode_str);
-			if (!new_fp) {
+			file_abs->fp = fopen(file_abs->path, file_abs->mode_str);
+			if (!file_abs->fp) {
 				LOG_F(ERROR, "Failed to open '%s'", file_abs->path);
 			} else {
-				file_abs->fp = new_fp;
 				stat(file_abs->path, &file_abs->st);
 			}
 			add_callback(file_abs->path, file_log, file_abs, file_abs->verbosity, file_close, file_flush);
