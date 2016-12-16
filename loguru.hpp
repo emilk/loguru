@@ -71,7 +71,7 @@ Website: www.ilikebigbits.com
 	loguru::g_stderr_verbosity = 1;
 
 	// Or just go with what Loguru suggests:
-	char log_path[1024];
+	char log_path[PATH_MAX];
 	loguru::suggest_log_path("~/loguru/", log_path, sizeof(log_path));
 	loguru::add_file(log_path, loguru::FileMode::Truncate, loguru::Verbosity_MAX);
 
@@ -1281,6 +1281,19 @@ This will define all the Loguru functions so that the linker may find them.
 
 namespace loguru
 {
+#ifdef LOGURU_WITH_FILEABS
+	struct FileAbs
+	{
+		pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+		char path[PATH_MAX];
+		char mode_str[4];
+		Verbosity verbosity;
+		struct stat st;
+		FILE* fp;
+	};
+#else
+	typedef FILE* FileAbs;
+#endif
 	using namespace std::chrono;
 
 	struct Callback
@@ -1379,29 +1392,100 @@ namespace loguru
 	const char* terminal_reset()      { return s_terminal_has_color ? "\e[0m" : ""; }
 
 	// ------------------------------------------------------------------------------
-
+#ifdef LOGURU_WITH_FILEABS
+	void file_reopen(void* user_data);
+	inline FILE* to_file(void* user_data) { return reinterpret_cast<FileAbs*>(user_data)->fp; }
+#else
+	inline FILE* to_file(void* user_data) { return reinterpret_cast<FILE*>(user_data); }
+#endif
 	void file_log(void* user_data, const Message& message)
 	{
-		FILE* file = reinterpret_cast<FILE*>(user_data);
+#ifdef LOGURU_WITH_FILEABS
+		pthread_mutex_lock(&(reinterpret_cast<FileAbs*>(user_data)->lock));
+		file_reopen(user_data);
+		FILE* file = to_file(user_data);
+		if(!file) {
+			pthread_mutex_unlock(&(reinterpret_cast<FileAbs*>(user_data)->lock));
+			return;
+		}
+#else
+		FILE* file = to_file(user_data);
+#endif
 		fprintf(file, "%s%s%s%s\n",
 			message.preamble, message.indentation, message.prefix, message.message);
 		if (g_flush_interval_ms == 0) {
 			fflush(file);
 		}
+#ifdef LOGURU_WITH_FILEABS
+		pthread_mutex_unlock(&(reinterpret_cast<FileAbs*>(user_data)->lock));
+#endif
 	}
 
 	void file_close(void* user_data)
 	{
-		FILE* file = reinterpret_cast<FILE*>(user_data);
-		fclose(file);
+		FILE* file = to_file(user_data);
+		if(file) {
+			fclose(file);
+		}
+#ifdef LOGURU_WITH_FILEABS
+		delete reinterpret_cast<FileAbs*>(user_data);
+#endif
 	}
 
 	void file_flush(void* user_data)
 	{
-		FILE* file = reinterpret_cast<FILE*>(user_data);
+		FILE* file = to_file(user_data);
 		fflush(file);
 	}
 
+#ifdef LOGURU_WITH_FILEABS
+	void add_callback_abs(const char* id, log_handler_t callback, void* user_data,
+						  Verbosity verbosity, close_handler_t on_close, flush_handler_t on_flush)
+	{
+		std::lock_guard<std::recursive_mutex> lock(s_mutex);
+		s_callbacks.push_back(Callback{id, callback, user_data, verbosity, on_close, on_flush, 0});
+	}
+
+	bool remove_callback_abs(const char* id)
+	{
+		std::lock_guard<std::recursive_mutex> lock(s_mutex);
+		auto it = std::find_if(begin(s_callbacks), end(s_callbacks), [&](const Callback& c) { return c.id == id; });
+		if (it != s_callbacks.end()) {
+			s_callbacks.erase(it);
+			return true;
+		} else {
+			LOG_F(ERROR, "Failed to locate callback with id '%s'", id);
+			return false;
+		}
+	}
+
+	void file_reopen(void* user_data)
+	{
+		FileAbs * file_abs = reinterpret_cast<FileAbs*>(user_data);
+		struct stat st;
+		int ret;
+		if (!file_abs->fp || (ret = stat(file_abs->path, &st)) == -1 || (st.st_ino != file_abs->st.st_ino)) {
+			remove_callback_abs(file_abs->path); //adapted version, only remove from callback vector s_callbacks;
+			if (ret < 0) {
+				LOG_F(INFO, "Reopening file '%s' due to %m", file_abs->path); // still logging to previous fd;
+			} else {
+				LOG_F(INFO, "Reopening file '%s' due to file changed", file_abs->path);
+			}
+			// try reopen current file.
+			if (!create_directories(file_abs->path)) {
+				LOG_F(ERROR, "Failed to create directories to '%s'", file_abs->path);
+			}
+			file_abs->fp = fopen(file_abs->path, file_abs->mode_str);
+			if (!file_abs->fp) {
+				LOG_F(ERROR, "Failed to open '%s'", file_abs->path);
+			} else {
+				stat(file_abs->path, &file_abs->st);
+			}
+			// adapted version, only add to callback vector s_callbacks;
+			add_callback_abs(file_abs->path, file_log, file_abs, file_abs->verbosity, file_close, file_flush);
+		}
+	}
+#endif
 	// ------------------------------------------------------------------------------
 
 	// Helpers:
@@ -1743,10 +1827,9 @@ namespace loguru
 		free(file_path);
 		return true;
 	}
-
 	bool add_file(const char* path_in, FileMode mode, Verbosity verbosity)
 	{
-		char path[1024];
+		char path[PATH_MAX];
 		if (path_in[0] == '~') {
 			snprintf(path, sizeof(path) - 1, "%s%s", home_dir(), path_in + 1);
 		} else {
@@ -1759,11 +1842,21 @@ namespace loguru
 
 		const char* mode_str = (mode == FileMode::Truncate ? "w" : "a");
 		auto file = fopen(path, mode_str);
+#ifdef LOGURU_WITH_FILEABS
+		FileAbs* file_abs = new FileAbs(); // this is deleted file_close;
+		snprintf(file_abs->path, sizeof(file_abs->path) - 1, "%s", path);
+		snprintf(file_abs->mode_str, sizeof(file_abs->mode_str) - 1, "%s", mode_str);
+		stat(file_abs->path, &file_abs->st);
+		file_abs->fp = file;
+		file_abs->verbosity = verbosity;
+#else
+		auto file_abs = file;
+#endif
 		if (!file) {
 			LOG_F(ERROR, "Failed to open '%s'", path);
 			return false;
 		}
-		add_callback(path_in, file_log, file, verbosity, file_close, file_flush);
+		add_callback(path_in, file_log, file_abs, verbosity, file_close, file_flush);
 
 		if (mode == FileMode::Append) {
 			fprintf(file, "\n\n\n\n\n");
