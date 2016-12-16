@@ -1282,7 +1282,8 @@ This will define all the Loguru functions so that the linker may find them.
 namespace loguru
 {
 #ifdef LOGURU_WITH_FILEABS
-	struct FileAbs {
+	struct FileAbs
+	{
 		pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 		char path[PATH_MAX];
 		char mode_str[4];
@@ -1393,15 +1394,9 @@ namespace loguru
 	// ------------------------------------------------------------------------------
 #ifdef LOGURU_WITH_FILEABS
 	void file_reopen(void* user_data);
-	inline FILE* to_file(void* user_data)
-	{
-		return reinterpret_cast<FileAbs*>(user_data)->fp;
-	}
+	inline FILE* to_file(void* user_data) { return reinterpret_cast<FileAbs*>(user_data)->fp; }
 #else
-	inline FILE* to_file(void* user_data)
-	{
-		return reinterpret_cast<FILE*>(user_data);
-	}
+	inline FILE* to_file(void* user_data) { return reinterpret_cast<FILE*>(user_data); }
 #endif
 	void file_log(void* user_data, const Message& message)
 	{
@@ -1446,10 +1441,9 @@ namespace loguru
 		FileAbs * file_abs = reinterpret_cast<FileAbs*>(user_data);
 		struct stat st;
 		int ret;
-		if ( !file_abs->fp || (ret = stat(file_abs->path, &st)) == -1 || (st.st_ino != file_abs->st.st_ino) )
-		{
+		if (!file_abs->fp || (ret = stat(file_abs->path, &st)) == -1 || (st.st_ino != file_abs->st.st_ino)) {
 			remove_callback(file_abs->path);
-			if (ret < 0 ) {
+			if (ret < 0) {
 				LOG_F(INFO, "Reopening file '%s' due to %m", file_abs->path); // still logging to previous fd;
 			} else {
 				LOG_F(INFO, "Reopening file '%s' due to file changed", file_abs->path);
