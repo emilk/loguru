@@ -1281,20 +1281,22 @@ This will define all the Loguru functions so that the linker may find them.
 
 namespace loguru
 {
+	using namespace std::chrono;
+
 #ifdef LOGURU_WITH_FILEABS
 	struct FileAbs
 	{
-		pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 		char path[PATH_MAX];
 		char mode_str[4];
 		Verbosity verbosity;
 		struct stat st;
 		FILE* fp;
+		bool is_reopening = false; // to prevent recursive call in file_reopen.
+		decltype(steady_clock::now()) last_check_time = steady_clock::now();
 	};
 #else
 	typedef FILE* FileAbs;
 #endif
-	using namespace std::chrono;
 
 	struct Callback
 	{
@@ -1401,11 +1403,21 @@ namespace loguru
 	void file_log(void* user_data, const Message& message)
 	{
 #ifdef LOGURU_WITH_FILEABS
-		pthread_mutex_lock(&(reinterpret_cast<FileAbs*>(user_data)->lock));
-		file_reopen(user_data);
+		FileAbs* file_abs = reinterpret_cast<FileAbs*>(user_data);
+		if (file_abs->is_reopening) {
+			return;
+		}
+		// It is better checking file change every minute/hour/day,
+		// instead of doing this every time we log.
+		// Here check_interval is set to zero to enable checking every time;
+		const auto check_interval = seconds(0);
+		if (duration_cast<seconds>(steady_clock::now() - file_abs->last_check_time) > check_interval)
+		{
+			file_abs->last_check_time = steady_clock::now();
+			file_reopen(user_data);
+		}
 		FILE* file = to_file(user_data);
-		if(!file) {
-			pthread_mutex_unlock(&(reinterpret_cast<FileAbs*>(user_data)->lock));
+		if (!file) {
 			return;
 		}
 #else
@@ -1416,15 +1428,12 @@ namespace loguru
 		if (g_flush_interval_ms == 0) {
 			fflush(file);
 		}
-#ifdef LOGURU_WITH_FILEABS
-		pthread_mutex_unlock(&(reinterpret_cast<FileAbs*>(user_data)->lock));
-#endif
 	}
 
 	void file_close(void* user_data)
 	{
 		FILE* file = to_file(user_data);
-		if(file) {
+		if (file) {
 			fclose(file);
 		}
 #ifdef LOGURU_WITH_FILEABS
@@ -1439,35 +1448,19 @@ namespace loguru
 	}
 
 #ifdef LOGURU_WITH_FILEABS
-	void add_callback_abs(const char* id, log_handler_t callback, void* user_data,
-						  Verbosity verbosity, close_handler_t on_close, flush_handler_t on_flush)
-	{
-		std::lock_guard<std::recursive_mutex> lock(s_mutex);
-		s_callbacks.push_back(Callback{id, callback, user_data, verbosity, on_close, on_flush, 0});
-	}
-
-	bool remove_callback_abs(const char* id)
-	{
-		std::lock_guard<std::recursive_mutex> lock(s_mutex);
-		auto it = std::find_if(begin(s_callbacks), end(s_callbacks), [&](const Callback& c) { return c.id == id; });
-		if (it != s_callbacks.end()) {
-			s_callbacks.erase(it);
-			return true;
-		} else {
-			LOG_F(ERROR, "Failed to locate callback with id '%s'", id);
-			return false;
-		}
-	}
-
 	void file_reopen(void* user_data)
 	{
 		FileAbs * file_abs = reinterpret_cast<FileAbs*>(user_data);
 		struct stat st;
 		int ret;
 		if (!file_abs->fp || (ret = stat(file_abs->path, &st)) == -1 || (st.st_ino != file_abs->st.st_ino)) {
-			remove_callback_abs(file_abs->path); //adapted version, only remove from callback vector s_callbacks;
-			if (ret < 0) {
-				LOG_F(INFO, "Reopening file '%s' due to %m", file_abs->path); // still logging to previous fd;
+			file_abs->is_reopening = true;
+			if (!file_abs->fp) {
+				LOG_F(INFO, "Reopening file '%s' due to previous error", file_abs->path);
+			}
+			else if (ret < 0) {
+				const auto why = errno_as_text();
+				LOG_F(INFO, "Reopening file '%s' due to '%s'", file_abs->path, why.c_str());
 			} else {
 				LOG_F(INFO, "Reopening file '%s' due to file changed", file_abs->path);
 			}
@@ -1481,8 +1474,7 @@ namespace loguru
 			} else {
 				stat(file_abs->path, &file_abs->st);
 			}
-			// adapted version, only add to callback vector s_callbacks;
-			add_callback_abs(file_abs->path, file_log, file_abs, file_abs->verbosity, file_close, file_flush);
+			file_abs->is_reopening = false;
 		}
 	}
 #endif
