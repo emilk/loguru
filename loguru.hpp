@@ -71,7 +71,7 @@ Website: www.ilikebigbits.com
 	loguru::g_stderr_verbosity = 1;
 
 	// Or just go with what Loguru suggests:
-	char log_path[1024];
+	char log_path[PATH_MAX];
 	loguru::suggest_log_path("~/loguru/", log_path, sizeof(log_path));
 	loguru::add_file(log_path, loguru::FileMode::Truncate, loguru::Verbosity_MAX);
 
@@ -1305,6 +1305,21 @@ namespace loguru
 {
 	using namespace std::chrono;
 
+#ifdef LOGURU_WITH_FILEABS
+	struct FileAbs
+	{
+		char path[PATH_MAX];
+		char mode_str[4];
+		Verbosity verbosity;
+		struct stat st;
+		FILE* fp;
+		bool is_reopening = false; // to prevent recursive call in file_reopen.
+		decltype(steady_clock::now()) last_check_time = steady_clock::now();
+	};
+#else
+	typedef FILE* FileAbs;
+#endif
+
 	struct Callback
 	{
 		std::string     id;
@@ -1401,10 +1416,35 @@ namespace loguru
 	const char* terminal_reset()      { return s_terminal_has_color ? "\e[0m" : ""; }
 
 	// ------------------------------------------------------------------------------
-
+#ifdef LOGURU_WITH_FILEABS
+	void file_reopen(void* user_data);
+	inline FILE* to_file(void* user_data) { return reinterpret_cast<FileAbs*>(user_data)->fp; }
+#else
+	inline FILE* to_file(void* user_data) { return reinterpret_cast<FILE*>(user_data); }
+#endif
 	void file_log(void* user_data, const Message& message)
 	{
-		FILE* file = reinterpret_cast<FILE*>(user_data);
+#ifdef LOGURU_WITH_FILEABS
+		FileAbs* file_abs = reinterpret_cast<FileAbs*>(user_data);
+		if (file_abs->is_reopening) {
+			return;
+		}
+		// It is better checking file change every minute/hour/day,
+		// instead of doing this every time we log.
+		// Here check_interval is set to zero to enable checking every time;
+		const auto check_interval = seconds(0);
+		if (duration_cast<seconds>(steady_clock::now() - file_abs->last_check_time) > check_interval)
+		{
+			file_abs->last_check_time = steady_clock::now();
+			file_reopen(user_data);
+		}
+		FILE* file = to_file(user_data);
+		if (!file) {
+			return;
+		}
+#else
+		FILE* file = to_file(user_data);
+#endif
 		fprintf(file, "%s%s%s%s\n",
 			message.preamble, message.indentation, message.prefix, message.message);
 		if (g_flush_interval_ms == 0) {
@@ -1414,16 +1454,52 @@ namespace loguru
 
 	void file_close(void* user_data)
 	{
-		FILE* file = reinterpret_cast<FILE*>(user_data);
-		fclose(file);
+		FILE* file = to_file(user_data);
+		if (file) {
+			fclose(file);
+		}
+#ifdef LOGURU_WITH_FILEABS
+		delete reinterpret_cast<FileAbs*>(user_data);
+#endif
 	}
 
 	void file_flush(void* user_data)
 	{
-		FILE* file = reinterpret_cast<FILE*>(user_data);
+		FILE* file = to_file(user_data);
 		fflush(file);
 	}
 
+#ifdef LOGURU_WITH_FILEABS
+	void file_reopen(void* user_data)
+	{
+		FileAbs * file_abs = reinterpret_cast<FileAbs*>(user_data);
+		struct stat st;
+		int ret;
+		if (!file_abs->fp || (ret = stat(file_abs->path, &st)) == -1 || (st.st_ino != file_abs->st.st_ino)) {
+			file_abs->is_reopening = true;
+			if (!file_abs->fp) {
+				LOG_F(INFO, "Reopening file '%s' due to previous error", file_abs->path);
+			}
+			else if (ret < 0) {
+				const auto why = errno_as_text();
+				LOG_F(INFO, "Reopening file '%s' due to '%s'", file_abs->path, why.c_str());
+			} else {
+				LOG_F(INFO, "Reopening file '%s' due to file changed", file_abs->path);
+			}
+			// try reopen current file.
+			if (!create_directories(file_abs->path)) {
+				LOG_F(ERROR, "Failed to create directories to '%s'", file_abs->path);
+			}
+			file_abs->fp = fopen(file_abs->path, file_abs->mode_str);
+			if (!file_abs->fp) {
+				LOG_F(ERROR, "Failed to open '%s'", file_abs->path);
+			} else {
+				stat(file_abs->path, &file_abs->st);
+			}
+			file_abs->is_reopening = false;
+		}
+	}
+#endif
 	// ------------------------------------------------------------------------------
 
 	// Helpers:
@@ -1765,10 +1841,9 @@ namespace loguru
 		free(file_path);
 		return true;
 	}
-
 	bool add_file(const char* path_in, FileMode mode, Verbosity verbosity)
 	{
-		char path[1024];
+		char path[PATH_MAX];
 		if (path_in[0] == '~') {
 			snprintf(path, sizeof(path) - 1, "%s%s", home_dir(), path_in + 1);
 		} else {
@@ -1781,11 +1856,21 @@ namespace loguru
 
 		const char* mode_str = (mode == FileMode::Truncate ? "w" : "a");
 		auto file = fopen(path, mode_str);
+#ifdef LOGURU_WITH_FILEABS
+		FileAbs* file_abs = new FileAbs(); // this is deleted file_close;
+		snprintf(file_abs->path, sizeof(file_abs->path) - 1, "%s", path);
+		snprintf(file_abs->mode_str, sizeof(file_abs->mode_str) - 1, "%s", mode_str);
+		stat(file_abs->path, &file_abs->st);
+		file_abs->fp = file;
+		file_abs->verbosity = verbosity;
+#else
+		auto file_abs = file;
+#endif
 		if (!file) {
 			LOG_F(ERROR, "Failed to open '%s'", path);
 			return false;
 		}
-		add_callback(path_in, file_log, file, verbosity, file_close, file_flush);
+		add_callback(path_in, file_log, file_abs, verbosity, file_close, file_flush);
 
 		if (mode == FileMode::Append) {
 			fprintf(file, "\n\n\n\n\n");
