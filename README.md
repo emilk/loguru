@@ -52,7 +52,7 @@ In particular, I want logging that produces logs that are both human-readable an
 * Compile-time checked printf-formating (on supported compilers).
 * Support for [fmtlib](https://github.com/fmtlib/fmt) formatting.
 	* Add `#define LOGURU_USE_FMTLIB 1`, before including `loguru.hpp`
-	* You also need to set up the `fmtlib` include directory for building as well as linking against `fmtlib`, alternatively use the `FMT_HEADER_ONLY` preprocessor definition
+	* You also need to set up the `fmtlib` include directory for building as well as linking against `fmtlib`, alternatively use the `FMT_HEADER_ONLY` preprocessor definition.
 * Assertion failures are marked with `noreturn` for the benefit of the static analyzer and optimizer.
 * All logging also written to stderr.
 	* With colors on supported terminals.
