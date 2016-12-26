@@ -1,8 +1,10 @@
-// Include loguru first to show it needs no dependencies:
-#define LOGURU_WITH_STREAMS 1
-#define LOGURU_REDEFINE_ASSERT 1
-#define LOGURU_FILENAME_WIDTH 16
-#define LOGURU_IMPLEMENTATION 1
+// Include loguru first to test that it needs no dependencies:
+#define LOGURU_FILENAME_WIDTH  16
+#define LOGURU_WITH_STREAMS     1
+#define LOGURU_REDEFINE_ASSERT  1
+#define LOGURU_USE_FMTLIB       0
+#define LOGURU_WITH_FILEABS     0
+#define LOGURU_IMPLEMENTATION   1
 #include "../loguru.hpp"
 
 #include <chrono>
