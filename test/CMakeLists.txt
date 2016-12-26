@@ -33,6 +33,6 @@ add_executable(loguru_test ${source})
 
 find_package(Threads)
 target_link_libraries(loguru_test ${CMAKE_THREAD_LIBS_INIT}) # For pthreads
-if(!WIN32)
+if(NOT WIN32)
 	target_link_libraries(loguru_test dl) # For ldl
 endif()
