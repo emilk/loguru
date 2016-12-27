@@ -1490,6 +1490,9 @@ namespace loguru
 		int ret;
 		if (!file_abs->fp || (ret = stat(file_abs->path, &st)) == -1 || (st.st_ino != file_abs->st.st_ino)) {
 			file_abs->is_reopening = true;
+			if (file_abs->fp) {
+				fclose(file_abs->fp);
+			}
 			if (!file_abs->fp) {
 				LOG_F(INFO, "Reopening file '%s' due to previous error", file_abs->path);
 			}
@@ -1874,7 +1877,7 @@ namespace loguru
 			return false;
 		}
 #if LOGURU_WITH_FILEABS
-		FileAbs* file_abs = new FileAbs(); // this is deleted file_close;
+		FileAbs* file_abs = new FileAbs(); // this is deleted in file_close;
 		snprintf(file_abs->path, sizeof(file_abs->path) - 1, "%s", path);
 		snprintf(file_abs->mode_str, sizeof(file_abs->mode_str) - 1, "%s", mode_str);
 		stat(file_abs->path, &file_abs->st);
