@@ -1379,9 +1379,12 @@ namespace loguru
 			if (const char* term = getenv("TERM")) {
 				return 0 == strcmp(term, "cygwin")
 					|| 0 == strcmp(term, "linux")
+					|| 0 == strcmp(term, "rxvt-unicode-256color")
 					|| 0 == strcmp(term, "screen")
+					|| 0 == strcmp(term, "tmux-256color")
 					|| 0 == strcmp(term, "xterm")
 					|| 0 == strcmp(term, "xterm-256color")
+					|| 0 == strcmp(term, "xterm-termite")
 					|| 0 == strcmp(term, "xterm-color");
 			} else {
 				return false;
