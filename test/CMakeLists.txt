@@ -29,20 +29,20 @@ enable_testing()
 
 if(NOT WIN32)
 # Sadly, Windows doesn't allow us to safely run the following tests
-    set(ExtraFailureTests
+    list(APPEND ExtraFailureTests
             SIGSEGV
-            thrown_on_signal)
-# And Linux doesn't let failures simply go unnoticed. I guess mac would do the same.
-# Sigh; Back to bash.
-    configure_file(FailTestWrapper.sh.in FailTestWrapper.sh)
-    set(FailTestWrapper FailTestWrapper.sh)
+            throw_on_signal)
+endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    list(APPEND ExtraFailureTests
+            assert)
 endif()
 
 # Failure Tests
 foreach(Test
             ABORT_F
             ABORT_S
-            assert
             LOG_F_FATAL
             LOG_S_FATAL
             CHECK_NOTNULL_F
@@ -61,8 +61,9 @@ foreach(Test
             throw_on_fatal
             ${ExtraFailureTests}
 )
-    add_test(loguru_test_${Test} ${FailTestWrapper} loguru_test ${Test})
-    set_tests_properties(loguru_test_${Test} PROPERTIES WILL_FAIL true)
+     add_test(NAME loguru_test_${Test}
+              COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/fail_test_wrapper.cmake
+              $<TARGET_FILE:loguru_test> ${Test})
 endforeach()
 
 # Success Tests
