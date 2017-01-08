@@ -53,3 +53,5 @@ if(DEFINED Configuration)
 endif()
 # platform-independent equivalent of `make`
 EXEC_CMD_CHECK(${CMAKE_COMMAND} --build ${BUILD_DIR} ${CMAKE_BUILD_EXTRA_ARGS})
+
+EXEC_CMD_CHECK(${CMAKE_CTEST_COMMAND} WORKING_DIRECTORY ${BUILD_DIR})
