@@ -21,7 +21,7 @@ In particular, I want logging that produces logs that are both human-readable an
 * Small, simple library.
 	* Small header with no `#include`s for **fast compile times** (see separate heading).
 	* No dependencies.
-	* Cross-platform (but not tested on Windows yet...)
+	* Cross-platform
 * Flexible:
 	* User can install callbacks for logging (e.g. to draw log messages on screen in a game).
 	* User can install callbacks for fatal error (e.g. to pause an attached debugger or throw an exception).
@@ -82,7 +82,7 @@ Then, in one .cpp file:
 	#define LOGURU_IMPLEMENTATION
 	#include <loguru.hpp>
 ```
-Make sure you compile with `-std=c++11 -lstdc++ -lpthread -ldl`
+Make sure you compile with `-std=c++11 -lpthread -ldl` on relevant environments.
 
 ## Usage
 
@@ -261,7 +261,6 @@ Loguru allows you to use whatever style you prefer.
 
 
 ## Limitations and TODO
-* Test on Windows.
 * Rename ERROR to avoid conflict with windows.h macro?
 * File-only logging: LOG_F(FILE, "Always written to file, never to stderr")
 * Windows limitations:
