@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -e # Fail on error
+
+${CMAKE_CURRENT_BINARY_DIR}/$@ && echo "Expected command to fail!" && exit 1

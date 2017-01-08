@@ -28,10 +28,14 @@ endif()
 enable_testing()
 
 if(NOT WIN32)
-# Sadly, Windows doesn't allow us to safely test the following
+# Sadly, Windows doesn't allow us to safely run the following tests
     set(ExtraFailureTests
             SIGSEGV
             thrown_on_signal)
+# And Linux doesn't let failures simply go unnoticed. I guess mac would do the same.
+# Sigh; Back to bash.
+    configure_file(FailTestWrapper.sh.in FailTestWrapper.sh)
+    set(FailTestWrapper FailTestWrapper.sh)
 endif()
 
 # Failure Tests
@@ -57,7 +61,7 @@ foreach(Test
             throw_on_fatal
             ${ExtraFailureTests}
 )
-    add_test(loguru_test_${Test} loguru_test ${Test})
+    add_test(loguru_test_${Test} ${FailTestWrapper} loguru_test ${Test})
     set_tests_properties(loguru_test_${Test} PROPERTIES WILL_FAIL true)
 endforeach()
 
