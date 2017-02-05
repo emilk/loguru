@@ -1,5 +1,7 @@
 # Loguru: a header-only C++ logging library.
 
+[![Build status](https://ci.appveyor.com/api/projects/status/hret4rx3xakjs7j4?svg=true)](https://ci.appveyor.com/project/emilk/loguru)
+
 ## At a glance
 
 ![Loguru terminal output](images/terminal_colors.png)
