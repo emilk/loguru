@@ -306,10 +306,24 @@ void test_log_callback()
 	CHECK_EQ_F(tester.num_close, 1u);
 }
 
+#if defined _WIN32 && defined _DEBUG
+#define USE_WIN_DBG_HOOK
+static int winDbgHook(int reportType, char *message, int *)
+{
+	fprintf(stderr, "Report type: %d\nMessage: %s\n", reportType,
+	                (nullptr != message ? message : "nullptr message"));
+    return 1; // To prevent the Abort, Retry, Ignore dialog
+}
+#endif
+
 // ----------------------------------------------------------------------------
 
 int main(int argc, char* argv[])
 {
+#ifdef USE_WIN_DBG_HOOK
+	_CrtSetReportHook2(_CRT_RPTHOOK_INSTALL, winDbgHook);
+#endif
+
 	if (argc > 1 && argv[1] == std::string("test"))
 	{
 		return main_test(argc, argv);
@@ -350,9 +364,9 @@ int main(int argc, char* argv[])
 		} else if (test == "assert") {
 			const char* ptr = 0;
 			assert(ptr && "Error that was unexpected");
-		} else if (test == "LOG_F(FATAL)") {
+		} else if (test == "LOG_F_FATAL") {
 			LOG_F(FATAL, "Fatal format message");
-		} else if (test == "LOG_S(FATAL)") {
+		} else if (test == "LOG_S_FATAL") {
 			LOG_S(FATAL) << "Fatal stream message";
 		} else if (test == "CHECK_NOTNULL_F") {
 			const char* ptr = 0;

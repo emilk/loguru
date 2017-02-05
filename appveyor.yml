@@ -1,0 +1,23 @@
+version: 0.1.{build}-{branch}
+pull_requests:
+  do_not_increment_build_number: true
+
+configuration:
+  - Debug
+  - Release
+
+environment:
+  matrix:
+    - VS_VERSION_MAJOR: 14
+
+platform:
+  - Win32
+  - x64
+
+# loguru is header-only
+build: off
+
+test_script: cmake -P test\build_and_run.cmake
+
+artifacts:
+  - path: test\build\Testing
