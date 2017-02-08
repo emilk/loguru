@@ -1,6 +1,9 @@
 #!/usr/bin/env cmake -P
 cmake_minimum_required(VERSION 2.8.7)
 
+set(BUILD_DIR ${CMAKE_CURRENT_LIST_DIR}/build)
+file(MAKE_DIRECTORY ${BUILD_DIR})
+
 # for lack of an equivalent of `set -e` in bash
 macro(EXEC_CMD_CHECK)
   message("running ${ARGN}")
@@ -19,15 +22,10 @@ if(DEFINED Generator)
   list(APPEND CMAKE_EXTRA_ARGS "-G${Generator}")
 endif()
 
-set(BUILD_DIR ${CMAKE_CURRENT_LIST_DIR}/build)
-
 # find_package(Git)
 # if(GIT_FOUND)
 #   EXEC_CMD_CHECK(${GIT_EXECUTABLE} submodule update --init)
 # endif()
-
-# mkdir -p build
-EXEC_CMD_CHECK(${CMAKE_COMMAND} -E make_directory ${BUILD_DIR})
 
 # cd build && cmake .. && cd -
 EXEC_CMD_CHECK(${CMAKE_COMMAND} ${CMAKE_EXTRA_ARGS} ${CMAKE_CURRENT_LIST_DIR} WORKING_DIRECTORY ${BUILD_DIR})
