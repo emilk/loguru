@@ -81,7 +81,7 @@ In particular, I want logging that produces logs that are both human-readable an
 Just include <loguru.hpp> where you want to use Loguru.
 Then, in one .cpp file:
 ``` C++
-	#define LOGURU_IMPLEMENTATION
+	#define LOGURU_IMPLEMENTATION 1
 	#include <loguru.hpp>
 ```
 Make sure you compile with `-std=c++11 -lpthread -ldl` on relevant environments.
@@ -169,7 +169,7 @@ The library supports scopes for indenting the log-file. Here's an example:
 int main(int argc, char* argv[])
 {
 	loguru::init(argc, argv);
-	LOG_SCOPE_FUNCTION_F(INFO);
+	LOG_SCOPE_FUNCTION(INFO);
 	LOG_F(INFO, "Doing some stuff...");
 	for (int i=0; i<2; ++i) {
 		VLOG_SCOPE_F(1, "Iteration %d", i);
