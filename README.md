@@ -160,7 +160,7 @@ I abhor logging libraries that `#include`'s everything from `iostream` to `windo
 
 In a test of a medium-sized project, including `loguru.hpp` instead of `glog/logging.hpp` everywhere gave about 10% speedup in compilation times.
 
-Note, however, that this gives you the bare-bones version of Louru with printf-style logging. If you want std::ostream style logging (or GLOG functionality) you need to `#define LOGURU_WITH_STREAMS 1` before `#include <loguru.hpp>`, and that will make loguru.hpp include `<sstream>`. No away around it!
+Note, however, that this gives you the bare-bones version of Loguru with printf-style logging. If you want std::ostream style logging (or GLOG functionality) you need to `#define LOGURU_WITH_STREAMS 1` before `#include <loguru.hpp>`, and that will make loguru.hpp include `<sstream>`. No away around it!
 
 ## Scopes
 The library supports scopes for indenting the log-file. Here's an example:
