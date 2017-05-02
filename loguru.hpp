@@ -111,10 +111,10 @@ Website: www.ilikebigbits.com
 
 	Before including <loguru.hpp> you may optionally want to define the following to 1:
 
-	LOGURU_DEBUG_LOGGING (default !NDEBUG):
+	LOGURU_DEBUG_LOGGING (default 1 #if !NDEBUG, else 0):
 		Enables debug versions of logging statements.
 
- 	LOGURU_DEBUG_LOGGING (default !NDEBUG):
+ 	LOGURU_DEBUG_LOGGING (default 1 #if !NDEBUG, else 0):
 		Enables debug versions of checks.
 
 	LOGURU_REDEFINE_ASSERT (default 0):
@@ -916,11 +916,13 @@ namespace loguru
 
 #ifndef LOGURU_DEBUG_LOGGING
 	#ifndef NDEBUG
-		#define LOGURU_DEBUG_LOGGING
+		#define LOGURU_DEBUG_LOGGING 1
+	#else
+		#define LOGURU_DEBUG_LOGGING 0
 	#endif
 #endif
 
-#ifdef LOGURU_DEBUG_LOGGING
+#if LOGURU_DEBUG_LOGGING
 	// Debug logging enabled:
 	#define DLOG_F(verbosity_name, ...)     LOG_F(verbosity_name, __VA_ARGS__)
 	#define DVLOG_F(verbosity, ...)         VLOG_F(verbosity, __VA_ARGS__)
@@ -947,11 +949,13 @@ namespace loguru
 
 #ifndef LOGURU_DEBUG_CHECKS
 	#ifndef NDEBUG
-		#define LOGURU_DEBUG_CHECKS
+		#define LOGURU_DEBUG_CHECKS 1
+	#else
+		#define LOGURU_DEBUG_CHECKS 0
 	#endif
 #endif
 
-#ifdef LOGURU_DEBUG_CHECKS
+#if LOGURU_DEBUG_CHECKS
 	// Debug checks enabled:
 	#define DCHECK_F(test, ...)             CHECK_F(test, ##__VA_ARGS__)
 	#define DCHECK_NOTNULL_F(x, ...)        CHECK_NOTNULL_F(x, ##__VA_ARGS__)
@@ -1159,7 +1163,7 @@ namespace loguru
 #define CHECK_GE_S(expr1, expr2) CHECK_OP_S(check_GE_impl, expr1, >=, expr2)
 #define CHECK_GT_S(expr1, expr2) CHECK_OP_S(check_GT_impl, expr1, > , expr2)
 
-#ifdef LOGURU_DEBUG_LOGGING
+#if LOGURU_DEBUG_LOGGING
 	// Debug logging enabled:
 	#define DVLOG_IF_S(verbosity, cond)     VLOG_IF_S(verbosity, cond)
 	#define DLOG_IF_S(verbosity_name, cond) LOG_IF_S(verbosity_name, cond)
@@ -1177,7 +1181,7 @@ namespace loguru
 	#define DLOG_S(verbosity_name)          DVLOG_S(loguru::Verbosity_ ## verbosity_name)
 #endif
 
-#ifdef LOGURU_DEBUG_CHECKS
+#if LOGURU_DEBUG_CHECKS
 	// Debug checks enabled:
 	#define DCHECK_S(cond)                  CHECK_S(cond)
 	#define DCHECK_NOTNULL_S(x)             CHECK_NOTNULL_S(x)
