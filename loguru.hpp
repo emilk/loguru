@@ -87,7 +87,7 @@ Website: www.ilikebigbits.com
 	CHECK_EQ_F(a, b, "You can also supply a custom message, like to print something: %d", a + b);
 
 	// Each function also comes with a version prefixed with D for Debug:
-	DCHECK_F(expensive_check(x)); // Only checked #if !NDEBUG
+	DCHECK_F(expensive_check(x)); // Only checked #if LOGURU_DEBUG_CHECKS
 	DLOG_F("Only written in debug-builds");
 
 	// Turn off writing to stderr:
@@ -110,6 +110,12 @@ Website: www.ilikebigbits.com
 	CHECK_EQ_S(pi, 3.14) << "Maybe it is closer to " << M_PI;
 
 	Before including <loguru.hpp> you may optionally want to define the following to 1:
+
+	LOGURU_DEBUG_LOGGING (default !NDEBUG):
+		Enables debug versions of logging statements.
+
+ 	LOGURU_DEBUG_LOGGING (default !NDEBUG):
+		Enables debug versions of checks.
 
 	LOGURU_REDEFINE_ASSERT (default 0):
 		Redefine "assert" call Loguru version (!NDEBUG only).
@@ -908,6 +914,30 @@ namespace loguru
 		}                                                                                          \
 	} while (false)
 
+#ifndef LOGURU_DEBUG_LOGGING
+	#ifndef NDEBUG
+		#define LOGURU_DEBUG_LOGGING
+	#endif
+#endif
+
+#ifdef LOGURU_DEBUG_LOGGING
+	// Debug logging enabled:
+	#define DLOG_F(verbosity_name, ...)     LOG_F(verbosity_name, __VA_ARGS__)
+	#define DVLOG_F(verbosity, ...)         VLOG_F(verbosity, __VA_ARGS__)
+	#define DLOG_IF_F(verbosity_name, ...)  LOG_IF_F(verbosity_name, __VA_ARGS__)
+	#define DVLOG_IF_F(verbosity, ...)      VLOG_IF_F(verbosity, __VA_ARGS__)
+	#define DRAW_LOG_F(verbosity_name, ...) RAW_LOG_F(verbosity_name, __VA_ARGS__)
+	#define DRAW_VLOG_F(verbosity, ...)     RAW_VLOG_F(verbosity, __VA_ARGS__)
+#else
+	// Debug logging disabled:
+	#define DLOG_F(verbosity_name, ...)
+	#define DVLOG_F(verbosity, ...)
+	#define DLOG_IF_F(verbosity_name, ...)
+	#define DVLOG_IF_F(verbosity, ...)
+	#define DRAW_LOG_F(verbosity_name, ...)
+	#define DRAW_VLOG_F(verbosity, ...)
+#endif
+
 #define CHECK_EQ_F(a, b, ...) CHECK_OP_F(a, b, ==, ##__VA_ARGS__)
 #define CHECK_NE_F(a, b, ...) CHECK_OP_F(a, b, !=, ##__VA_ARGS__)
 #define CHECK_LT_F(a, b, ...) CHECK_OP_F(a, b, < , ##__VA_ARGS__)
@@ -915,14 +945,14 @@ namespace loguru
 #define CHECK_LE_F(a, b, ...) CHECK_OP_F(a, b, <=, ##__VA_ARGS__)
 #define CHECK_GE_F(a, b, ...) CHECK_OP_F(a, b, >=, ##__VA_ARGS__)
 
-#ifndef NDEBUG
-	// Debug:
-	#define DLOG_F(verbosity_name, ...)     LOG_F(verbosity_name, __VA_ARGS__)
-	#define DVLOG_F(verbosity, ...)         VLOG_F(verbosity, __VA_ARGS__)
-	#define DLOG_IF_F(verbosity_name, ...)  LOG_IF_F(verbosity_name, __VA_ARGS__)
-	#define DVLOG_IF_F(verbosity, ...)      VLOG_IF_F(verbosity, __VA_ARGS__)
-	#define DRAW_LOG_F(verbosity_name, ...) RAW_LOG_F(verbosity_name, __VA_ARGS__)
-	#define DRAW_VLOG_F(verbosity, ...)     RAW_VLOG_F(verbosity, __VA_ARGS__)
+#ifndef LOGURU_DEBUG_CHECKS
+	#ifndef NDEBUG
+		#define LOGURU_DEBUG_CHECKS
+	#endif
+#endif
+
+#ifdef LOGURU_DEBUG_CHECKS
+	// Debug checks enabled:
 	#define DCHECK_F(test, ...)             CHECK_F(test, ##__VA_ARGS__)
 	#define DCHECK_NOTNULL_F(x, ...)        CHECK_NOTNULL_F(x, ##__VA_ARGS__)
 	#define DCHECK_EQ_F(a, b, ...)          CHECK_EQ_F(a, b, ##__VA_ARGS__)
@@ -931,14 +961,8 @@ namespace loguru
 	#define DCHECK_LE_F(a, b, ...)          CHECK_LE_F(a, b, ##__VA_ARGS__)
 	#define DCHECK_GT_F(a, b, ...)          CHECK_GT_F(a, b, ##__VA_ARGS__)
 	#define DCHECK_GE_F(a, b, ...)          CHECK_GE_F(a, b, ##__VA_ARGS__)
-#else // NDEBUG
-	// Release:
-	#define DLOG_F(verbosity_name, ...)
-	#define DVLOG_F(verbosity, ...)
-	#define DLOG_IF_F(verbosity_name, ...)
-	#define DVLOG_IF_F(verbosity, ...)
-	#define DRAW_LOG_F(verbosity_name, ...)
-	#define DRAW_VLOG_F(verbosity, ...)
+#else
+	// Debug checks disabled:
 	#define DCHECK_F(test, ...)
 	#define DCHECK_NOTNULL_F(x, ...)
 	#define DCHECK_EQ_F(a, b, ...)
@@ -948,6 +972,7 @@ namespace loguru
 	#define DCHECK_GT_F(a, b, ...)
 	#define DCHECK_GE_F(a, b, ...)
 #endif // NDEBUG
+
 
 #ifdef LOGURU_REDEFINE_ASSERT
 	#undef assert
@@ -1134,22 +1159,14 @@ namespace loguru
 #define CHECK_GE_S(expr1, expr2) CHECK_OP_S(check_GE_impl, expr1, >=, expr2)
 #define CHECK_GT_S(expr1, expr2) CHECK_OP_S(check_GT_impl, expr1, > , expr2)
 
-#ifndef NDEBUG
-	// Debug:
+#ifdef LOGURU_DEBUG_LOGGING
+	// Debug logging enabled:
 	#define DVLOG_IF_S(verbosity, cond)     VLOG_IF_S(verbosity, cond)
 	#define DLOG_IF_S(verbosity_name, cond) LOG_IF_S(verbosity_name, cond)
 	#define DVLOG_S(verbosity)              VLOG_S(verbosity)
 	#define DLOG_S(verbosity_name)          LOG_S(verbosity_name)
-	#define DCHECK_S(cond)                  CHECK_S(cond)
-	#define DCHECK_NOTNULL_S(x)             CHECK_NOTNULL_S(x)
-	#define DCHECK_EQ_S(a, b)               CHECK_EQ_S(a, b)
-	#define DCHECK_NE_S(a, b)               CHECK_NE_S(a, b)
-	#define DCHECK_LT_S(a, b)               CHECK_LT_S(a, b)
-	#define DCHECK_LE_S(a, b)               CHECK_LE_S(a, b)
-	#define DCHECK_GT_S(a, b)               CHECK_GT_S(a, b)
-	#define DCHECK_GE_S(a, b)               CHECK_GE_S(a, b)
-#else // NDEBUG
-	// Release:
+#else
+	// Debug logging disabled:
 	#define DVLOG_IF_S(verbosity, cond)                                                     \
 		(true || (verbosity) > loguru::current_verbosity_cutoff() || (cond) == false)       \
 			? (void)0                                                                       \
@@ -1158,6 +1175,20 @@ namespace loguru
 	#define DLOG_IF_S(verbosity_name, cond) DVLOG_IF_S(loguru::Verbosity_ ## verbosity_name, cond)
 	#define DVLOG_S(verbosity)              DVLOG_IF_S(verbosity, true)
 	#define DLOG_S(verbosity_name)          DVLOG_S(loguru::Verbosity_ ## verbosity_name)
+#endif
+
+#ifdef LOGURU_DEBUG_CHECKS
+	// Debug checks enabled:
+	#define DCHECK_S(cond)                  CHECK_S(cond)
+	#define DCHECK_NOTNULL_S(x)             CHECK_NOTNULL_S(x)
+	#define DCHECK_EQ_S(a, b)               CHECK_EQ_S(a, b)
+	#define DCHECK_NE_S(a, b)               CHECK_NE_S(a, b)
+	#define DCHECK_LT_S(a, b)               CHECK_LT_S(a, b)
+	#define DCHECK_LE_S(a, b)               CHECK_LE_S(a, b)
+	#define DCHECK_GT_S(a, b)               CHECK_GT_S(a, b)
+	#define DCHECK_GE_S(a, b)               CHECK_GE_S(a, b)
+#else
+// Debug checks disabled:
 	#define DCHECK_S(cond)                  CHECK_S(true || (cond))
 	#define DCHECK_NOTNULL_S(x)             CHECK_S(true || (x) != nullptr)
 	#define DCHECK_EQ_S(a, b)               CHECK_S(true || (a) == (b))
@@ -1166,7 +1197,7 @@ namespace loguru
 	#define DCHECK_LE_S(a, b)               CHECK_S(true || (a) <= (b))
 	#define DCHECK_GT_S(a, b)               CHECK_S(true || (a) >  (b))
 	#define DCHECK_GE_S(a, b)               CHECK_S(true || (a) >= (b))
-#endif // NDEBUG
+#endif
 
 #if LOGURU_REPLACE_GLOG
 	#undef LOG
