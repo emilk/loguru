@@ -114,7 +114,7 @@ Website: www.ilikebigbits.com
 	LOGURU_DEBUG_LOGGING (default 1 #if !NDEBUG, else 0):
 		Enables debug versions of logging statements.
 
- 	LOGURU_DEBUG_LOGGING (default 1 #if !NDEBUG, else 0):
+ 	LOGURU_DEBUG_CHECKS (default 1 #if !NDEBUG, else 0):
 		Enables debug versions of checks.
 
 	LOGURU_REDEFINE_ASSERT (default 0):
