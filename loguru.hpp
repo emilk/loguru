@@ -1319,9 +1319,11 @@ This will define all the Loguru functions so that the linker may find them.
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 	#define LOGURU_PTHREADS    0
+	#define LOGURU_WINTHREADS  1
 	#define LOGURU_STACKTRACES 0
 #else
 	#define LOGURU_PTHREADS    1
+	#define LOGURU_WINTHREADS  0
 	#define LOGURU_STACKTRACES 1
 #endif
 
@@ -1341,6 +1343,15 @@ This will define all the Loguru functions so that the linker may find them.
 		   for storing thread names on Linux. */
 		#define LOGURU_PTLS_NAMES 1
 	#endif
+#endif
+
+#if LOGURU_WINTHREADS
+	#ifndef _WIN32_WINNT
+		#define _WIN32_WINNT 0x0502
+	#endif
+	#define WIN32_LEAN_AND_MEAN
+	#define NOMINMAX
+	#include <windows.h>
 #endif
 
 #ifndef LOGURU_PTLS_NAMES
@@ -1757,7 +1768,7 @@ namespace loguru
 			parse_args(argc, argv, verbosity_flag);
 		}
 
-		#if LOGURU_PTLS_NAMES
+		#if LOGURU_PTLS_NAMES || LOGURU_WINTHREADS
 			set_thread_name("main thread");
 		#elif LOGURU_PTHREADS
 			char old_thread_name[16] = {0};
@@ -2008,6 +2019,14 @@ namespace loguru
 			   g_stderr_verbosity : s_max_out_verbosity;
 	}
 
+#if LOGURU_WINTHREADS
+	char* get_thread_name_win32()
+	{
+		__declspec( thread ) static char thread_name[LOGURU_THREADNAME_WIDTH + 1] = {0};
+		return &thread_name[0];
+	}
+#endif // LOGURU_WINTHREADS
+
 	void set_thread_name(const char* name)
 	{
 		#if LOGURU_PTLS_NAMES
@@ -2020,6 +2039,8 @@ namespace loguru
 			#else
 				pthread_setname_np(pthread_self(), name);
 			#endif
+		#elif LOGURU_WINTHREADS
+			strncpy_s(get_thread_name_win32(), LOGURU_THREADNAME_WIDTH + 1, name, _TRUNCATE);
 		#else // LOGURU_PTHREADS
 			(void)name;
 		#endif // LOGURU_PTHREADS
@@ -2062,9 +2083,15 @@ namespace loguru
 				snprintf(buffer, length, "%X", static_cast<unsigned>(thread_id));
 			}
 		}
-#else // LOGURU_PTHREADS
+#elif LOGURU_WINTHREADS
+		if (const char* name = get_thread_name_win32()) {
+			snprintf(buffer, length, "%s", name);
+		} else {
+			buffer[0] = 0;
+		}
+#else // !LOGURU_WINTHREADS && !LOGURU_WINTHREADS
 		buffer[0] = 0;
-#endif // LOGURU_PTHREADS
+#endif
 
 	}
 
