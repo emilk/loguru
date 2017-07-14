@@ -114,7 +114,7 @@ Website: www.ilikebigbits.com
 	LOGURU_DEBUG_LOGGING (default 1 #if !NDEBUG, else 0):
 		Enables debug versions of logging statements.
 
- 	LOGURU_DEBUG_CHECKS (default 1 #if !NDEBUG, else 0):
+	LOGURU_DEBUG_CHECKS (default 1 #if !NDEBUG, else 0):
 		Enables debug versions of checks.
 
 	LOGURU_REDEFINE_ASSERT (default 0):
@@ -1438,8 +1438,8 @@ namespace loguru
 	}();
 
 	const auto PREAMBLE_EXPLAIN = textprintf("date       time         ( uptime  ) [%-*s]%*s:line     v| ",
-	                                         LOGURU_THREADNAME_WIDTH, " thread name/id",
-	                                         LOGURU_FILENAME_WIDTH, "file");
+											 LOGURU_THREADNAME_WIDTH, " thread name/id",
+											 LOGURU_FILENAME_WIDTH, "file");
 
 	#if LOGURU_PTLS_NAMES
 		static pthread_once_t s_pthread_key_once = PTHREAD_ONCE_INIT;
