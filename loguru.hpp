@@ -1417,7 +1417,18 @@ namespace loguru
 	static bool         s_needs_flushing = false;
 
 	static const bool s_terminal_has_color = [](){
-		#ifdef _MSC_VER
+		#ifdef _WIN32
+			#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+			#define ENABLE_VIRTUAL_TERMINAL_PROCESSING  0x0004
+			#endif
+
+			HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+			if (hOut != INVALID_HANDLE_VALUE) {
+				DWORD dwMode = 0;
+				GetConsoleMode(hOut, &dwMode);
+				dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+				return SetConsoleMode(hOut, dwMode) != 0;
+			}
 			return false;
 		#else
 			if (const char* term = getenv("TERM")) {
@@ -1457,24 +1468,31 @@ namespace loguru
 	bool terminal_has_color() { return s_terminal_has_color; }
 
 	// Colors
-	const char* terminal_black()      { return s_terminal_has_color ? "\e[30m" : ""; }
-	const char* terminal_red()        { return s_terminal_has_color ? "\e[31m" : ""; }
-	const char* terminal_green()      { return s_terminal_has_color ? "\e[32m" : ""; }
-	const char* terminal_yellow()     { return s_terminal_has_color ? "\e[33m" : ""; }
-	const char* terminal_blue()       { return s_terminal_has_color ? "\e[34m" : ""; }
-	const char* terminal_purple()     { return s_terminal_has_color ? "\e[35m" : ""; }
-	const char* terminal_cyan()       { return s_terminal_has_color ? "\e[36m" : ""; }
-	const char* terminal_light_gray() { return s_terminal_has_color ? "\e[37m" : ""; }
-	const char* terminal_white()      { return s_terminal_has_color ? "\e[37m" : ""; }
-	const char* terminal_light_red()  { return s_terminal_has_color ? "\e[91m" : ""; }
-	const char* terminal_dim()        { return s_terminal_has_color ? "\e[2m"  : ""; }
+
+#ifdef _WIN32
+#define VTSEQ(ID) ("\x1b[1;" #ID "m")
+#else
+#define VTSEQ(ID) ("\e[" #ID "m")
+#endif
+
+	const char* terminal_black()      { return s_terminal_has_color ? VTSEQ(30) : ""; }
+	const char* terminal_red()        { return s_terminal_has_color ? VTSEQ(31) : ""; }
+	const char* terminal_green()      { return s_terminal_has_color ? VTSEQ(32) : ""; }
+	const char* terminal_yellow()     { return s_terminal_has_color ? VTSEQ(33) : ""; }
+	const char* terminal_blue()       { return s_terminal_has_color ? VTSEQ(34) : ""; }
+	const char* terminal_purple()     { return s_terminal_has_color ? VTSEQ(35) : ""; }
+	const char* terminal_cyan()       { return s_terminal_has_color ? VTSEQ(36) : ""; }
+	const char* terminal_light_gray() { return s_terminal_has_color ? VTSEQ(37) : ""; }
+	const char* terminal_white()      { return s_terminal_has_color ? VTSEQ(37) : ""; }
+	const char* terminal_light_red()  { return s_terminal_has_color ? VTSEQ(91) : ""; }
+	const char* terminal_dim()        { return s_terminal_has_color ? VTSEQ(2)  : ""; }
 
 	// Formating
-	const char* terminal_bold()       { return s_terminal_has_color ? "\e[1m" : ""; }
-	const char* terminal_underline()  { return s_terminal_has_color ? "\e[4m" : ""; }
+	const char* terminal_bold()       { return s_terminal_has_color ? VTSEQ(1) : ""; }
+	const char* terminal_underline()  { return s_terminal_has_color ? VTSEQ(4) : ""; }
 
 	// You should end each line with this!
-	const char* terminal_reset()      { return s_terminal_has_color ? "\e[0m" : ""; }
+	const char* terminal_reset()      { return s_terminal_has_color ? VTSEQ(0) : ""; }
 
 	// ------------------------------------------------------------------------------
 #if LOGURU_WITH_FILEABS
