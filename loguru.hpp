@@ -258,7 +258,7 @@ Website: www.ilikebigbits.com
 
 // Used to mark log_and_abort for the benefit of the static analyzer and optimizer.
 #if defined(_MSC_VER)
-#define LOGURU_NORETURN
+#define LOGURU_NORETURN __declspec(noreturn)
 #else
 #define LOGURU_NORETURN __attribute__((noreturn))
 #endif
@@ -1730,8 +1730,8 @@ namespace loguru
 	#elif __APPLE__
 		strerror_r(errno, buff, sizeof(buff));
 		return Text(strdup(buff));
-	#elif WINDOWS
-		_strerror_s(buff, sizeof(buff));
+	#elif _WIN32
+		strerror_s(buff, sizeof(buff), errno);
 		return Text(strdup(buff));
 	#else
 		// Not thread-safe.
@@ -1746,7 +1746,7 @@ namespace loguru
 
 		s_argv0_filename = filename(argv[0]);
 
-		#ifdef WINDOWS
+		#ifdef _WIN32
 			#define getcwd _getcwd
 		#endif
 
@@ -2085,7 +2085,7 @@ namespace loguru
 		}
 #elif LOGURU_WINTHREADS
 		if (const char* name = get_thread_name_win32()) {
-			snprintf(buffer, length, "%s", name);
+			snprintf(buffer, (size_t)length, "%s", name);
 		} else {
 			buffer[0] = 0;
 		}
