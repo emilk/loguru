@@ -47,6 +47,7 @@ Website: www.ilikebigbits.com
 	* Version 1.4.0 - 2016-09-15 - Semantic versioning + add loguru::create_directories
 	* Version 1.4.1 - 2016-09-29 - Customize formating with LOGURU_FILENAME_WIDTH
 	* Version 1.5.0 - 2016-12-22 - LOGURU_USE_FMTLIB by kolis and LOGURU_WITH_FILEABS by scinart
+	* Version 1.5.1 - 2017-08-08 - Terminal colors on Windows 10 thanks to looki
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
