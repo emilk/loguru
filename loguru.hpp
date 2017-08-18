@@ -1320,11 +1320,9 @@ This will define all the Loguru functions so that the linker may find them.
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 	#define LOGURU_PTHREADS    0
-	#define LOGURU_WINTHREADS  1
 	#define LOGURU_STACKTRACES 0
 #else
 	#define LOGURU_PTHREADS    1
-	#define LOGURU_WINTHREADS  0
 	#define LOGURU_STACKTRACES 1
 #endif
 
@@ -1342,17 +1340,10 @@ This will define all the Loguru functions so that the linker may find them.
 		   Additionally, all new threads inherit the name of the thread it got forked from.
 		   For this reason, Loguru use the pthread Thread Local Storage
 		   for storing thread names on Linux. */
-		#define LOGURU_PTLS_NAMES 1
+		#ifndef LOGURU_PTLS_NAMES
+			#define LOGURU_PTLS_NAMES 1
+		#endif
 	#endif
-#endif
-
-#if LOGURU_WINTHREADS
-	#ifndef _WIN32_WINNT
-		#define _WIN32_WINNT 0x0502
-	#endif
-	#define WIN32_LEAN_AND_MEAN
-	#define NOMINMAX
-	#include <windows.h>
 #endif
 
 #ifndef LOGURU_PTLS_NAMES
@@ -1787,20 +1778,7 @@ namespace loguru
 			parse_args(argc, argv, verbosity_flag);
 		}
 
-		#if LOGURU_PTLS_NAMES || LOGURU_WINTHREADS
-			set_thread_name("main thread");
-		#elif LOGURU_PTHREADS
-			char old_thread_name[16] = {0};
-			auto this_thread = pthread_self();
-			pthread_getname_np(this_thread, old_thread_name, sizeof(old_thread_name));
-			if (old_thread_name[0] == 0) {
-				#ifdef __APPLE__
-					pthread_setname_np("main thread");
-				#else
-					pthread_setname_np(this_thread, "main thread");
-				#endif
-			}
-		#endif // LOGURU_PTHREADS
+		set_thread_name("main thread");
 
 		if (g_stderr_verbosity >= Verbosity_INFO) {
 			if (g_colorlogtostderr && s_terminal_has_color) {
@@ -2038,13 +2016,11 @@ namespace loguru
 			   g_stderr_verbosity : s_max_out_verbosity;
 	}
 
-#if LOGURU_WINTHREADS
-	char* get_thread_name_win32()
+	char* get_thread_name_impl()
 	{
-		__declspec( thread ) static char thread_name[LOGURU_THREADNAME_WIDTH + 1] = {0};
+		thread_local static char thread_name[LOGURU_THREADNAME_WIDTH + 1] = {0};
 		return &thread_name[0];
 	}
-#endif // LOGURU_WINTHREADS
 
 	void set_thread_name(const char* name)
 	{
@@ -2058,10 +2034,8 @@ namespace loguru
 			#else
 				pthread_setname_np(pthread_self(), name);
 			#endif
-		#elif LOGURU_WINTHREADS
-			strncpy_s(get_thread_name_win32(), LOGURU_THREADNAME_WIDTH + 1, name, _TRUNCATE);
-		#else // LOGURU_PTHREADS
-			(void)name;
+		#else
+				snprintf(get_thread_name_impl(), LOGURU_THREADNAME_WIDTH + 1, "%s", name);
 		#endif // LOGURU_PTHREADS
 	}
 
@@ -2102,14 +2076,9 @@ namespace loguru
 				snprintf(buffer, length, "%X", static_cast<unsigned>(thread_id));
 			}
 		}
-#elif LOGURU_WINTHREADS
-		if (const char* name = get_thread_name_win32()) {
-			snprintf(buffer, (size_t)length, "%s", name);
-		} else {
-			buffer[0] = 0;
-		}
-#else // !LOGURU_WINTHREADS && !LOGURU_WINTHREADS
-		buffer[0] = 0;
+#else
+		const char* name = get_thread_name_impl();
+		snprintf(buffer, (size_t)length, "%s", name);
 #endif
 
 	}
