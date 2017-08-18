@@ -41,12 +41,14 @@ void test_thread_names()
 		char thread_name[17];
 		loguru::get_thread_name(thread_name, sizeof(thread_name), false);
 		LOG_F(INFO, "Hello from main thread ('%s')", thread_name);
+		CHECK_F(std::string("main thread").compare(0, std::string::npos, thread_name) == 0, "Thread name error!");
 	}
 
 	auto a = std::thread([](){
 		char thread_name[17];
 		loguru::get_thread_name(thread_name, sizeof(thread_name), false);
 		LOG_F(INFO, "Hello from nameless thread ('%s')", thread_name);
+		CHECK_F(std::string("main thread").compare(0, std::string::npos, thread_name) != 0, "Thread name error!");
 	});
 
 	auto b = std::thread([](){
@@ -54,6 +56,7 @@ void test_thread_names()
 		char thread_name[17];
 		loguru::get_thread_name(thread_name, sizeof(thread_name), false);
 		LOG_F(INFO, "Hello from render thread ('%s')", thread_name);
+		CHECK_F(std::string("renderer").compare(0, std::string::npos, thread_name) == 0, "Thread name error!");
 	});
 
 	auto c = std::thread([](){
@@ -61,6 +64,7 @@ void test_thread_names()
 		char thread_name[17];
 		loguru::get_thread_name(thread_name, sizeof(thread_name), false);
 		LOG_F(INFO, "Hello from thread with a very long name ('%s')", thread_name);
+		CHECK_F(std::string("abcdefghijklmnop").compare(0, std::string::npos, thread_name) == 0, "Thread name error!");
 	});
 
 	a.join();
@@ -415,6 +419,8 @@ int main(int argc, char* argv[])
 			throw_on_signal();
 		} else if (test == "callback") {
 			test_log_callback();
+		} else if (test == "name") {
+			test_thread_names();
 		} else if (test == "hang") {
 			loguru::add_file("hang.log", loguru::Truncate, loguru::Verbosity_INFO);
 			test_hang_2();

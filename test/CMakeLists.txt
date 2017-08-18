@@ -68,6 +68,7 @@ endforeach()
 
 # Success Tests
 foreach(Test
-            callback)
+            callback
+            name)
     add_test(loguru_test_${Test} loguru_test ${Test})
 endforeach()
