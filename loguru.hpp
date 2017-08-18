@@ -1403,7 +1403,7 @@ namespace loguru
 	unsigned  g_flush_interval_ms = 0;
 
 	static std::recursive_mutex  s_mutex;
-	static Verbosity             s_max_out_verbosity = Verbosity_OFF;
+	static Verbosity             s_max_out_verbosity = Verbosity_FATAL;
 	static std::string           s_argv0_filename;
 	static std::string           s_arguments;
 	static char                  s_current_dir[PATH_MAX];
@@ -1977,7 +1977,7 @@ namespace loguru
 
 	static void on_callback_change()
 	{
-		s_max_out_verbosity = Verbosity_OFF;
+		s_max_out_verbosity = Verbosity_FATAL;
 		for (const auto& callback : s_callbacks) {
 			s_max_out_verbosity = std::max(s_max_out_verbosity, callback.verbosity);
 		}
@@ -2021,8 +2021,7 @@ namespace loguru
 	// Returns the maximum of g_stderr_verbosity and all file/custom outputs.
 	Verbosity current_verbosity_cutoff()
 	{
-		return g_stderr_verbosity > s_max_out_verbosity ?
-			   g_stderr_verbosity : s_max_out_verbosity;
+		return std::max(g_stderr_verbosity, s_max_out_verbosity);
 	}
 
 	char* get_thread_name_impl()
