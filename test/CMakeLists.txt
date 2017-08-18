@@ -17,12 +17,15 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-gnu-zero-variadic-macro-arguments")
 endif() # Clang
 
-add_executable(loguru_test loguru_test.cpp)
+add_executable(loguru_test      loguru_test.cpp)
+add_executable(loguru_test_self_contained loguru_test_self_contained.cpp)
 
 find_package(Threads)
 target_link_libraries(loguru_test ${CMAKE_THREAD_LIBS_INIT}) # For pthreads
+target_link_libraries(loguru_test_self_contained ${CMAKE_THREAD_LIBS_INIT}) # For pthreads
 if(NOT WIN32)
 	target_link_libraries(loguru_test dl) # For ldl
+	target_link_libraries(loguru_test_self_contained dl) # For ldl
 endif()
 
 enable_testing()

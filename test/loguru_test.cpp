@@ -5,6 +5,8 @@
 #define LOGURU_USE_FMTLIB       0
 #define LOGURU_WITH_FILEABS     0
 #define LOGURU_IMPLEMENTATION   1
+// #define LOGURU_PTLS_NAMES       0
+// #define LOGURU_PTHREADS         0
 #include "../loguru.hpp"
 
 #include <chrono>
