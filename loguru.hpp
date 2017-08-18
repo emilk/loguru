@@ -1346,6 +1346,15 @@ This will define all the Loguru functions so that the linker may find them.
 	#endif
 #endif
 
+#if defined(_WIN32) || defined(__CYGWIN__)
+	#ifndef _WIN32_WINNT
+		#define _WIN32_WINNT 0x0502
+	#endif
+	#define WIN32_LEAN_AND_MEAN
+	#define NOMINMAX
+	#include <windows.h>
+#endif
+
 #ifndef LOGURU_PTLS_NAMES
    #define LOGURU_PTLS_NAMES 0
 #endif
