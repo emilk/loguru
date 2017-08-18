@@ -10,8 +10,9 @@
 #include <chrono>
 #include <string>
 #include <thread>
-
+#include <vector>
 #include <fstream>
+#include <random>
 
 void the_one_where_the_problem_is(const std::vector<std::string>& v) {
 	ABORT_F("Abort deep in stack trace, msg: %s", v[0].c_str());
@@ -33,6 +34,29 @@ void sleep_ms(int ms)
 	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 
+void test_thread_names_strong()
+{
+	std::random_device rd;  //Will be used to obtain a seed for the random number engine
+	std::mt19937 gen(rd());
+
+	std::vector<std::thread> threads;
+	for(int i=0; i<10000; i++) {
+		try {
+			threads.emplace_back(std::thread([i](std::mt19937::result_type sleep_time_in_ms){
+						std::string name = std::to_string(i);
+						loguru::set_thread_name(name.c_str());
+						char thread_name[17];
+						std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time_in_ms));
+						loguru::get_thread_name(thread_name, sizeof(thread_name), false);
+						CHECK_F(name.compare(0, std::string::npos, thread_name) == 0, "Thread name error!");
+					}, gen()%100));
+		} catch (std::system_error& ) { // if thread creation failed, try again.
+			i--;
+		}
+	}
+	for(auto & t : threads)
+		t.join();
+}
 void test_thread_names()
 {
 	LOG_SCOPE_FUNCTION(INFO);
@@ -420,7 +444,7 @@ int main(int argc, char* argv[])
 		} else if (test == "callback") {
 			test_log_callback();
 		} else if (test == "name") {
-			test_thread_names();
+			test_thread_names_strong();
 		} else if (test == "hang") {
 			loguru::add_file("hang.log", loguru::Truncate, loguru::Verbosity_INFO);
 			test_hang_2();
