@@ -116,7 +116,7 @@ CHECK_EQ_F(a, b, "You can also supply a custom message, like to print something:
 
 // Each function also comes with a version prefixed with D for Debug:
 DCHECK_F(expensive_check(x)); // Only checked #if !NDEBUG
-DLOG_F("Only written in debug-builds");
+DLOG_F(INFO, "Only written in debug-builds");
 
 // Turn off writing to stderr:
 loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
