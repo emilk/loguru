@@ -1322,6 +1322,10 @@ This will define all the Loguru functions so that the linker may find them.
 	#define LOGURU_PTHREADS    0
 	#define LOGURU_WINTHREADS  1
 	#define LOGURU_STACKTRACES 0
+#elif defined(__rtems__)
+	#define LOGURU_PTHREADS    1
+	#define LOGURU_WINTHREADS  0
+	#define LOGURU_STACKTRACES 0
 #else
 	#define LOGURU_PTHREADS    1
 	#define LOGURU_WINTHREADS  0
