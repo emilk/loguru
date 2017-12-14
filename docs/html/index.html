@@ -1,0 +1,187 @@
+<meta charset="utf-8">
+# Loguru
+This document contains the official documentation of Loguru, a header-only C++ logging library.
+
+This documentations is INCOMPLETE. Read the `loguru.hpp` for more documentation.
+
+The official project homepage of Loguru is at https://github.com/emilk/loguru.
+
+Loguru provides a set of functions and macros to aid logging to one or several files and/or to `stderr`. It prefixes each log line with useful information such as time.
+
+# Getting started
+Download `loguru.hpp` from https://github.com/emilk/loguru. You don't need any other file. To use Loguru in any file, simply `#include <loguru.hpp>`. In *one* file (typically your `main.cpp`) you need to add this:
+
+``` C++
+	#define LOGURU_IMPLEMENTATION 1
+	#include <loguru.hpp>
+```
+
+Loguru uses C++11, so make sure you compile with `-std=c++11`. On Linux you also need the following linker flags: `-lpthread -ldl`.
+
+Now you are ready to use Loguru! Here is a simple example:
+
+
+``` C++
+	#define LOGURU_IMPLEMENTATION 1
+	#include <loguru.hpp>
+
+	int main_test(int argc, char* argv[])
+	{
+		loguru::init(argc, argv);
+		loguru::add_file("everything.log", loguru::Append, loguru::Verbosity_MAX);
+		LOG_SCOPE_F(INFO, "Hello log file!");
+		return 0;
+	}
+```
+
+# How Loguru works
+## Outputs and verbosity
+Loguru has several outputs. By default, Loguru logs everything to `stderr` and nowhere else. You can add files to write to using `loguru::add_file`. Each output (`stderr` and files) has a *verbosity level* attached to it. Each time you log something, you also pick a verbosity level, for instance `INFO` or `ERROR`. This way you can have one log file where only the most important messages go (e.g. `WARNING`s and `ERROR`s) and another where all logging goes. You can control the verbosity level of `stderr` either from code (with `loguru::g_stderr_verbosity`) or from the command line arguments with the `-v` flags.
+
+
+*************************************************************
+* .---------.                                               *
+* | LOG_F   +->+                      .-------.             *
+* '---------'  |                  +->| stderr  |            *
+*              |                  |   '-------'             *
+* .---------.  |                  |   .------------------.  *
+* | CHECK_F +->+      _________   +->| optional callback  | *
+* '---------'  |     /        /   |   '------------------'  *
+*              +->-++ Loguru ++---+   .-------.             *
+* .---------.  |   /________/     +->| file 1  |            *
+* | ABORT_F +->+                  |   '-------'             *
+* '---------'  |                  |   .---------.           *
+*              |                  +->| file 2 …  |          *
+* .---------.  |                      '---------'           *
+* | Crash   +->+                                            *
+* '---------'                                               *
+*************************************************************
+
+
+## CHECKS
+Besides logging, Loguru can also do runtime checks which are similar to [`assert`](http://en.cppreference.com/w/cpp/error/assert) but far more powerful. In particular, by default Loguru will run the checks in release builds as well as debug builds, and helpful and descriptive errors will be logged when a check fails. Here is a simple example of a check:
+
+``` C++
+	CHECK_F(list.empty(), "Expected empty list, but list has %lu elements in it", list.size());
+```
+
+You can also call `ABORT_F` to abort your program with a message written to the log.
+
+By calling `loguru::init` Loguru will also catch signals such as segmentation errors and divisions by zero.
+
+In all these cases a stack trace will be logged to help you debug your program. In addition, any `ERROR_CONTEXT`s will be logged.
+
+## `ERROR_CONTEXT`
+You can also optionally log things ONLY if there is a crash. This is a very useful feature:
+
+```
+	void process_file(const char* filename)
+	{
+		ERROR_CONTEXT("filename", filename);
+		parse_file(filename); // Only if this crashes will filename be logged.
+	}
+```
+
+# Globals
+For historical reasons there are a few options in Loguru which you control with globals:
+
+``` C++
+	// Only write warnings, errors and crashes to stderr:
+	loguru::g_stderr_verbosity = loguru::Verbosity_WARNING;
+
+	// Turn off writing err/warn in red:
+	loguru::g_colorlogtostderr = false;
+```
+
+Generally you would do the above once before calling `loguru::init`.
+
+# Functions
+## `loguru::init`
+`void init(int& argc, char* argv[], const char* verbosity_flag = "-v");`
+
+Should be called from the main thread.
+You don't *need* to call this, but if you do you get:
+	* Signal handlers installed
+	* Program arguments logged
+	* Working dir logged
+	* Optional `-v` verbosity flag parsed
+	* Main thread name set to "main thread"
+	* Explanation of the preamble (date, threanmae etc) logged
+
+`loguru::init()` will look for arguments meant for loguru and remove them.
+Arguments meant for loguru are:
+```
+	-v n   Set loguru::g_stderr_verbosity level. Examples:
+		-v 3        Show verbosity level 3 and lower.
+		-v 0        Only show INFO, WARNING, ERROR, FATAL (default).
+		-v INFO     Only show INFO, WARNING, ERROR, FATAL (default).
+		-v WARNING  Only show WARNING, ERROR, FATAL.
+		-v ERROR    Only show ERROR, FATAL.
+		-v FATAL    Only show FATAL.
+		-v OFF      Turn off logging to stderr.
+```
+
+Tip: You can set g_stderr_verbosity before calling loguru::init.
+That way you can set the default but have the user override it with the -v flag.
+Note that -v does not affect file logging (see loguru::add_file).
+
+You can use something else instead of "-v" via verbosity_flag.
+You can also set verbosity_flag to nullptr.
+
+## `loguru::add_file`
+`bool add_file(const char* path, FileMode mode, Verbosity verbosity);`
+
+Will log to a file at the given path.
+Any logging message with a verbosity lower or equal to
+the given verbosity will be included.
+The function will create all directories in 'path' if needed.
+If path starts with a ~, it will be replaced with your home path.
+To stop the file logging, just call `loguru::remove_callback(path)` with the same path.
+
+## `loguru::set_thread_name`
+`void set_thread_name(const char* name);`
+
+Thread names can be set for the benefit of readable logs.
+If you do not set the thread name, a hex id will be shown instead.
+These thread names may or may not be the same as the system thread names,
+depending on the system.
+Try to limit the thread name to 15 characters or less.
+
+
+# Logging
+## LOG_F
+The first and foremost logging function is `LOG_F` which looks like this.
+
+``` C++
+	LOG_F(INFO, "Warming up %d lasers", 3);
+	LOG_F(WARNING, "%s is an old code, but it checks out", code_id);
+	LOG_F(ERROR, "The hyperdrive doesn't work");
+```
+
+You can pass any number of arguments to `LOG_F` just like with `printf`. On modern compilers you will get compile-time checking of the argument number and types.
+
+Those are the named verbosity levels, and those you will most often use. However, sometimes you may want to log some details that you may very seldom be interested in. For this you can pick an integer verbosity level in the range 0-9 (inclusive). `0` is identical with `INFO`. A higher number means "more verbose", e.g. "more likely to be irrelevant". Example:
+
+``` C++
+	LOG_F(1, "This may be important, but probably not");
+	LOG_F(9, "Nobody will ever care about this.");
+```
+
+If you want to pick verbosity level dynamically, use the `VLOG_F` function:
+
+``` C++
+	VLOG_F(is_vip(guest) ? 0 : 9, "%s has entered the room", guest);
+```
+
+With `VLOG_F` you can NOT use the `INFO/WARNING/ERROR` shortcuts. If you really want them, you can use their full names, which are `loguru::Verbosity_INFO` etc.
+
+# Logging with streams
+
+# Callbacks
+
+# Checks
+
+
+
+
+<!-- Markdeep: --><style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace}</style><script src="markdeep.min.js"></script><script src="https://casual-effects.com/markdeep/latest/markdeep.min.js"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>

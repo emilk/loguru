@@ -418,6 +418,7 @@ namespace loguru
 	void init(int& argc, char* argv[], const char* verbosity_flag = "-v");
 
 	// Will call remove_all_callbacks(). After calling this, logging will still go to stderr.
+	// You generally don't need to call this.
 	void shutdown();
 
 	// What ~ will be replaced with, e.g. "/home/your_user_name/"
@@ -533,7 +534,7 @@ namespace loguru
 
 	// Flush output to stderr and files.
 	// If g_flush_interval_ms is set to non-zero, this will be called automatically this often.
-	// If not set, you do not need to call this at al.
+	// If not set, you do not need to call this at all.
 	void flush();
 
 	template<class T> inline Text format_value(const T&)                    { return textprintf("N/A");     }
@@ -555,7 +556,7 @@ namespace loguru
 	void set_thread_name(const char* name);
 
 	/* Returns the thread name for this thread.
-	   On OSX this will return the system thread name (setable from both within and without Loguru).
+	   On OSX this will return the system thread name (settable from both within and without Loguru).
 	   On other systems it will return whatever you set in set_thread_name();
 	   If no thread name is set, this will return a hexadecimal thread id.
 	   length should be the number of bytes available in the buffer.
