@@ -7,7 +7,7 @@
 ![Loguru terminal output](images/terminal_colors.png)
 
 ## Documentation
-Documentation can be found at https://emilk.github.io/loguru/index.html.
+Documentation can be found at https://emilk.github.io/loguru/.
 
 ## License
 This software is in the public domain. Where that dedication is not recognized, you are granted a perpetual, irrevocable license to copy and modify this file as you see fit.
