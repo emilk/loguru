@@ -1341,6 +1341,12 @@ This will define all the Loguru functions so that the linker may find them.
 
 #if LOGURU_PTHREADS
 	#include <pthread.h>
+	#if defined(__FreeBSD__)
+		#include <pthread_np.h>
+		#include <sys/thr.h>
+	#elif defined(__OpenBSD__)
+		#include <pthread_np.h>
+	#endif
 
 	#ifdef __linux__
 		/* On Linux, the default thread name is the same as the name of the binary.
@@ -1797,10 +1803,14 @@ namespace loguru
 		#elif LOGURU_PTHREADS
 			char old_thread_name[16] = {0};
 			auto this_thread = pthread_self();
-			pthread_getname_np(this_thread, old_thread_name, sizeof(old_thread_name));
+			#if !(defined(__FreeBSD__) || defined(__OpenBSD__))
+				pthread_getname_np(this_thread, old_thread_name, sizeof(old_thread_name));
+			#endif
 			if (old_thread_name[0] == 0) {
 				#ifdef __APPLE__
 					pthread_setname_np("main thread");
+				#elif defined(__FreeBSD__) || defined(__OpenBSD__)
+					pthread_set_name_np(this_thread, "main thread");
 				#else
 					pthread_setname_np(this_thread, "main thread");
 				#endif
@@ -2060,6 +2070,8 @@ namespace loguru
 		#elif LOGURU_PTHREADS
 			#ifdef __APPLE__
 				pthread_setname_np(name);
+			#elif defined(__FreeBSD__) || defined(__OpenBSD__)
+				pthread_set_name_np(pthread_self(), name);
 			#else
 				pthread_setname_np(pthread_self(), name);
 			#endif
@@ -2090,6 +2102,8 @@ namespace loguru
 			} else {
 				buffer[0] = 0;
 			}
+		#elif defined(__FreeBSD__) || defined(__OpenBSD__)
+			buffer[0] = 0;
 		#else
 			pthread_getname_np(thread, buffer, length);
 		#endif
@@ -2098,6 +2112,11 @@ namespace loguru
 			#ifdef __APPLE__
 				uint64_t thread_id;
 				pthread_threadid_np(thread, &thread_id);
+			#elif defined(__FreeBSD__)
+				long thread_id;
+				(void)thr_self(&thread_id);
+			#elif defined(__OpenBSD__)
+				unsigned thread_id = -1;
 			#else
 				uint64_t thread_id = thread;
 			#endif
