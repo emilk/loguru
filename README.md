@@ -264,10 +264,18 @@ LOG(INFO) << "Some float: " << std::setfill('0') << std::setw(5) << std::setprec
 
 Loguru allows you to use whatever style you prefer.
 
+## File-Only log
+
+Just add
+
+``` C++
+loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
+```
+
+at the start of main.
 
 ## Limitations and TODO
 * Rename ERROR to avoid conflict with windows.h macro?
-* File-only logging: LOG_F(FILE, "Always written to file, never to stderr")
 * Windows limitations:
 	* No stack-traces (you can add them yourself with `loguru::set_fatal_handler`).
 	* No signal handlers.
