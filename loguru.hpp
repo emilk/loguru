@@ -1322,15 +1322,21 @@ This will define all the Loguru functions so that the linker may find them.
 #if defined(_WIN32) || defined(__CYGWIN__)
 	#define LOGURU_PTHREADS    0
 	#define LOGURU_WINTHREADS  1
-	#define LOGURU_STACKTRACES 0
+	#ifndef LOGURU_STACKTRACES
+		#define LOGURU_STACKTRACES 0
+	#endif
 #elif defined(__rtems__)
 	#define LOGURU_PTHREADS    1
 	#define LOGURU_WINTHREADS  0
-	#define LOGURU_STACKTRACES 0
+	#ifndef LOGURU_STACKTRACES
+		#define LOGURU_STACKTRACES 0
+	#endif
 #else
 	#define LOGURU_PTHREADS    1
 	#define LOGURU_WINTHREADS  0
-	#define LOGURU_STACKTRACES 1
+	#ifndef LOGURU_STACKTRACES
+		#define LOGURU_STACKTRACES 1
+	#endif
 #endif
 
 #if LOGURU_STACKTRACES
