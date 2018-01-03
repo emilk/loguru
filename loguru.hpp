@@ -48,6 +48,7 @@ Website: www.ilikebigbits.com
 	* Version 1.4.1 - 2016-09-29 - Customize formating with LOGURU_FILENAME_WIDTH
 	* Version 1.5.0 - 2016-12-22 - LOGURU_USE_FMTLIB by kolis and LOGURU_WITH_FILEABS by scinart
 	* Version 1.5.1 - 2017-08-08 - Terminal colors on Windows 10 thanks to looki
+	* Version 1.6.0 - 2018-01-03 - Add LOGURU_RTTI and LOGURU_STACKTRACES settings
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -149,6 +150,12 @@ Website: www.ilikebigbits.com
 		Such a scheme is useful if you have a daemon program that moves the log file every 24 hours and expects new file to be created.
 		Feature by scinart (https://github.com/emilk/loguru/pull/23).
 
+	LOGURU_STACKTRACES (default 1 on supported platforms):
+		Print stack traces on abort.
+
+	LOGURU_RTTI (default 1):
+		Set to 0 if your platform does not support runtime type information (-fno-rtti).
+
 	You can also configure:
 	loguru::g_flush_interval_ms:
 		If set to zero Loguru will flush on every line (unbuffered mode).
@@ -230,6 +237,10 @@ Website: www.ilikebigbits.com
 
 #ifndef LOGURU_WITH_FILEABS
 	#define LOGURU_WITH_FILEABS 0
+#endif
+
+#ifndef LOGURU_RTTI
+	#define LOGURU_RTTI 1
 #endif
 
 // --------------------------------------------------------------------
@@ -2156,17 +2167,22 @@ namespace loguru
 		return result;
 	}
 
-	template <class T>
-	std::string type_name() {
-		auto demangled = demangle(typeid(T).name());
-		return demangled.c_str();
-	}
+	#if LOGURU_RTTI
+		template <class T>
+		std::string type_name()
+		{
+			auto demangled = demangle(typeid(T).name());
+			return demangled.c_str();
+		}
+	#endif // LOGURU_RTTI
 
 	static const StringPairList REPLACE_LIST = {
-		{ type_name<std::string>(),    "std::string"    },
-		{ type_name<std::wstring>(),   "std::wstring"   },
-		{ type_name<std::u16string>(), "std::u16string" },
-		{ type_name<std::u32string>(), "std::u32string" },
+		#if LOGURU_RTTI
+			{ type_name<std::string>(),    "std::string"    },
+			{ type_name<std::wstring>(),   "std::wstring"   },
+			{ type_name<std::u16string>(), "std::u16string" },
+			{ type_name<std::u32string>(), "std::u32string" },
+		#endif // LOGURU_RTTI
 		{ "std::__1::",                "std::"          },
 		{ "__thiscall ",               ""               },
 		{ "__cdecl ",                  ""               },
@@ -2260,11 +2276,7 @@ namespace loguru
 
 	std::string stacktrace_as_stdstring(int)
 	{
-		#if defined(_MSC_VER)
-		#pragma message ( "Loguru: No stacktraces available on this platform" )
-		#else
-		#warning "Loguru: No stacktraces available on this platform"
-		#endif
+		// No stacktraces available on this platform"
 		return "";
 	}
 
