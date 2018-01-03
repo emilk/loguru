@@ -49,6 +49,7 @@ Website: www.ilikebigbits.com
 	* Version 1.5.0 - 2016-12-22 - LOGURU_USE_FMTLIB by kolis and LOGURU_WITH_FILEABS by scinart
 	* Version 1.5.1 - 2017-08-08 - Terminal colors on Windows 10 thanks to looki
 	* Version 1.6.0 - 2018-01-03 - Add LOGURU_RTTI and LOGURU_STACKTRACES settings
+	* Version 1.7.0 - 2018-01-03 - Add ability to turn off the preamble with loguru::g_preamble
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -390,6 +391,7 @@ namespace loguru
 	extern Verbosity g_stderr_verbosity;
 	extern bool      g_colorlogtostderr; // True by default.
 	extern unsigned  g_flush_interval_ms; // 0 (unbuffered) by default.
+	extern bool      g_preamble; // Prefix each log line with date, time etc? True by default.
 
 	// May not throw!
 	typedef void (*log_handler_t)(void* user_data, const Message& message);
@@ -1291,6 +1293,8 @@ This will define all the Loguru functions so that the linker may find them.
 #if defined(LOGURU_IMPLEMENTATION) && !defined(LOGURU_HAS_BEEN_IMPLEMENTED)
 #define LOGURU_HAS_BEEN_IMPLEMENTED
 
+#define LOGURU_PREAMBLE_WIDTH (53 + LOGURU_THREADNAME_WIDTH + LOGURU_FILENAME_WIDTH)
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -1429,6 +1433,7 @@ namespace loguru
 	Verbosity g_stderr_verbosity  = Verbosity_0;
 	bool      g_colorlogtostderr  = true;
 	unsigned  g_flush_interval_ms = 0;
+	bool      g_preamble          = true;
 
 	static std::recursive_mutex  s_mutex;
 	static Verbosity             s_max_out_verbosity = Verbosity_OFF;
@@ -1835,10 +1840,12 @@ namespace loguru
 		#endif // LOGURU_PTHREADS
 
 		if (g_stderr_verbosity >= Verbosity_INFO) {
-			if (g_colorlogtostderr && s_terminal_has_color) {
-				fprintf(stderr, "%s%s%s\n", terminal_reset(), terminal_dim(), PREAMBLE_EXPLAIN.c_str());
-			} else {
-				fprintf(stderr, "%s\n", PREAMBLE_EXPLAIN.c_str());
+			if (g_preamble) {
+				if (g_colorlogtostderr && s_terminal_has_color) {
+					fprintf(stderr, "%s%s%s\n", terminal_reset(), terminal_dim(), PREAMBLE_EXPLAIN.c_str());
+				} else {
+					fprintf(stderr, "%s\n", PREAMBLE_EXPLAIN.c_str());
+				}
 			}
 			fflush(stderr);
 		}
@@ -1997,7 +2004,9 @@ namespace loguru
 			fprintf(file, "Current dir: %s\n", s_current_dir);
 		}
 		fprintf(file, "File verbosity level: %d\n", verbosity);
-		fprintf(file, "%s\n", PREAMBLE_EXPLAIN.c_str());
+		if (g_preamble) {
+			fprintf(file, "%s\n", PREAMBLE_EXPLAIN.c_str());
+		}
 		fflush(file);
 
 		LOG_F(INFO, "Logging to '%s', mode: '%s', verbosity: %d", path, mode_str, verbosity);
@@ -2292,6 +2301,10 @@ namespace loguru
 
 	static void print_preamble(char* out_buff, size_t out_buff_size, Verbosity verbosity, const char* file, unsigned line)
 	{
+		if (!g_preamble) {
+			out_buff[0] = '\0';
+			return;
+		}
 		long long ms_since_epoch = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 		time_t sec_since_epoch = time_t(ms_since_epoch / 1000);
 		tm time_info;
@@ -2430,10 +2443,10 @@ namespace loguru
 
 	// stack_trace_skip is just if verbosity == FATAL.
 	void log_to_everywhere(int stack_trace_skip, Verbosity verbosity,
-						   const char* file, unsigned line,
-						   const char* prefix, const char* buff)
+	                       const char* file, unsigned line,
+	                       const char* prefix, const char* buff)
 	{
-		char preamble_buff[128];
+		char preamble_buff[LOGURU_PREAMBLE_WIDTH];
 		print_preamble(preamble_buff, sizeof(preamble_buff), verbosity, file, line);
 		auto message = Message{verbosity, file, line, preamble_buff, "", prefix, buff};
 		log_message(stack_trace_skip + 1, message, true, true);
@@ -2877,7 +2890,7 @@ namespace loguru
 		*/
 
 		flush();
-		char preamble_buff[128];
+		char preamble_buff[LOGURU_PREAMBLE_WIDTH];
 		print_preamble(preamble_buff, sizeof(preamble_buff), Verbosity_FATAL, "", 0);
 		auto message = Message{Verbosity_FATAL, "", 0, preamble_buff, "", "Signal: ", signal_name};
 		try {

@@ -326,6 +326,8 @@ int main(int argc, char* argv[])
 	_CrtSetReportHook2(_CRT_RPTHOOK_INSTALL, winDbgHook);
 #endif
 
+	// loguru::g_preamble = false;
+
 	if (argc > 1 && argv[1] == std::string("test"))
 	{
 		return main_test(argc, argv);
