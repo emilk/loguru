@@ -1825,7 +1825,7 @@ namespace loguru
 		#elif LOGURU_PTHREADS
 			char old_thread_name[16] = {0};
 			auto this_thread = pthread_self();
-			#if !(defined(__FreeBSD__) || defined(__OpenBSD__))
+			#if defined(__APPLE__) || defined(__linux__)
 				pthread_getname_np(this_thread, old_thread_name, sizeof(old_thread_name));
 			#endif
 			if (old_thread_name[0] == 0) {
@@ -1833,7 +1833,7 @@ namespace loguru
 					pthread_setname_np("main thread");
 				#elif defined(__FreeBSD__) || defined(__OpenBSD__)
 					pthread_set_name_np(this_thread, "main thread");
-				#else
+				#elif defined(__linux__)
 					pthread_setname_np(this_thread, "main thread");
 				#endif
 			}
@@ -2098,7 +2098,7 @@ namespace loguru
 				pthread_setname_np(name);
 			#elif defined(__FreeBSD__) || defined(__OpenBSD__)
 				pthread_set_name_np(pthread_self(), name);
-			#else
+			#elif defined(__linux__)
 				pthread_setname_np(pthread_self(), name);
 			#endif
 		#elif LOGURU_WINTHREADS
@@ -2128,10 +2128,10 @@ namespace loguru
 			} else {
 				buffer[0] = 0;
 			}
-		#elif defined(__FreeBSD__) || defined(__OpenBSD__)
-			buffer[0] = 0;
-		#else
+		#elif defined(__APPLE__) || defined(__linux__)
 			pthread_getname_np(thread, buffer, length);
+		#else
+			buffer[0] = 0;
 		#endif
 
 		if (buffer[0] == 0) {
