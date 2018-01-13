@@ -1308,7 +1308,7 @@ This will define all the Loguru functions so that the linker may find them.
 #include <thread>
 #include <vector>
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 	#include <direct.h>
 
 	#define localtime_r(a, b) localtime_s(b, a) // No localtime_r with MSVC, but arguments are swapped for localtime_s
@@ -1625,7 +1625,7 @@ namespace loguru
 	LOGURU_PRINTF_LIKE(1, 0)
 	static Text vtextprintf(const char* format, va_list vlist)
 	{
-#ifdef _MSC_VER
+#ifdef _WIN32
 		int bytes_needed = _vscprintf(format, vlist);
 		CHECK_F(bytes_needed >= 0, "Bad string format: '%s'", format);
 		char* buff = (char*)malloc(bytes_needed+1);
@@ -1942,7 +1942,7 @@ namespace loguru
 		for (char* p = strchr(file_path + 1, '/'); p; p = strchr(p + 1, '/')) {
 			*p = '\0';
 
-	#ifdef _MSC_VER
+	#ifdef _WIN32
 			if (_mkdir(file_path) == -1) {
 	#else
 			if (mkdir(file_path, 0755) == -1) {
