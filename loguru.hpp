@@ -393,6 +393,14 @@ namespace loguru
 	extern unsigned  g_flush_interval_ms; // 0 (unbuffered) by default.
 	extern bool      g_preamble; // Prefix each log line with date, time etc? True by default.
 
+	// Turn off individual parts of the preamble
+	extern bool      g_preamble_date; // The date field
+	extern bool      g_preamble_time; // The time of the current day
+	extern bool      g_preamble_uptime; // The time since init call
+	extern bool      g_preamble_thread; // The logging thread
+	extern bool      g_preamble_file; // The file from which the log originates from
+	extern bool      g_preamble_verbose; // The verbosity field
+
 	// May not throw!
 	typedef void (*log_handler_t)(void* user_data, const Message& message);
 	typedef void (*close_handler_t)(void* user_data);
@@ -1435,6 +1443,14 @@ namespace loguru
 	unsigned  g_flush_interval_ms = 0;
 	bool      g_preamble          = true;
 
+	// Preamble details
+	bool      g_preamble_date     = true;
+	bool      g_preamble_time     = true;
+	bool      g_preamble_uptime   = true;
+	bool      g_preamble_thread   = true;
+	bool      g_preamble_file     = true;
+	bool      g_preamble_verbose  = true;
+
 	static std::recursive_mutex  s_mutex;
 	static Verbosity             s_max_out_verbosity = Verbosity_OFF;
 	static std::string           s_argv0_filename;
@@ -1482,9 +1498,7 @@ namespace loguru
 		#endif
 	}();
 
-	const auto PREAMBLE_EXPLAIN = textprintf("date       time         ( uptime  ) [%-*s]%*s:line     v| ",
-											 LOGURU_THREADNAME_WIDTH, " thread name/id",
-											 LOGURU_FILENAME_WIDTH, "file");
+	static void print_preamble_header(char* out_buff, size_t out_buff_size);
 
 	#if LOGURU_PTLS_NAMES
 		static pthread_once_t s_pthread_key_once = PTHREAD_ONCE_INIT;
@@ -1843,10 +1857,12 @@ namespace loguru
 
 		if (g_stderr_verbosity >= Verbosity_INFO) {
 			if (g_preamble) {
+				char preamble_explain[LOGURU_PREAMBLE_WIDTH];
+				print_preamble_header(preamble_explain, sizeof(preamble_explain));
 				if (g_colorlogtostderr && s_terminal_has_color) {
-					fprintf(stderr, "%s%s%s\n", terminal_reset(), terminal_dim(), PREAMBLE_EXPLAIN.c_str());
+					fprintf(stderr, "%s%s%s\n", terminal_reset(), terminal_dim(), preamble_explain);
 				} else {
-					fprintf(stderr, "%s\n", PREAMBLE_EXPLAIN.c_str());
+					fprintf(stderr, "%s\n", preamble_explain);
 				}
 			}
 			fflush(stderr);
@@ -2007,7 +2023,9 @@ namespace loguru
 		}
 		fprintf(file, "File verbosity level: %d\n", verbosity);
 		if (g_preamble) {
-			fprintf(file, "%s\n", PREAMBLE_EXPLAIN.c_str());
+			char preamble_explain[LOGURU_PREAMBLE_WIDTH];
+			print_preamble_header(preamble_explain, sizeof(preamble_explain));
+			fprintf(file, "%s\n", preamble_explain);
 		}
 		fflush(file);
 
@@ -2301,6 +2319,30 @@ namespace loguru
 
 	// ------------------------------------------------------------------------
 
+	static void print_preamble_header(char* out_buff, size_t out_buff_size)
+	{
+		long pos = 0;
+		snprintf(out_buff, out_buff_size, ""); // Make sure there is a '\0' and handle out_buff_size==0
+ 		if(g_preamble_date) {
+ 			pos += snprintf(out_buff + pos, out_buff_size - pos, "date       ");
+ 		}
+ 		if(g_preamble_time) {
+ 			pos += snprintf(out_buff + pos, out_buff_size - pos, "time         ");
+ 		}
+ 		if(g_preamble_uptime) {
+ 			pos += snprintf(out_buff + pos, out_buff_size - pos, "( uptime  ) ");
+ 		}
+ 		if(g_preamble_thread) {
+ 			pos += snprintf(out_buff + pos, out_buff_size - pos, "[%-*s]", LOGURU_THREADNAME_WIDTH, " thread name/id");
+ 		}
+ 		if(g_preamble_file) {
+ 			pos += snprintf(out_buff + pos, out_buff_size - pos, "%*s:line     ", LOGURU_FILENAME_WIDTH, "file");
+ 		}
+ 		if(g_preamble_verbose) {
+ 			pos += snprintf(out_buff + pos, out_buff_size - pos, "v| ");
+ 		}
+	}
+
 	static void print_preamble(char* out_buff, size_t out_buff_size, Verbosity verbosity, const char* file, unsigned line)
 	{
 		if (!g_preamble) {
@@ -2333,13 +2375,33 @@ namespace loguru
 			snprintf(level_buff, sizeof(level_buff) - 1, "% 4d", verbosity);
 		}
 
-		snprintf(out_buff, out_buff_size, "%04d-%02d-%02d %02d:%02d:%02d.%03lld (%8.3fs) [%-*s]%*s:%-5u %4s| ",
-			1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday,
-			time_info.tm_hour, time_info.tm_min, time_info.tm_sec, ms_since_epoch % 1000,
-			uptime_sec,
-			LOGURU_THREADNAME_WIDTH, thread_name,
-			LOGURU_FILENAME_WIDTH,
-			file, line, level_buff);
+		long pos = 0;
+
+		snprintf(out_buff, out_buff_size, ""); // Make sure there is a '\0' and handle out_buff_size==0
+		if(g_preamble_date) {
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "%04d-%02d-%02d ",
+				             1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday);
+		}
+		if(g_preamble_time) {
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "%02d:%02d:%02d.%03lld ",
+			               time_info.tm_hour, time_info.tm_min, time_info.tm_sec, ms_since_epoch % 1000);
+		}
+		if(g_preamble_uptime) {
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "(%8.3fs) ",
+			               uptime_sec);
+		}
+		if(g_preamble_thread) {
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "[%-*s]",
+			               LOGURU_THREADNAME_WIDTH, thread_name);
+		}
+		if(g_preamble_file) {
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "%*s:%-5u ",
+			               LOGURU_FILENAME_WIDTH, file, line);
+		}
+		if(g_preamble_verbose) {
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "%4s| ",
+			               level_buff);
+		}
 	}
 
 	// stack_trace_skip is just if verbosity == FATAL.
