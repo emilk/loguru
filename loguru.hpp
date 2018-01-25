@@ -2546,7 +2546,8 @@ namespace loguru
 				}
 			}
 			auto duration_sec = (now_ns() - _start_time_ns) / 1e9;
-			log(_verbosity, _file, _line, "} %.*f s: %s", SCOPE_TIME_PRECISION, duration_sec, _name);
+            auto buff = textprintf("%.*f s: %s", SCOPE_TIME_PRECISION, duration_sec, _name);
+			log_to_everywhere(1, _verbosity, _file, _line, "} ", buff.c_str());
 		}
 	}
 
