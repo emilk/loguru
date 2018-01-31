@@ -400,6 +400,7 @@ namespace loguru
 	extern bool      g_preamble_thread; // The logging thread
 	extern bool      g_preamble_file; // The file from which the log originates from
 	extern bool      g_preamble_verbose; // The verbosity field
+	extern bool      g_preamble_pipe; // The pipe symbol right before the message
 
 	// May not throw!
 	typedef void (*log_handler_t)(void* user_data, const Message& message);
@@ -1450,6 +1451,7 @@ namespace loguru
 	bool      g_preamble_thread   = true;
 	bool      g_preamble_file     = true;
 	bool      g_preamble_verbose  = true;
+	bool      g_preamble_pipe     = true;
 
 	static std::recursive_mutex  s_mutex;
 	static Verbosity             s_max_out_verbosity = Verbosity_OFF;
@@ -2323,24 +2325,27 @@ namespace loguru
 	{
 		long pos = 0;
 		snprintf(out_buff, out_buff_size, ""); // Make sure there is a '\0' and handle out_buff_size==0
- 		if(g_preamble_date) {
- 			pos += snprintf(out_buff + pos, out_buff_size - pos, "date       ");
- 		}
- 		if(g_preamble_time) {
- 			pos += snprintf(out_buff + pos, out_buff_size - pos, "time         ");
- 		}
- 		if(g_preamble_uptime) {
- 			pos += snprintf(out_buff + pos, out_buff_size - pos, "( uptime  ) ");
- 		}
- 		if(g_preamble_thread) {
- 			pos += snprintf(out_buff + pos, out_buff_size - pos, "[%-*s]", LOGURU_THREADNAME_WIDTH, " thread name/id");
- 		}
- 		if(g_preamble_file) {
- 			pos += snprintf(out_buff + pos, out_buff_size - pos, "%*s:line     ", LOGURU_FILENAME_WIDTH, "file");
- 		}
- 		if(g_preamble_verbose) {
- 			pos += snprintf(out_buff + pos, out_buff_size - pos, "v| ");
- 		}
+		if (g_preamble_date) {
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "date       ");
+		}
+		if (g_preamble_time) {
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "time         ");
+		}
+		if (g_preamble_uptime) {
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "( uptime  ) ");
+		}
+		if (g_preamble_thread) {
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "[%-*s]", LOGURU_THREADNAME_WIDTH, " thread name/id");
+		}
+		if (g_preamble_file) {
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "%*s:line  ", LOGURU_FILENAME_WIDTH, "file");
+		}
+		if (g_preamble_verbose) {
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "   v");
+		}
+		if (g_preamble_pipe) {
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "| ");
+		}
 	}
 
 	static void print_preamble(char* out_buff, size_t out_buff_size, Verbosity verbosity, const char* file, unsigned line)
@@ -2378,29 +2383,32 @@ namespace loguru
 		long pos = 0;
 
 		snprintf(out_buff, out_buff_size, ""); // Make sure there is a '\0' and handle out_buff_size==0
-		if(g_preamble_date) {
+		if (g_preamble_date) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "%04d-%02d-%02d ",
 				             1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday);
 		}
-		if(g_preamble_time) {
+		if (g_preamble_time) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "%02d:%02d:%02d.%03lld ",
 			               time_info.tm_hour, time_info.tm_min, time_info.tm_sec, ms_since_epoch % 1000);
 		}
-		if(g_preamble_uptime) {
+		if (g_preamble_uptime) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "(%8.3fs) ",
 			               uptime_sec);
 		}
-		if(g_preamble_thread) {
+		if (g_preamble_thread) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "[%-*s]",
 			               LOGURU_THREADNAME_WIDTH, thread_name);
 		}
-		if(g_preamble_file) {
+		if (g_preamble_file) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "%*s:%-5u ",
 			               LOGURU_FILENAME_WIDTH, file, line);
 		}
-		if(g_preamble_verbose) {
-			pos += snprintf(out_buff + pos, out_buff_size - pos, "%4s| ",
+		if (g_preamble_verbose) {
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "%4s",
 			               level_buff);
+		}
+		if (g_preamble_pipe) {
+			pos += snprintf(out_buff + pos, out_buff_size - pos, "| ");
 		}
 	}
 
