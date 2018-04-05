@@ -50,6 +50,7 @@ Website: www.ilikebigbits.com
 	* Version 1.5.1 - 2017-08-08 - Terminal colors on Windows 10 thanks to looki
 	* Version 1.6.0 - 2018-01-03 - Add LOGURU_RTTI and LOGURU_STACKTRACES settings
 	* Version 1.7.0 - 2018-01-03 - Add ability to turn off the preamble with loguru::g_preamble
+	* Version 1.7.1 - 2018-04-05 - Add function get_fatal_handler
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -491,6 +492,9 @@ namespace loguru
 		You can for instance use this to print custom error messages, or throw an exception.
 		Feel free to call LOG:ing function from this, but not FATAL ones! */
 	void set_fatal_handler(fatal_handler_t handler);
+
+	// Get the current fatal handler, if any. Default value is nullptr.
+	fatal_handler_t get_fatal_handler();
 
 	/*  Will be called on each log messages with a verbosity less or equal to the given one.
 		Useful for displaying messages on-screen in a game, for example.
@@ -2042,6 +2046,11 @@ namespace loguru
 	void set_fatal_handler(fatal_handler_t handler)
 	{
 		s_fatal_handler = handler;
+	}
+
+	fatal_handler_t get_fatal_handler()
+	{
+		return s_fatal_handler;
 	}
 
 	void add_stack_cleanup(const char* find_this, const char* replace_with_this)
