@@ -285,10 +285,6 @@ Website: www.ilikebigbits.com
 #define LOGURU_PREDICT_TRUE(x)  (__builtin_expect(!!(x), 1))
 #endif
 
-#if defined(_MSC_VER) && !defined(__PRETTY_FUNCTION__)
-#define __PRETTY_FUNCTION__ __FUNCTION__
-#endif
-
 #if LOGURU_USE_FMTLIB
 	#include <fmt/format.h>
 #endif
@@ -906,7 +902,7 @@ namespace loguru
 #define LOG_SCOPE_F(verbosity_name, ...)                                                           \
 	VLOG_SCOPE_F(loguru::Verbosity_ ## verbosity_name, __VA_ARGS__)
 
-#define LOG_SCOPE_FUNCTION(verbosity_name) LOG_SCOPE_F(verbosity_name, __PRETTY_FUNCTION__)
+#define LOG_SCOPE_FUNCTION(verbosity_name) LOG_SCOPE_F(verbosity_name, __func__)
 
 // -----------------------------------------------
 // ABORT_F macro. Usage:  ABORT_F("Cause of error: %s", error_str);
