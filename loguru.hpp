@@ -496,10 +496,13 @@ namespace loguru
 		Useful for displaying messages on-screen in a game, for example.
 		The given on_close is also expected to flush (if desired).
 	*/
-	void add_callback(const char* id, log_handler_t callback, void* user_data,
-					  Verbosity verbosity,
-					  close_handler_t on_close = nullptr,
-					  flush_handler_t on_flush = nullptr);
+	void add_callback(
+		const char*     id,
+		log_handler_t   callback,
+		void*           user_data,
+		Verbosity       verbosity,
+		close_handler_t on_close = nullptr,
+		flush_handler_t on_flush = nullptr);
 
 	// Returns true iff the callback was found (and removed).
 	bool remove_callback(const char* id);
@@ -788,7 +791,7 @@ namespace loguru
 		Get a light-weight handle to the error context stack on this thread.
 		The handle is valid as long as the current thread has no changes to its error context stack.
 		You can pass the handle to loguru::get_error_context on another thread.
-		This can be very useful for when you have a parent thread spawning several working thread,
+		This can be very useful for when you have a parent thread spawning several working threads,
 		and you want the error context of the parent thread to get printed (too) when there is an
 		error on the child thread. You can accomplish this thusly:
 
@@ -930,11 +933,11 @@ namespace loguru
 		{                                                                                          \
 			auto str_left = loguru::format_value(val_left);                                        \
 			auto str_right = loguru::format_value(val_right);                                      \
-			auto fail_info = loguru::textprintf("CHECK FAILED:  %s %s %s  (%s %s %s)  ",            \
+			auto fail_info = loguru::textprintf("CHECK FAILED:  %s %s %s  (%s %s %s)  ",           \
 				#expr_left, #op, #expr_right, str_left.c_str(), #op, str_right.c_str());           \
-			auto user_msg = loguru::textprintf(__VA_ARGS__);                                        \
+			auto user_msg = loguru::textprintf(__VA_ARGS__);                                       \
 			loguru::log_and_abort(0, fail_info.c_str(), __FILE__, __LINE__,                        \
-								  "%s", user_msg.c_str());                                         \
+			                      "%s", user_msg.c_str());                                         \
 		}                                                                                          \
 	} while (false)
 
@@ -1025,7 +1028,7 @@ namespace loguru
 #define LOGURU_HAS_DECLARED_STREAMS_HEADER
 
 /* This file extends loguru to enable std::stream-style logging, a la Glog.
-   It's an optional feature beind the LOGURU_WITH_STREAMS settings
+   It's an optional feature behind the LOGURU_WITH_STREAMS settings
    because including it everywhere will slow down compilation times.
 */
 
@@ -2059,8 +2062,13 @@ namespace loguru
 		}
 	}
 
-	void add_callback(const char* id, log_handler_t callback, void* user_data,
-					  Verbosity verbosity, close_handler_t on_close, flush_handler_t on_flush)
+	void add_callback(
+		const char*     id,
+		log_handler_t   callback,
+		void*           user_data,
+		Verbosity       verbosity,
+		close_handler_t on_close,
+		flush_handler_t on_flush)
 	{
 		std::lock_guard<std::recursive_mutex> lock(s_mutex);
 		s_callbacks.push_back(Callback{id, callback, user_data, verbosity, on_close, on_flush, 0});
