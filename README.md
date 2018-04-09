@@ -158,7 +158,7 @@ configuration options to 1:
 
 `LOGURU_REDEFINE_ASSERT` (default 0):
 
-	Redefine "assert" call Loguru version (!NDEBUG only).
+	Redefine "assert" to call Loguru version instead (!NDEBUG only).
 
 `LOGURU_WITH_STREAMS` (default 0):
 
