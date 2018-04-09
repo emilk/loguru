@@ -143,6 +143,68 @@ LOG_S(INFO) << "Look at my custom object: " << a.cross(b);
 CHECK_EQ_S(pi, 3.14) << "Maybe it is closer to " << M_PI;
 ```
 
+## Configuration options
+
+Before including `<loguru.hpp>` you may #define the following
+configuration options to 1:
+
+`LOGURU_DEBUG_LOGGING` (default 1 #if !NDEBUG, else 0):
+
+	Enables debug versions of logging statements.
+
+`LOGURU_DEBUG_CHECKS` (default 1 #if !NDEBUG, else 0):
+
+	Enables debug versions of checks.
+
+`LOGURU_REDEFINE_ASSERT` (default 0):
+
+	Redefine "assert" to call Loguru version instead (!NDEBUG only).
+
+`LOGURU_WITH_STREAMS` (default 0):
+
+	Add support for _S versions for all LOG and CHECK functions:
+		LOG_S(INFO) << "My vec3: " << x.cross(y);
+		CHECK_EQ_S(a, b) << "I expected a and b to be the same!";
+	This is off by default to keep down compilation times.
+
+`LOGURU_REPLACE_GLOG` (default 0):
+
+	Make Loguru mimic GLOG as close as possible,
+	including #defining LOG, CHECK, VLOG_IS_ON etc.
+	LOGURU_REPLACE_GLOG implies LOGURU_WITH_STREAMS.
+
+`LOGURU_UNSAFE_SIGNAL_HANDLER` (default 1):
+
+	Make Loguru try to do unsafe but useful things,
+	like printing a stack trace, when catching signals.
+	This may lead to bad things like deadlocks in certain situations.
+
+`LOGURU_USE_FMTLIB` (default 0):
+
+	Use fmtlib formatting. See https://github.com/fmtlib/fmt
+	This will make loguru.hpp depend on <fmt/format.h>
+	You will need to link against `fmtlib` or use the `FMT_HEADER_ONLY` preprocessor definition.
+	Feature by kolis (https://github.com/emilk/loguru/pull/22)
+
+`LOGURU_WITH_FILEABS` (default 0):
+
+	When LOGURU_WITH_FILEABS is defined, a check of file change
+	will be performed on every call to file_log.  If the file is
+	moved, or inode changes, file is reopened using the same
+	FileMode as is done by add_file.  Such a scheme is useful if
+	you have a daemon program that moves the log file every 24
+	hours and expects new file to be created.  Feature by scinart
+	(https://github.com/emilk/loguru/pull/23).
+
+`LOGURU_STACKTRACES` (default 1 on supported platforms):
+
+	Print stack traces on abort.
+
+`LOGURU_RTTI` (try to detect automatically by default):
+
+	Set to 0 if your platform does not support runtime type information (-fno-rtti).
+
+
 ## Grep:able logs
 ``` bash
 # Only show warnings, errors and fatal messages:

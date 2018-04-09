@@ -155,7 +155,7 @@ Website: www.ilikebigbits.com
 	LOGURU_STACKTRACES (default 1 on supported platforms):
 		Print stack traces on abort.
 
-	LOGURU_RTTI (default 1):
+	LOGURU_RTTI (try to detect automatically by default):
 		Set to 0 if your platform does not support runtime type information (-fno-rtti).
 
 	You can also configure:
@@ -242,7 +242,19 @@ Website: www.ilikebigbits.com
 #endif
 
 #ifndef LOGURU_RTTI
-	#define LOGURU_RTTI 1
+#if defined(__clang__)
+	#if __has_feature(cxx_rtti)
+		#define LOGURU_RTTI 1
+	#endif
+#elif defined(__GNUG__)
+	#if defined(__GXX_RTTI)
+		#define LOGURU_RTTI 1
+	#endif
+#elif defined(_MSC_VER)
+	#if defined(_CPPRTTI)
+		#define LOGURU_RTTI 1
+	#endif
+#endif
 #endif
 
 // --------------------------------------------------------------------
