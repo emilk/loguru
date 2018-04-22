@@ -51,6 +51,7 @@ Website: www.ilikebigbits.com
 	* Version 1.6.0 - 2018-01-03 - Add LOGURU_RTTI and LOGURU_STACKTRACES settings
 	* Version 1.7.0 - 2018-01-03 - Add ability to turn off the preamble with loguru::g_preamble
 	* Version 1.7.1 - 2018-04-05 - Add function get_fatal_handler
+	* Version 1.7.2 - 2018-04-22 - Fix a bug where large file names could cause stack corruption (thanks @ccamporesi)
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -2350,25 +2351,25 @@ namespace loguru
 	{
 		long pos = 0;
 		snprintf(out_buff, out_buff_size, ""); // Make sure there is a '\0' and handle out_buff_size==0
-		if (g_preamble_date) {
+		if (g_preamble_date && pos < out_buff_size) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "date       ");
 		}
-		if (g_preamble_time) {
+		if (g_preamble_time && pos < out_buff_size) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "time         ");
 		}
-		if (g_preamble_uptime) {
+		if (g_preamble_uptime && pos < out_buff_size) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "( uptime  ) ");
 		}
-		if (g_preamble_thread) {
+		if (g_preamble_thread && pos < out_buff_size) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "[%-*s]", LOGURU_THREADNAME_WIDTH, " thread name/id");
 		}
-		if (g_preamble_file) {
+		if (g_preamble_file && pos < out_buff_size) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "%*s:line  ", LOGURU_FILENAME_WIDTH, "file");
 		}
-		if (g_preamble_verbose) {
+		if (g_preamble_verbose && pos < out_buff_size) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "   v");
 		}
-		if (g_preamble_pipe) {
+		if (g_preamble_pipe && pos < out_buff_size) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "| ");
 		}
 	}
@@ -2408,31 +2409,31 @@ namespace loguru
 		long pos = 0;
 
 		snprintf(out_buff, out_buff_size, ""); // Make sure there is a '\0' and handle out_buff_size==0
-		if (g_preamble_date) {
+		if (g_preamble_date && pos < out_buff_size) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "%04d-%02d-%02d ",
 				             1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday);
 		}
-		if (g_preamble_time) {
+		if (g_preamble_time && pos < out_buff_size) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "%02d:%02d:%02d.%03lld ",
 			               time_info.tm_hour, time_info.tm_min, time_info.tm_sec, ms_since_epoch % 1000);
 		}
-		if (g_preamble_uptime) {
+		if (g_preamble_uptime && pos < out_buff_size) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "(%8.3fs) ",
 			               uptime_sec);
 		}
-		if (g_preamble_thread) {
+		if (g_preamble_thread && pos < out_buff_size) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "[%-*s]",
 			               LOGURU_THREADNAME_WIDTH, thread_name);
 		}
-		if (g_preamble_file) {
+		if (g_preamble_file && pos < out_buff_size) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "%*s:%-5u ",
 			               LOGURU_FILENAME_WIDTH, file, line);
 		}
-		if (g_preamble_verbose) {
+		if (g_preamble_verbose && pos < out_buff_size) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "%4s",
 			               level_buff);
 		}
-		if (g_preamble_pipe) {
+		if (g_preamble_pipe && pos < out_buff_size) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "| ");
 		}
 	}
