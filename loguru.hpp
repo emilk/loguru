@@ -52,6 +52,7 @@ Website: www.ilikebigbits.com
 	* Version 1.7.0 - 2018-01-03 - Add ability to turn off the preamble with loguru::g_preamble
 	* Version 1.7.1 - 2018-04-05 - Add function get_fatal_handler
 	* Version 1.7.2 - 2018-04-22 - Fix a bug where large file names could cause stack corruption (thanks @ccamporesi)
+	* Version 1.8.0 - 2018-04-23 - Shorten long file names to keep preamble fixed width
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -2426,8 +2427,10 @@ namespace loguru
 			               LOGURU_THREADNAME_WIDTH, thread_name);
 		}
 		if (g_preamble_file && pos < out_buff_size) {
+			char shortened_filename[LOGURU_FILENAME_WIDTH + 1];
+			snprintf(shortened_filename, LOGURU_FILENAME_WIDTH + 1, "%s", file);
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "%*s:%-5u ",
-			               LOGURU_FILENAME_WIDTH, file, line);
+			               LOGURU_FILENAME_WIDTH, shortened_filename, line);
 		}
 		if (g_preamble_verbose && pos < out_buff_size) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "%4s",
