@@ -366,14 +366,14 @@ int main(int argc, char* argv[])
 		} else if (test == "ABORT_S") {
 			ABORT_S() << "ABORT_S stream message";
 		} else if (test == "assert") {
-			const char* ptr = 0;
+			const char* ptr = nullptr;
 			assert(ptr && "Error that was unexpected");
 		} else if (test == "LOG_F_FATAL") {
 			LOG_F(FATAL, "Fatal format message");
 		} else if (test == "LOG_S_FATAL") {
 			LOG_S(FATAL) << "Fatal stream message";
 		} else if (test == "CHECK_NOTNULL_F") {
-			const char* ptr = 0;
+			const char* ptr = nullptr;
 			CHECK_NOTNULL_F(ptr);
 		} else if (test == "CHECK_F") {
 			CHECK_F(1 > 2);

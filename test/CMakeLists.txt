@@ -2,10 +2,17 @@ cmake_minimum_required(VERSION 2.8)
 
 project(loguru_test)
 
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Debug" CACHE STRING
+      "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
+endif(NOT CMAKE_BUILD_TYPE)
+
+MESSAGE(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+
 if(MSVC)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Wall")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Wall")
 else()
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Werror -Wall -Wextra -pedantic")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Werror -Wall -Wextra -pedantic -fsanitize=address -fno-omit-frame-pointer")
 endif()
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -22,7 +29,7 @@ add_executable(loguru_test loguru_test.cpp)
 find_package(Threads)
 target_link_libraries(loguru_test ${CMAKE_THREAD_LIBS_INIT}) # For pthreads
 if(NOT WIN32)
-	target_link_libraries(loguru_test dl) # For ldl
+    target_link_libraries(loguru_test dl) # For ldl
 endif()
 
 enable_testing()
