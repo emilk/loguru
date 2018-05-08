@@ -182,6 +182,11 @@ Website: www.ilikebigbits.com
 #ifndef LOGURU_HAS_DECLARED_FORMAT_HEADER
 #define LOGURU_HAS_DECLARED_FORMAT_HEADER
 
+// Semantic versioning. Loguru version can be printed with printf("%d.%d.%d", LOGURU_VERSION_MAJOR, LOGURU_VERSION_MINOR, LOGURU_VERSION_PATCH);
+#define LOGURU_VERSION_MAJOR 1
+#define LOGURU_VERSION_MINOR 8
+#define LOGURU_VERSION_PATCH 0
+
 #if defined(_MSC_VER)
 #include <sal.h>	// Needed for _In_z_ etc annotations
 #endif
