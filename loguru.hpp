@@ -556,7 +556,26 @@ namespace loguru
 		LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(5, 6);
 		~LogScopeRAII();
 
-		LogScopeRAII(LogScopeRAII&& other) = default;
+#if defined(_MSC_VER) && _MSC_VER > 1800
+		// older MSVC default move ctors close the scope on move. See
+		// issue #43
+		LogScopeRAII(LogScopeRAII&& other)
+			: _verbosity(other._verbosity)
+			, _file(other._file)
+			, _line(other._line)
+			, _indent_stderr(other._indent_stderr)
+			, _start_time_ns(other._start_time_ns)
+		{
+			// Make sure the tmp object's destruction doesn't close the scope:
+			other._file = nullptr;
+
+			for (unsigned int i = 0; i < LOGURU_SCOPE_TEXT_SIZE; ++i) {
+				_name[i] = other._name[i];
+			}
+		}
+#else
+		LogScopeRAII(LogScopeRAII&&) = default;
+#endif
 
 	private:
 		LogScopeRAII(const LogScopeRAII&) = delete;
