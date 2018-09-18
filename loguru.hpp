@@ -2518,21 +2518,19 @@ namespace loguru
 		if (verbosity <= g_stderr_verbosity) {
 			if (g_colorlogtostderr && s_terminal_has_color) {
 				if (verbosity > Verbosity_WARNING) {
-					fprintf(stderr, "%s%s%s%s%s%s%s%s%s\n",
+					fprintf(stderr, "%s%s%s%s%s%s%s%s\n",
 						terminal_reset(),
 						terminal_dim(),
 						message.preamble,
 						message.indentation,
-						terminal_reset(),
-						verbosity == Verbosity_INFO ? terminal_bold() : terminal_light_gray(),
+						verbosity == Verbosity_INFO ? terminal_reset() : "", // un-dim for info
 						message.prefix,
 						message.message,
 						terminal_reset());
 				} else {
-					fprintf(stderr, "%s%s%s%s%s%s%s%s\n",
+					fprintf(stderr, "%s%s%s%s%s%s%s\n",
 						terminal_reset(),
-						terminal_bold(),
-						verbosity == Verbosity_WARNING ? terminal_red() : terminal_light_red(),
+						verbosity == Verbosity_WARNING ? terminal_yellow() : terminal_red(),
 						message.preamble,
 						message.indentation,
 						message.prefix,
