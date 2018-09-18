@@ -367,6 +367,7 @@ int main(int argc, char* argv[])
 			ABORT_S() << "ABORT_S stream message";
 		} else if (test == "assert") {
 			const char* ptr = nullptr;
+			(void)ptr;
 			assert(ptr && "Error that was unexpected");
 		} else if (test == "LOG_F_FATAL") {
 			LOG_F(FATAL, "Fatal format message");
