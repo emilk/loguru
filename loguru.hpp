@@ -209,6 +209,11 @@ Website: www.ilikebigbits.com
 	#define LOGURU_THREADNAME_WIDTH 16
 #endif
 
+#ifndef LOGURU_SCOPE_TIME_PRECISION
+	// Resolution of scope timers. 3=ms, 6=us, 9=ns
+	#define LOGURU_SCOPE_TIME_PRECISION 3
+#endif
+
 #ifndef LOGURU_CATCH_SIGABRT
 	// Should Loguru catch SIGABRT to print stack trace etc?
 	#define LOGURU_CATCH_SIGABRT 1
@@ -1457,8 +1462,6 @@ namespace loguru
 	using StringPair     = std::pair<std::string, std::string>;
 	using StringPairList = std::vector<StringPair>;
 
-	const auto SCOPE_TIME_PRECISION = 3; // 3=ms, 6≈us, 9=ns
-
 	const auto s_start_time = steady_clock::now();
 
 	Verbosity g_stderr_verbosity  = Verbosity_0;
@@ -2650,7 +2653,7 @@ namespace loguru
 				}
 			}
 			auto duration_sec = (now_ns() - _start_time_ns) / 1e9;
-			auto buff = textprintf("%.*f s: %s", SCOPE_TIME_PRECISION, duration_sec, _name);
+			auto buff = textprintf("%.*f s: %s", LOGURU_SCOPE_TIME_PRECISION, duration_sec, _name);
 			log_to_everywhere(1, _verbosity, _file, _line, "} ", buff.c_str());
 		}
 	}
