@@ -1375,6 +1375,9 @@ This will define all the Loguru functions so that the linker may find them.
 
 #define LOGURU_PREAMBLE_WIDTH (53 + LOGURU_THREADNAME_WIDTH + LOGURU_FILENAME_WIDTH)
 
+#undef min;
+#undef max;
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>
