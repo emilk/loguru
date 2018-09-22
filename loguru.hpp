@@ -731,7 +731,7 @@ namespace loguru
 		}
 
 	private:
-		T   _data;
+		T       _data;
 		Printer _printer;
 	};
 
