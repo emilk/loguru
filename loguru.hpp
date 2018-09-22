@@ -61,114 +61,19 @@ Website: www.ilikebigbits.com
 	Make sure you compile with -std=c++11 -lstdc++ -lpthread -ldl
 
 # Usage
+	For details, please see the official documentation at emilk.github.io/loguru
+
 	#include <loguru.hpp>
 
-	// Optional, but useful to time-stamp the start of the log.
-	// Will also detect verbosity level on command line as -v.
-	loguru::init(argc, argv);
+	int main(int argc, char* argv[]) {
+		loguru::init(argc, argv);
 
-	// Put every log message in "everything.log":
-	loguru::add_file("everything.log", loguru::Append, loguru::Verbosity_MAX);
+		// Put every log message in "everything.log":
+		loguru::add_file("everything.log", loguru::Append, loguru::Verbosity_MAX);
 
-	// Only log INFO, WARNING, ERROR and FATAL to "latest_readable.log":
-	loguru::add_file("latest_readable.log", loguru::Truncate, loguru::Verbosity_INFO);
+		LOG_F(INFO, "The magic number is %d", 42);
+	}
 
-	// Only show most relevant things on stderr:
-	loguru::g_stderr_verbosity = 1;
-
-	// Or just go with what Loguru suggests:
-	char log_path[PATH_MAX];
-	loguru::suggest_log_path("~/loguru/", log_path, sizeof(log_path));
-	loguru::add_file(log_path, loguru::FileMode::Truncate, loguru::Verbosity_MAX);
-
-	LOG_SCOPE_F(INFO, "Will indent all log messages within this scope.");
-	LOG_F(INFO, "I'm hungry for some %.3f!", 3.14159);
-	LOG_F(2, "Will only show if verbosity is 2 or higher");
-	VLOG_F(get_log_level(), "Use vlog for dynamic log level (integer in the range 0-9, inclusive)");
-	LOG_IF_F(ERROR, badness, "Will only show if badness happens");
-	auto fp = fopen(filename, "r");
-	CHECK_F(fp != nullptr, "Failed to open file '%s'", filename);
-	CHECK_GT_F(length, 0); // Will print the value of `length` on failure.
-	CHECK_EQ_F(a, b, "You can also supply a custom message, like to print something: %d", a + b);
-
-	// Each function also comes with a version prefixed with D for Debug:
-	DCHECK_F(expensive_check(x)); // Only checked #if LOGURU_DEBUG_CHECKS
-	DLOG_F("Only written in debug-builds");
-
-	// Turn off writing to stderr:
-	loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
-
-	// Turn off writing err/warn in red:
-	loguru::g_colorlogtostderr = false;
-
-	// Throw exceptions instead of aborting on CHECK fails:
-	loguru::set_fatal_handler([](const loguru::Message& message){
-		throw std::runtime_error(std::string(message.prefix) + message.message);
-	});
-
-	If you prefer logging with streams:
-
-	#define LOGURU_WITH_STREAMS 1
-	#include <loguru.hpp>
-	...
-	LOG_S(INFO) << "Look at my custom object: " << a.cross(b);
-	CHECK_EQ_S(pi, 3.14) << "Maybe it is closer to " << M_PI;
-
-	Before including <loguru.hpp> you may optionally want to define the following to 1:
-
-	LOGURU_DEBUG_LOGGING (default 1 #if !NDEBUG, else 0):
-		Enables debug versions of logging statements.
-
-	LOGURU_DEBUG_CHECKS (default 1 #if !NDEBUG, else 0):
-		Enables debug versions of checks.
-
-	LOGURU_REDEFINE_ASSERT (default 0):
-		Redefine "assert" call Loguru version (!NDEBUG only).
-
-	LOGURU_WITH_STREAMS (default 0):
-		Add support for _S versions for all LOG and CHECK functions:
-			LOG_S(INFO) << "My vec3: " << x.cross(y);
-			CHECK_EQ_S(a, b) << "I expected a and b to be the same!";
-		This is off by default to keep down compilation times.
-
-	LOGURU_REPLACE_GLOG (default 0):
-		Make Loguru mimic GLOG as close as possible,
-		including #defining LOG, CHECK, VLOG_IS_ON etc.
-		LOGURU_REPLACE_GLOG implies LOGURU_WITH_STREAMS.
-
-	LOGURU_UNSAFE_SIGNAL_HANDLER (default 1):
-		Make Loguru try to do unsafe but useful things,
-		like printing a stack trace, when catching signals.
-		This may lead to bad things like deadlocks in certain situations.
-
-	LOGURU_USE_FMTLIB (default 0):
-		Use fmtlib formatting. See https://github.com/fmtlib/fmt
-		This will make loguru.hpp depend on <fmt/format.h>
-		You will need to link against `fmtlib` or use the `FMT_HEADER_ONLY` preprocessor definition.
-		Feature by kolis (https://github.com/emilk/loguru/pull/22)
-
-	LOGURU_WITH_FILEABS (default 0):
-		When LOGURU_WITH_FILEABS is defined, a check of file change will be performed on every call to file_log.
-		If the file is moved, or inode changes, file is reopened using the same FileMode as is done by add_file.
-		Such a scheme is useful if you have a daemon program that moves the log file every 24 hours and expects new file to be created.
-		Feature by scinart (https://github.com/emilk/loguru/pull/23).
-
-	LOGURU_STACKTRACES (default 1 on supported platforms):
-		Print stack traces on abort.
-
-	LOGURU_RTTI (try to detect automatically by default):
-		Set to 0 if your platform does not support runtime type information (-fno-rtti).
-
-	You can also configure:
-	loguru::g_flush_interval_ms:
-		If set to zero Loguru will flush on every line (unbuffered mode).
-		Else Loguru will flush outputs every g_flush_interval_ms milliseconds (buffered mode).
-		The default is g_flush_interval_ms=0, i.e. unbuffered mode.
-
-# Notes:
-	* Any arguments to CHECK:s are only evaluated once.
-	* Any arguments to LOG functions or LOG_SCOPE are only evaluated iff the verbosity test passes.
-	* Any arguments to LOG_IF functions are only evaluated if the test passes.
 */
 
 #if defined(LOGURU_IMPLEMENTATION)
@@ -424,7 +329,7 @@ namespace loguru
 
 	/* Everything with a verbosity equal or greater than g_stderr_verbosity will be
 	written to stderr. You can set this in code or via the -v argument.
-	Set to logurur::Verbosity_OFF to write nothing to stderr.
+	Set to loguru::Verbosity_OFF to write nothing to stderr.
 	Default is 0, i.e. only log ERROR, WARNING and INFO are written to stderr.
 	*/
 	LOGURU_EXPORT extern Verbosity g_stderr_verbosity;
