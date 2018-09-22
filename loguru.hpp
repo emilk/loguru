@@ -224,6 +224,11 @@ Website: www.ilikebigbits.com
 	#define LOGURU_CATCH_SIGABRT 1
 #endif
 
+#ifndef LOGURU_VERBOSE_SCOPE_ENDINGS
+    // Show milliseconds and scope name at end of scope.
+    #define LOGURU_VERBOSE_SCOPE_ENDINGS 1
+#endif
+
 #ifndef LOGURU_REDEFINE_ASSERT
 	#define LOGURU_REDEFINE_ASSERT 0
 #endif
@@ -2718,9 +2723,13 @@ namespace loguru
 					}
 				}
 			}
+#if LOGURU_VERBOSE_SCOPE_ENDINGS
 			auto duration_sec = (now_ns() - _start_time_ns) / 1e9;
 			auto buff = textprintf("%.*f s: %s", LOGURU_SCOPE_TIME_PRECISION, duration_sec, _name);
 			log_to_everywhere(1, _verbosity, _file, _line, "} ", buff.c_str());
+#else
+            log_to_everywhere(1, _verbosity, _file, _line, "}", "");
+#endif
 		}
 	}
 
