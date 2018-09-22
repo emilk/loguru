@@ -1090,7 +1090,7 @@ namespace loguru
 #endif // NDEBUG
 
 
-#ifdef LOGURU_REDEFINE_ASSERT
+#if LOGURU_REDEFINE_ASSERT
 	#undef assert
 	#ifndef NDEBUG
 		// Debug:
