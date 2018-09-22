@@ -9,7 +9,6 @@
 #pragma GCC diagnostic ignored "-Wglobal-constructors"
 #pragma GCC diagnostic ignored "-Wmissing-prototypes"
 #pragma GCC diagnostic ignored "-Wpadded"
-#pragma GCC diagnostic ignored "-Wpedantic"
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #pragma GCC diagnostic ignored "-Wsign-conversion"
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
@@ -244,7 +243,7 @@ namespace loguru
 #ifdef _WIN32
 #define VTSEQ(ID) ("\x1b[1;" #ID "m")
 #else
-#define VTSEQ(ID) ("\e[" #ID "m")
+#define VTSEQ(ID) ("\x1b[" #ID "m")
 #endif
 
 	const char* terminal_black()      { return s_terminal_has_color ? VTSEQ(30) : ""; }
@@ -831,7 +830,7 @@ namespace loguru
 
 	// Returns Verbosity_INVALID if the name is not found.
 	// See also set_name_to_verbosity_callback.
-	const Verbosity get_verbosity_from_name(const char* name)
+	Verbosity get_verbosity_from_name(const char* name)
 	{
 		auto verbosity = s_name_to_verbosity_callback
 				? (*s_name_to_verbosity_callback)(name)
@@ -957,7 +956,7 @@ namespace loguru
 				uint64_t thread_id = thread;
 			#endif
 			if (right_align_hext_id) {
-				snprintf(buffer, length, "%*X", length - 1, static_cast<unsigned>(thread_id));
+				snprintf(buffer, length, "%*X", static_cast<int>(length - 1), static_cast<unsigned>(thread_id));
 			} else {
 				snprintf(buffer, length, "%X", static_cast<unsigned>(thread_id));
 			}
@@ -1160,7 +1159,7 @@ namespace loguru
 		char level_buff[6];
 		const char* custom_level_name = get_verbosity_name(verbosity);
 		if (custom_level_name) {
-			snprintf(level_buff, sizeof(level_buff) - 1, custom_level_name);
+			snprintf(level_buff, sizeof(level_buff) - 1, "%s", custom_level_name);
 		} else {
 			snprintf(level_buff, sizeof(level_buff) - 1, "% 4d", verbosity);
 		}
@@ -1640,7 +1639,7 @@ namespace loguru
 	Text ec_to_text(EcHandle ec_handle)
 	{
 		Text parent_ec = get_error_context_for(ec_handle);
-		char* with_newline = (char*)malloc(strlen(parent_ec.c_str()) + 2);
+		char* with_newline = reinterpret_cast<char*>(malloc(strlen(parent_ec.c_str()) + 2));
 		with_newline[0] = '\n';
 		strcpy(with_newline + 1, parent_ec.c_str());
 		return Text(with_newline);

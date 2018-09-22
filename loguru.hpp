@@ -589,7 +589,7 @@ namespace loguru
 		If the name does not match a custom level name, Verbosity_INVALID is returned.
 	*/
 	LOGURU_EXPORT
-	const Verbosity get_verbosity_from_name(const char* name);
+	Verbosity get_verbosity_from_name(const char* name);
 
 	// Returns true iff the callback was found (and removed).
 	LOGURU_EXPORT
