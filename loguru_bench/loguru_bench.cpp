@@ -6,8 +6,7 @@
 
 #define LOGURU_WITH_STREAMS 1
 #define LOGURU_REDEFINE_ASSERT 1
-#define LOGURU_IMPLEMENTATION 1
-#include "../loguru.hpp"
+#include "../loguru.cpp"
 
 const size_t kNumRuns = 10;
 const double kPi = 3.1415926535897932384626433;

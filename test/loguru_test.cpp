@@ -4,10 +4,9 @@
 #define LOGURU_REDEFINE_ASSERT  1
 #define LOGURU_USE_FMTLIB       0
 #define LOGURU_WITH_FILEABS     0
-#define LOGURU_IMPLEMENTATION   1
 // #define LOGURU_STACKTRACES      1
 // #define LOGURU_RTTI             1
-#include "../loguru.hpp"
+#include "../loguru.cpp"
 
 #include <chrono>
 #include <string>

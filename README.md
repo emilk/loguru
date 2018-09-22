@@ -21,8 +21,9 @@ I have yet to come across a nice, light-weight logging library for C++ that does
 In particular, I want logging that produces logs that are both human-readable and easily grep:ed. I also want to be able to hook into the logging process to print some of the more severe messages on-screen in my app (for dev-purposes).
 
 ## Features:
-* Header only
-	* No linking woes! Just include and enjoy.
+* Simple integration
+	* Just two files: `loguru.hpp` and `loguru.cpp`.
+	* Either build and link `loguru.cpp` or just `#include <loguru.cpp>` in one of your own .cpp files.
 * Small, simple library.
 	* Small header with no `#include`s for **fast compile times** (see separate heading).
 	* No dependencies.
@@ -82,18 +83,16 @@ In particular, I want logging that produces logs that are both human-readable an
 ## Compiling
 
 Just include <loguru.hpp> where you want to use Loguru.
-Then, in one .cpp file:
-``` C++
-	#define LOGURU_IMPLEMENTATION 1
-	#include <loguru.hpp>
-```
+Then either compile and link with `loguru.cpp` or in one .cpp file: `#include <loguru.cpp>`
 Make sure you compile with `-std=c++11 -lpthread -ldl` on relevant environments.
 
 ## Usage
 
 ``` C++
 #include <loguru.hpp>
-...
+
+…
+
 // Optional, but useful to time-stamp the start of the log.
 // Will also detect verbosity level on command line as -v.
 loguru::init(argc, argv);
@@ -225,7 +224,7 @@ I abhor logging libraries that `#include`'s everything from `iostream` to `windo
 
 In a test of a medium-sized project, including `loguru.hpp` instead of `glog/logging.hpp` everywhere gave about 10% speedup in compilation times.
 
-Note, however, that this gives you the bare-bones version of Loguru with printf-style logging. If you want std::ostream style logging (or GLOG functionality) you need to `#define LOGURU_WITH_STREAMS 1` before `#include <loguru.hpp>`, and that will make loguru.hpp include `<sstream>`. No away around it!
+Note, however, that this gives you the bare-bones version of Loguru with printf-style logging. If you want `std::ostream` style logging (or GLOG functionality) you need to `#define LOGURU_WITH_STREAMS 1` before `#include <loguru.hpp>`, and that will make `loguru.hpp` include `<sstream>`. No away around it!
 
 ## Scopes
 The library supports scopes for indenting the log-file. Here's an example:
@@ -325,11 +324,3 @@ LOG(INFO) << "Some float: " << std::setfill('0') << std::setw(5) << std::setprec
 ```
 
 Loguru allows you to use whatever style you prefer.
-
-
-## Limitations and TODO
-* Rename ERROR to avoid conflict with windows.h macro?
-* File-only logging: LOG_F(FILE, "Always written to file, never to stderr")
-* Windows limitations:
-	* No stack-traces (you can add them yourself with `loguru::set_fatal_handler`).
-	* No signal handlers.

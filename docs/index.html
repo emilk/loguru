@@ -12,8 +12,7 @@ Loguru provides a set of functions and macros to aid logging to one or several f
 Download `loguru.hpp` from https://github.com/emilk/loguru. You don't need any other file. To use Loguru in any file, simply `#include <loguru.hpp>`. In *one* file (typically your `main.cpp`) you need to add this:
 
 ``` C++
-	#define LOGURU_IMPLEMENTATION 1
-	#include <loguru.hpp>
+	#include <loguru.cpp>
 ```
 
 Loguru uses C++11, so make sure you compile with `-std=c++11`. On Linux you also need the following linker flags: `-lpthread -ldl`.
@@ -22,8 +21,7 @@ Now you are ready to use Loguru! Here is a simple example:
 
 
 ``` C++
-	#define LOGURU_IMPLEMENTATION 1
-	#include <loguru.hpp>
+	#include <loguru.cpp>
 
 	int main_test(int argc, char* argv[])
 	{
