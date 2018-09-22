@@ -54,6 +54,7 @@ Website: www.ilikebigbits.com
 	* Version 1.7.2 - 2018-04-22 - Fix a bug where large file names could cause stack corruption (thanks @ccamporesi)
 	* Version 1.8.0 - 2018-04-23 - Shorten long file names to keep preamble fixed width
 	* Version 1.9.0 - 2018-09-22 - Adjust terminal colors, add LOGURU_VERBOSE_SCOPE_ENDINGS, add LOGURU_SCOPE_TIME_PRECISION, add named log levels
+	* Version 2.0.0 - 2018-09-22 - Split loguru.hpp into loguru.hpp and loguru.cpp
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -91,8 +92,8 @@ Website: www.ilikebigbits.com
 #define LOGURU_HAS_DECLARED_FORMAT_HEADER
 
 // Semantic versioning. Loguru version can be printed with printf("%d.%d.%d", LOGURU_VERSION_MAJOR, LOGURU_VERSION_MINOR, LOGURU_VERSION_PATCH);
-#define LOGURU_VERSION_MAJOR 1
-#define LOGURU_VERSION_MINOR 9
+#define LOGURU_VERSION_MAJOR 2
+#define LOGURU_VERSION_MINOR 0
 #define LOGURU_VERSION_PATCH 0
 
 #if defined(_MSC_VER)
