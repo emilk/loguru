@@ -13,7 +13,7 @@ Website: www.ilikebigbits.com
 
 # Inspiration
 	Much of Loguru was inspired by GLOG, https://code.google.com/p/google-glog/.
-	The whole "single header" and public domain is fully due Sean T. Barrett
+	The choice of public domain is fully due Sean T. Barrett
 	and his wonderful stb libraries at https://github.com/nothings/stb.
 
 # Version history
