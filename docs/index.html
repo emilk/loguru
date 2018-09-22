@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 # Loguru
-This document contains the official documentation of Loguru, a header-only C++ logging library.
+This document contains the official documentation of Loguru, a lightweight and flexible C++ logging library.
 
 This documentations is INCOMPLETE. Read the `loguru.hpp` for more documentation.
 
@@ -9,11 +9,7 @@ The official project homepage of Loguru is at https://github.com/emilk/loguru.
 Loguru provides a set of functions and macros to aid logging to one or several files and/or to `stderr`. It prefixes each log line with useful information such as time.
 
 # Getting started
-Download `loguru.hpp` from https://github.com/emilk/loguru. You don't need any other file. To use Loguru in any file, simply `#include <loguru.hpp>`. In *one* file (typically your `main.cpp`) you need to add this:
-
-``` C++
-	#include <loguru.cpp>
-```
+Download `loguru.hpp` and `loguru.cpp` from https://github.com/emilk/loguru. To use Loguru in any file, simply `#include <loguru.hpp>`. Then either compile and link with `loguru.cpp` or add `#include <loguru.cpp>` to one of your `.cpp` files.
 
 Loguru uses C++11, so make sure you compile with `-std=c++11`. On Linux you also need the following linker flags: `-lpthread -ldl`.
 

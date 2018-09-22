@@ -1,4 +1,4 @@
-# Loguru: a header-only C++ logging library.
+# Loguru: a lightweight and flexible C++ logging library.
 
 [![Build status](https://ci.appveyor.com/api/projects/status/hret4rx3xakjs7j4?svg=true)](https://ci.appveyor.com/project/emilk/loguru)
 
