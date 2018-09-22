@@ -369,6 +369,9 @@ namespace loguru
 
 	enum NamedVerbosity : Verbosity
 	{
+		// Used to mark an invalid verbosity. Do not log to this level.
+		Verbosity_INVALID     = -10, // Never do LOG_F(INVALID)
+
 		// You may use Verbosity_OFF on g_stderr_verbosity, but for nothing else!
 		Verbosity_OFF     = -9, // Never do LOG_F(OFF)
 
@@ -437,6 +440,13 @@ namespace loguru
 
 	// May throw if that's how you'd like to handle your errors.
 	typedef void (*fatal_handler_t)(const Message& message);
+
+	// Given a verbosity level, return the level's name or nullptr.
+	typedef const char* (*verbosity_to_name_t)(Verbosity verbosity);
+
+	// Given a verbosity level name, return the verbosity level or
+	// Verbosity_INVALID if name is not recognized.
+	typedef Verbosity (*name_to_verbosity_t)(const char* name);
 
 	/*  Should be called from the main thread.
 		You don't *need* to call this, but if you do you get:
@@ -549,6 +559,29 @@ namespace loguru
 		Verbosity       verbosity,
 		close_handler_t on_close = nullptr,
 		flush_handler_t on_flush = nullptr);
+
+	/*  Set a callback that returns custom verbosity level names. If callback
+		is nullptr or returns nullptr, default log names will be used.
+	*/
+	LOGURU_EXPORT
+	void set_verbosity_to_name_callback(verbosity_to_name_t callback);
+
+	/*  Set a callback that returns the verbosity level matching a name. The
+		callback should return Verbosity_INVALID if the name is not
+		recognized.
+	*/
+	LOGURU_EXPORT
+	void set_name_to_verbosity_callback(name_to_verbosity_t callback);
+
+	/*  Get a custom name for a specific verbosity, if one exists, or nullptr. */
+	LOGURU_EXPORT
+	const char* get_verbosity_name(Verbosity verbosity);
+
+	/*  Get the verbosity enum value from a custom 4-character level name, if one exists.
+		If the name does not match a custom level name, Verbosity_INVALID is returned.
+	*/
+	LOGURU_EXPORT
+	const Verbosity get_verbosity_from_name(const char* name);
 
 	// Returns true iff the callback was found (and removed).
 	LOGURU_EXPORT
@@ -1551,6 +1584,8 @@ namespace loguru
 	static char                  s_current_dir[PATH_MAX];
 	static CallbackVec           s_callbacks;
 	static fatal_handler_t       s_fatal_handler   = nullptr;
+	static verbosity_to_name_t   s_verbosity_to_name_callback = nullptr;
+	static name_to_verbosity_t   s_name_to_verbosity_callback = nullptr;
 	static StringPairList        s_user_stack_cleanups;
 	static bool                  s_strip_file_path = true;
 	static std::atomic<unsigned> s_stderr_indentation { 0 };
@@ -1795,16 +1830,9 @@ namespace loguru
 				}
 				if (*value_str == '=') { value_str += 1; }
 
-				if (strcmp(value_str, "OFF") == 0) {
-					g_stderr_verbosity = Verbosity_OFF;
-				} else if (strcmp(value_str, "INFO") == 0) {
-					g_stderr_verbosity = Verbosity_INFO;
-				} else if (strcmp(value_str, "WARNING") == 0) {
-					g_stderr_verbosity = Verbosity_WARNING;
-				} else if (strcmp(value_str, "ERROR") == 0) {
-					g_stderr_verbosity = Verbosity_ERROR;
-				} else if (strcmp(value_str, "FATAL") == 0) {
-					g_stderr_verbosity = Verbosity_FATAL;
+				auto req_verbosity = get_verbosity_from_name(value_str);
+				if (req_verbosity != Verbosity_INVALID) {
+					g_stderr_verbosity = req_verbosity;
 				} else {
 					char* end = 0;
 					g_stderr_verbosity = static_cast<int>(strtol(value_str, &end, 10));
@@ -1978,6 +2006,8 @@ namespace loguru
 		LOG_F(INFO, "loguru::shutdown()");
 		remove_all_callbacks();
 		set_fatal_handler(nullptr);
+		set_verbosity_to_name_callback(nullptr);
+		set_name_to_verbosity_callback(nullptr);
 	}
 
 	void write_date_time(char* buff, size_t buff_size)
@@ -2137,6 +2167,16 @@ namespace loguru
 		return s_fatal_handler;
 	}
 
+	void set_verbosity_to_name_callback(verbosity_to_name_t callback)
+	{
+		s_verbosity_to_name_callback = callback;
+	}
+
+	void set_name_to_verbosity_callback(name_to_verbosity_t callback)
+	{
+		s_name_to_verbosity_callback = callback;
+	}
+
 	void add_stack_cleanup(const char* find_this, const char* replace_with_this)
 	{
 		if (strlen(find_this) <= strlen(replace_with_this)) {
@@ -2166,6 +2206,57 @@ namespace loguru
 		std::lock_guard<std::recursive_mutex> lock(s_mutex);
 		s_callbacks.push_back(Callback{id, callback, user_data, verbosity, on_close, on_flush, 0});
 		on_callback_change();
+	}
+
+	// Returns a custom verbosity name if one is available, or nullptr.
+	// See also set_verbosity_to_name_callback.
+	const char* get_verbosity_name(Verbosity verbosity)
+	{
+		auto name = s_verbosity_to_name_callback
+				? (*s_verbosity_to_name_callback)(verbosity)
+				: nullptr;
+
+		// Use standard replacements if callback fails:
+		if (!name)
+		{
+			if (verbosity <= Verbosity_FATAL) {
+				name = "FATL";
+			} else if (verbosity == Verbosity_ERROR) {
+				name = "ERR";
+			} else if (verbosity == Verbosity_WARNING) {
+				name = "WARN";
+			} else if (verbosity == Verbosity_INFO) {
+				name = "INFO";
+			}
+		}
+
+		return name;
+	}
+
+	// Returns Verbosity_INVALID if the name is not found.
+	// See also set_name_to_verbosity_callback.
+	const Verbosity get_verbosity_from_name(const char* name)
+	{
+		auto verbosity = s_name_to_verbosity_callback
+				? (*s_name_to_verbosity_callback)(name)
+				: Verbosity_INVALID;
+
+		// Use standard replacements if callback fails:
+		if (verbosity == Verbosity_INVALID) {
+			if (strcmp(name, "OFF") == 0) {
+				verbosity = Verbosity_OFF;
+			} else if (strcmp(name, "INFO") == 0) {
+				verbosity = Verbosity_INFO;
+			} else if (strcmp(name, "WARNING") == 0) {
+				verbosity = Verbosity_WARNING;
+			} else if (strcmp(name, "ERROR") == 0) {
+				verbosity = Verbosity_ERROR;
+			} else if (strcmp(name, "FATAL") == 0) {
+				verbosity = Verbosity_FATAL;
+			}
+		}
+
+		return verbosity;
 	}
 
 	bool remove_callback(const char* id)
@@ -2471,12 +2562,9 @@ namespace loguru
 		}
 
 		char level_buff[6];
-		if (verbosity <= Verbosity_FATAL) {
-			snprintf(level_buff, sizeof(level_buff) - 1, "FATL");
-		} else if (verbosity == Verbosity_ERROR) {
-			snprintf(level_buff, sizeof(level_buff) - 1, "ERR");
-		} else if (verbosity == Verbosity_WARNING) {
-			snprintf(level_buff, sizeof(level_buff) - 1, "WARN");
+		const char* customLevelName = get_verbosity_name(verbosity);
+		if (customLevelName) {
+			snprintf(level_buff, sizeof(level_buff) - 1, customLevelName);
 		} else {
 			snprintf(level_buff, sizeof(level_buff) - 1, "% 4d", verbosity);
 		}
