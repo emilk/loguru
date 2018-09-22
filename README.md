@@ -216,7 +216,7 @@ You can also optionally log things ONLY if there is a crash. This is a very usef
 ```
 
 
-## Streams vs printf#
+## Streams vs printf
 Some logging libraries only supports stream style logging, not printf-style. This means that what in Loguru is:
 
 ``` C++
