@@ -7,6 +7,7 @@
 #pragma GCC diagnostic ignored "-Wexit-time-destructors"
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
 #pragma GCC diagnostic ignored "-Wglobal-constructors"
+#pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 #pragma GCC diagnostic ignored "-Wmissing-prototypes"
 #pragma GCC diagnostic ignored "-Wpadded"
 #pragma GCC diagnostic ignored "-Wsign-compare"
@@ -1110,8 +1111,9 @@ namespace loguru
 
 	static void print_preamble_header(char* out_buff, size_t out_buff_size)
 	{
+		if (out_buff_size == 0) { return; }
+		out_buff[0] = '\0';
 		long pos = 0;
-		snprintf(out_buff, out_buff_size, ""); // Make sure there is a '\0' and handle out_buff_size==0
 		if (g_preamble_date && pos < out_buff_size) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "date       ");
 		}
@@ -1137,10 +1139,9 @@ namespace loguru
 
 	static void print_preamble(char* out_buff, size_t out_buff_size, Verbosity verbosity, const char* file, unsigned line)
 	{
-		if (!g_preamble) {
-			out_buff[0] = '\0';
-			return;
-		}
+		if (out_buff_size == 0) { return; }
+		out_buff[0] = '\0';
+		if (!g_preamble) { return; }
 		long long ms_since_epoch = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 		time_t sec_since_epoch = time_t(ms_since_epoch / 1000);
 		tm time_info;
@@ -1166,7 +1167,6 @@ namespace loguru
 
 		long pos = 0;
 
-		snprintf(out_buff, out_buff_size, ""); // Make sure there is a '\0' and handle out_buff_size==0
 		if (g_preamble_date && pos < out_buff_size) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "%04d-%02d-%02d ",
 				             1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday);
