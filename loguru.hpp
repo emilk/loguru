@@ -225,8 +225,8 @@ Website: www.ilikebigbits.com
 #endif
 
 #ifndef LOGURU_VERBOSE_SCOPE_ENDINGS
-    // Show milliseconds and scope name at end of scope.
-    #define LOGURU_VERBOSE_SCOPE_ENDINGS 1
+	// Show milliseconds and scope name at end of scope.
+	#define LOGURU_VERBOSE_SCOPE_ENDINGS 1
 #endif
 
 #ifndef LOGURU_REDEFINE_ASSERT
@@ -1432,8 +1432,8 @@ This will define all the Loguru functions so that the linker may find them.
 
 #define LOGURU_PREAMBLE_WIDTH (53 + LOGURU_THREADNAME_WIDTH + LOGURU_FILENAME_WIDTH)
 
-#undef min;
-#undef max;
+#undef min
+#undef max
 
 #include <algorithm>
 #include <atomic>
@@ -2567,9 +2567,9 @@ namespace loguru
 		}
 
 		char level_buff[6];
-		const char* customLevelName = get_verbosity_name(verbosity);
-		if (customLevelName) {
-			snprintf(level_buff, sizeof(level_buff) - 1, customLevelName);
+		const char* custom_level_name = get_verbosity_name(verbosity);
+		if (custom_level_name) {
+			snprintf(level_buff, sizeof(level_buff) - 1, custom_level_name);
 		} else {
 			snprintf(level_buff, sizeof(level_buff) - 1, "% 4d", verbosity);
 		}
@@ -2814,7 +2814,7 @@ namespace loguru
 			auto buff = textprintf("%.*f s: %s", LOGURU_SCOPE_TIME_PRECISION, duration_sec, _name);
 			log_to_everywhere(1, _verbosity, _file, _line, "} ", buff.c_str());
 #else
-            log_to_everywhere(1, _verbosity, _file, _line, "}", "");
+			log_to_everywhere(1, _verbosity, _file, _line, "}", "");
 #endif
 		}
 	}
