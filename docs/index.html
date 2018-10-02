@@ -75,6 +75,19 @@ Output:
 ![Notice how the color matches the verbosity level (`0 = INFO`)](terminal_colors.png)
 
 
+## Older versions
+Before Loguru 2.0 was released in 2018, Loguru consisted of a single `loguru.hpp` header. If you are still using that version (and for some reason don't want to upgrade), this is how you use it:
+
+In ONE `.cpp` file you need to add this:
+
+``` C++
+	#define LOGURU_IMPLEMENTATION
+	#include <loguru.hpp>
+```
+
+That's it! Most of this documentation will still apply the same.
+
+
 # How Loguru works
 ## Outputs and verbosity
 Loguru has several outputs. By default, Loguru logs everything to `stderr` and nowhere else. You can add files to write to using `loguru::add_file`. Each output (`stderr` and files) has a *verbosity level* attached to it. Each time you log something, you also pick a verbosity level, for instance `INFO` or `ERROR`. This way you can have one log file where only the most important messages go (e.g. `WARNING`s and `ERROR`s) and another where all logging goes. You can control the verbosity level of `stderr` either from code (with `loguru::g_stderr_verbosity`) or from the command line arguments with the `-v` flags.
@@ -227,7 +240,7 @@ Here are the LOG_SCOPE family of functions:
 ``` C++
 	LOG_SCOPE_F(verbosity_name, fmt, ...)
 	VLOG_SCOPE_F(name, fmt, ...)
-	LOG_SCOPE_FUNCTION(verbosity_name)  // Logs the name of the current function. 
+	LOG_SCOPE_FUNCTION(verbosity_name)  // Logs the name of the current function.
 ```
 
 Scopes affects logging on all threads.
@@ -286,19 +299,19 @@ Loguru can also do runtime checks which are similar to [`assert`](http://en.cppr
 ### Variants
 ``` C++
 	CHECK_F(test, ...)
-	CHECK_NOTNULL_F(x, ...)   
+	CHECK_NOTNULL_F(x, ...)
 	CHECK_EQ_F(a, b, ...)
 	CHECK_NE_F(a, b, ...)
 	CHECK_LT_F(a, b, ...)
 	CHECK_LE_F(a, b, ...)
 	CHECK_GT_F(a, b, ...)
-CHECK_GE_F(a, b, ...)
+	CHECK_GE_F(a, b, ...)
 ```
 
 You also have debug-versions of these:
 ``` C++
 	DCHECK_F(test, ...)
-	DCHECK_NOTNULL_F(x, ...)   
+	DCHECK_NOTNULL_F(x, ...)
 	DCHECK_EQ_F(a, b, ...)
 	DCHECK_NE_F(a, b, ...)
 	DCHECK_LT_F(a, b, ...)
@@ -361,7 +374,7 @@ Example output (in case of crash):
 	------------------------------------------------
 ```
 
-Error contexts are printed automatically on crashes. Note that values captured by `ERROR_CONTEXT` are **only printed on a crash**. They do not litter the log file otherwise. They also have a very small performance hit (about 12 nanoseconds per `ERROR_CONTEXT` on my MacBook Pro, compared to about 4-7 milliseconds a line in the logfile).
+Error contexts are printed automatically on crashes. Note that values captured by `ERROR_CONTEXT` are **only printed on a crash**. They do not litter the log file otherwise. They also have an almost negligible performance hit (about 12 nanoseconds per `ERROR_CONTEXT` on my MacBook Pro, compared to about 4-7 milliseconds a line in the logfile).
 
 `ERROR_CONTEXT` works with built-in types (`float`, `int`, `char` etc) as well as `const char*`. You can also add support for your own types by overloading `loguru::ec_to_text` (see [`loguru.hpp`](https://github.com/emilk/loguru/blob/master/loguru.hpp) for details).
 
@@ -403,8 +416,7 @@ Tip: You can set `g_stderr_verbosity` before calling `loguru::init`.
 That way you can set the default but have the user override it with the `-v` flag.
 Note that `-v` does not affect file logging (see `loguru::add_file`).
 
-You can use something else instead of "-v" via `verbosity_flag`.
-You can also set verbosity_flag to `nullptr`.
+If you want to use the `-v` flag for something else than Loguru, you can set the `verbosity_flag` parameter to e.g. `"--loguru_verbosity"` or `nullptr`.
 
 ## `void shutdown()`
 Will call `loguru::remove_all_callbacks()`, thus stopping all logging except to `stderr`.
@@ -515,7 +527,7 @@ Here's the relevant excerpt from `Loguru.hpp`:
 
 	// Returns true iff the callback was found (and removed).
 	bool remove_callback(const char* id);
-``` 
+```
 
 ## Fatal handler
 You can install a callback to be called when your program is about to crash (a CHECK failed, a signal was caught, or somebody called `ABORT_F`).
@@ -559,19 +571,19 @@ Else Loguru will flush outputs every `g_flush_interval_ms` milliseconds (buffere
 Here is the full list:
 
 ``` C++
-	Verbosity g_stderr_verbosity; // 0 (INFO) by default.
-	bool      g_colorlogtostderr; // True by default.
-	unsigned  g_flush_interval_ms; // 0 (unbuffered) by default.
-	bool      g_preamble; // Prefix each log line with date, time etc? True by default.
+	Verbosity g_stderr_verbosity  = 0;    // 0 (INFO) by default.
+	bool      g_colorlogtostderr  = true; // If you don't want color in your terminal.
+	unsigned  g_flush_interval_ms = 0;    // Unbuffered (0) by default.
+	bool      g_preamble          = true; // Prefix each log line with date, time etc?
 
 	// Turn off individual parts of the preamble
-	bool      g_preamble_date; // The date field
-	bool      g_preamble_time; // The time of the current day
-	bool      g_preamble_uptime; // The time since init call
-	bool      g_preamble_thread; // The logging thread
-	bool      g_preamble_file; // The file from which the log originates from
-	bool      g_preamble_verbose; // The verbosity field
-	bool      g_preamble_pipe; // The pipe symbol right before the message
+	bool g_preamble_date    = true; // The date field
+	bool g_preamble_time    = true; // The time of the current day
+	bool g_preamble_uptime  = true; // The time since init call
+	bool g_preamble_thread  = true; // The logging thread
+	bool g_preamble_file    = true; // The file from which the log originates from
+	bool g_preamble_verbose = true; // The verbosity field
+	bool g_preamble_pipe    = true; // The pipe symbol right before the message
 ```
 
 
@@ -580,13 +592,13 @@ Loguru let's you tweak many aspects of how it works via macros that you can set 
 
 Here follows a list of flags and their default values:
 
-### `LOGURU_EXPORT = ""`
+### `LOGURU_EXPORT`
 Define to your project's export declaration if needed for use in a shared library.
 
-### `LOGURU_DEBUG_LOGGING` (default 1 #if !NDEBUG, else 0):
+### `LOGURU_DEBUG_LOGGING` (defaults to the opposite of `NDEBUG`):
 Enables debug versions of logging statements (`DLOG_F` etc).
 
-### `LOGURU_DEBUG_CHECKS` (default 1 #if !NDEBUG, else 0):
+### `LOGURU_DEBUG_CHECKS` (defaults to the opposite of `NDEBUG`):
 Enables debug versions of checks (`DCHECK_F` etc).
 
 ### `LOGURU_SCOPE_TEXT_SIZE = 196`
@@ -596,7 +608,7 @@ Maximum length of text that can be printed by a `LOG_SCOPE`. This should be long
 Should Loguru catch SIGABRT to print stack trace etc?
 
 ### `LOGURU_REDEFINE_ASSERT = 0`
-Redefine "assert" call Loguru version (!NDEBUG only).
+Redefine "assert" to call Loguru version (!NDEBUG only).
 
 ### `LOGURU_WITH_STREAMS = 0`
 Add support for _S versions for all LOG and CHECK functions:
@@ -616,7 +628,7 @@ This may lead to bad things like deadlocks in certain situations.
 
 ### `LOGURU_USE_FMTLIB = 0`
 Use fmtlib formatting. See https://github.com/fmtlib/fmt
-This will make `loguru.hpp` depend on `<fmt/format.h>`
+This will make `loguru.hpp` depend on `&lt;fmt/format.h&gt;`
 You will need to link against `fmtlib` or use the `FMT_HEADER_ONLY` preprocessor definition.
 Feature by kolis (https://github.com/emilk/loguru/pull/22)
 
