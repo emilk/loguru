@@ -1,10 +1,10 @@
-# Loguru: a header-only C++ logging library.
+# Loguru: a lightweight and flexible C++ logging library.
 
 [![Build status](https://ci.appveyor.com/api/projects/status/hret4rx3xakjs7j4?svg=true)](https://ci.appveyor.com/project/emilk/loguru)
 
 ## At a glance
 
-![Loguru terminal output](images/terminal_colors.png)
+![Loguru terminal output](docs/terminal_colors.png)
 
 ## Documentation
 Documentation can be found at https://emilk.github.io/loguru/index.html.
@@ -21,8 +21,9 @@ I have yet to come across a nice, light-weight logging library for C++ that does
 In particular, I want logging that produces logs that are both human-readable and easily grep:ed. I also want to be able to hook into the logging process to print some of the more severe messages on-screen in my app (for dev-purposes).
 
 ## Features:
-* Header only
-	* No linking woes! Just include and enjoy.
+* Simple integration
+	* Just two files: `loguru.hpp` and `loguru.cpp`.
+	* Either build and link `loguru.cpp` or just `#include <loguru.cpp>` in one of your own .cpp files.
 * Small, simple library.
 	* Small header with no `#include`s for **fast compile times** (see separate heading).
 	* No dependencies.
@@ -82,18 +83,16 @@ In particular, I want logging that produces logs that are both human-readable an
 ## Compiling
 
 Just include <loguru.hpp> where you want to use Loguru.
-Then, in one .cpp file:
-``` C++
-	#define LOGURU_IMPLEMENTATION 1
-	#include <loguru.hpp>
-```
+Then either compile and link with `loguru.cpp` or in one .cpp file: `#include <loguru.cpp>`
 Make sure you compile with `-std=c++11 -lpthread -ldl` on relevant environments.
 
 ## Usage
 
 ``` C++
 #include <loguru.hpp>
-...
+
+…
+
 // Optional, but useful to time-stamp the start of the log.
 // Will also detect verbosity level on command line as -v.
 loguru::init(argc, argv);
@@ -143,67 +142,7 @@ LOG_S(INFO) << "Look at my custom object: " << a.cross(b);
 CHECK_EQ_S(pi, 3.14) << "Maybe it is closer to " << M_PI;
 ```
 
-## Configuration options
-
-Before including `<loguru.hpp>` you may #define the following
-configuration options to 1:
-
-`LOGURU_DEBUG_LOGGING` (default 1 #if !NDEBUG, else 0):
-
-	Enables debug versions of logging statements.
-
-`LOGURU_DEBUG_CHECKS` (default 1 #if !NDEBUG, else 0):
-
-	Enables debug versions of checks.
-
-`LOGURU_REDEFINE_ASSERT` (default 0):
-
-	Redefine "assert" to call Loguru version instead (!NDEBUG only).
-
-`LOGURU_WITH_STREAMS` (default 0):
-
-	Add support for _S versions for all LOG and CHECK functions:
-		LOG_S(INFO) << "My vec3: " << x.cross(y);
-		CHECK_EQ_S(a, b) << "I expected a and b to be the same!";
-	This is off by default to keep down compilation times.
-
-`LOGURU_REPLACE_GLOG` (default 0):
-
-	Make Loguru mimic GLOG as close as possible,
-	including #defining LOG, CHECK, VLOG_IS_ON etc.
-	LOGURU_REPLACE_GLOG implies LOGURU_WITH_STREAMS.
-
-`LOGURU_UNSAFE_SIGNAL_HANDLER` (default 1):
-
-	Make Loguru try to do unsafe but useful things,
-	like printing a stack trace, when catching signals.
-	This may lead to bad things like deadlocks in certain situations.
-
-`LOGURU_USE_FMTLIB` (default 0):
-
-	Use fmtlib formatting. See https://github.com/fmtlib/fmt
-	This will make loguru.hpp depend on <fmt/format.h>
-	You will need to link against `fmtlib` or use the `FMT_HEADER_ONLY` preprocessor definition.
-	Feature by kolis (https://github.com/emilk/loguru/pull/22)
-
-`LOGURU_WITH_FILEABS` (default 0):
-
-	When LOGURU_WITH_FILEABS is defined, a check of file change
-	will be performed on every call to file_log.  If the file is
-	moved, or inode changes, file is reopened using the same
-	FileMode as is done by add_file.  Such a scheme is useful if
-	you have a daemon program that moves the log file every 24
-	hours and expects new file to be created.  Feature by scinart
-	(https://github.com/emilk/loguru/pull/23).
-
-`LOGURU_STACKTRACES` (default 1 on supported platforms):
-
-	Print stack traces on abort.
-
-`LOGURU_RTTI` (try to detect automatically by default):
-
-	Set to 0 if your platform does not support runtime type information (-fno-rtti).
-
+For more info, see [the official documentation](https://emilk.github.io/loguru/index.html).
 
 ## Grep:able logs
 ``` bash
@@ -220,12 +159,12 @@ cat logfile.txt | egrep "6\|"
 cat logfile.txt | egrep "\[main thread     \]"
 ```
 
-## No includes in loguru.h
+## No includes in loguru.hpp
 I abhor logging libraries that `#include`'s everything from `iostream` to `windows.h` into every compilation unit in your project. Logging should be frequent in your source code, and thus as lightweight as possible. Loguru's header has *no #includes*. This means it will not slow down the compilation of your project.
 
 In a test of a medium-sized project, including `loguru.hpp` instead of `glog/logging.hpp` everywhere gave about 10% speedup in compilation times.
 
-Note, however, that this gives you the bare-bones version of Loguru with printf-style logging. If you want std::ostream style logging (or GLOG functionality) you need to `#define LOGURU_WITH_STREAMS 1` before `#include <loguru.hpp>`, and that will make loguru.hpp include `<sstream>`. No away around it!
+Note, however, that this gives you the bare-bones version of Loguru with printf-style logging. If you want `std::ostream` style logging (or GLOG functionality) you need to `#define LOGURU_WITH_STREAMS 1` before `#include <loguru.hpp>`, and that will make `loguru.hpp` include `<sstream>`. No away around it!
 
 ## Scopes
 The library supports scopes for indenting the log-file. Here's an example:
@@ -246,72 +185,38 @@ int main(int argc, char* argv[])
 }
 ```
 
+
 This will output:
 
 ```
-date       time         ( uptime  ) [ thread name/id ]                   file:line     v|
-2015-10-04 15:28:30.547 (   0.000s) [main thread     ]             loguru.cpp:184      0| arguments:       ./loguru_test test -v1
-2015-10-04 15:28:30.548 (   0.000s) [main thread     ]             loguru.cpp:185      0| Verbosity level: 1
-2015-10-04 15:28:30.548 (   0.000s) [main thread     ]             loguru.cpp:186      0| -----------------------------------
-2015-10-04 15:28:30.548 (   0.000s) [main thread     ]        loguru_test.cpp:108      0| { int main_test(int, char **)
-2015-10-04 15:28:30.548 (   0.000s) [main thread     ]        loguru_test.cpp:109      0| .   Doing some stuff...
-2015-10-04 15:28:30.548 (   0.000s) [main thread     ]        loguru_test.cpp:111      1| .   { Iteration 0
-2015-10-04 15:28:30.681 (   0.133s) [main thread     ]        loguru_test.cpp:111      1| .   } 0.133 s: Iteration 0
-2015-10-04 15:28:30.681 (   0.133s) [main thread     ]        loguru_test.cpp:111      1| .   { Iteration 1
-2015-10-04 15:28:30.815 (   0.267s) [main thread     ]        loguru_test.cpp:113      0| .   .   Bad result
-2015-10-04 15:28:30.815 (   0.267s) [main thread     ]        loguru_test.cpp:111      1| .   } 0.134 s: Iteration 1
-2015-10-04 15:28:30.815 (   0.267s) [main thread     ]        loguru_test.cpp:115      0| .   Time to go!
-2015-10-04 15:28:30.815 (   0.267s) [main thread     ]        loguru_test.cpp:108      0| } 0.267 s: int main_test(int, char **)
+	     loguru.cpp:184      0| arguments:       ./loguru_test test -v1
+	     loguru.cpp:185      0| Verbosity level: 1
+	     loguru.cpp:186      0| -----------------------------------
+	loguru_test.cpp:108      0| { int main_test(int, char **)
+	loguru_test.cpp:109      0| .   Doing some stuff...
+	loguru_test.cpp:111      1| .   { Iteration 0
+	loguru_test.cpp:111      1| .   } 0.133 s: Iteration 0
+	loguru_test.cpp:111      1| .   { Iteration 1
+	loguru_test.cpp:113      0| .   .   Bad result
+	loguru_test.cpp:111      1| .   } 0.134 s: Iteration 1
+	loguru_test.cpp:115      0| .   Time to go!
+	loguru_test.cpp:108      0| } 0.267 s: int main_test(int, char **)
 ```
 
-Which looks like this in the terminal:
 
-![Terminal colors](images/terminal_colors.png)
-
-(Notice how verbosity levels higher than 0 are slightly gray).
-
-Scopes affects logging on all threads.
-
-
-## Error context
-A stack trace gives you the names of the function at the point of a crash. With `ERROR_CONTEXT`, you can also get the values of select local variables. `ERROR_CONTEXT` is in effect a logging that only occurs if there is a crash.
-
-Usage:
-
-``` C++
-void process_customers(const std::string& filename)
-{
-    ERROR_CONTEXT("Processing file", filename.c_str());
-    for (size_t i = 0; i < num_customers; ++i) {
-	    ERROR_CONTEXT("Customer index", i);
-	    if (i == 42) { crashy_code(); }
-    }
-}
-```
-
-The context is in effect during the scope of the `ERROR_CONTEXT`.
-To get the contents of the stack manually, use `loguru::get_error_context()`.
-
-Example result:
-
-	------------------------------------------------
-	[ErrorContext]                main.cpp:416   Processing file:    "customers.json"
-	[ErrorContext]                main.cpp:417   Customer index:     42
-	------------------------------------------------
-
-Error contexts are printed automatically on crashes. Note that values captured by `ERROR_CONTEXT` are **only printed on a crash**. They do not litter the log file otherwise. They also have a very small performance hit (about 12 nanoseconds per `ERROR_CONTEXT` on my MacBook Pro, compared to about 4-7 milliseconds a line in the logfile).
-
-`ERROR_CONTEXT` works with built-in types (`float`, `int`, `char` etc) as well as `const char*`. You can also add support for your own types by overloading `loguru::ec_to_text` (see [`loguru.hpp`](https://github.com/emilk/loguru/blob/master/loguru.hpp) for details).
-
-The `ERROR_CONTEXT` feature of Loguru is actually orthogonal to the logging. If you want to, you can use Loguru just for its `ERROR_CONTEXT` (and use some other library for logging). You can print the error context stack at any time like this:
+# `ERROR_CONTEXT`
+You can also optionally log things ONLY if there is a crash. This is a very useful feature:
 
 ```
-auto text = loguru::get_error_context();
-printf("%s", text.c_str());
-some_stream << text.c_str(); // Or like this
+	void process_file(const char* filename)
+	{
+		ERROR_CONTEXT("filename", filename);
+		parse_file(filename); // Only if this crashes will filename be logged.
+	}
 ```
 
-## Streams vs printf#
+
+## Streams vs printf
 Some logging libraries only supports stream style logging, not printf-style. This means that what in Loguru is:
 
 ``` C++
@@ -325,11 +230,3 @@ LOG(INFO) << "Some float: " << std::setfill('0') << std::setw(5) << std::setprec
 ```
 
 Loguru allows you to use whatever style you prefer.
-
-
-## Limitations and TODO
-* Rename ERROR to avoid conflict with windows.h macro?
-* File-only logging: LOG_F(FILE, "Always written to file, never to stderr")
-* Windows limitations:
-	* No stack-traces (you can add them yourself with `loguru::set_fatal_handler`).
-	* No signal handlers.

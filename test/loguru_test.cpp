@@ -4,10 +4,9 @@
 #define LOGURU_REDEFINE_ASSERT  1
 #define LOGURU_USE_FMTLIB       0
 #define LOGURU_WITH_FILEABS     0
-#define LOGURU_IMPLEMENTATION   1
 // #define LOGURU_STACKTRACES      1
 // #define LOGURU_RTTI             1
-#include "../loguru.hpp"
+#include "../loguru.cpp"
 
 #include <chrono>
 #include <string>
@@ -275,20 +274,20 @@ struct CallbackTester
 
 void callbackPrint(void* user_data, const loguru::Message& message)
 {
-    printf("Custom callback: %s%s\n", message.prefix, message.message);
-    reinterpret_cast<CallbackTester*>(user_data)->num_print += 1;
+	printf("Custom callback: %s%s\n", message.prefix, message.message);
+	reinterpret_cast<CallbackTester*>(user_data)->num_print += 1;
 }
 
 void callbackFlush(void* user_data)
 {
 	printf("Custom callback flush\n");
-    reinterpret_cast<CallbackTester*>(user_data)->num_flush += 1;
+	reinterpret_cast<CallbackTester*>(user_data)->num_flush += 1;
 }
 
 void callbackClose(void* user_data)
 {
 	printf("Custom callback close\n");
-    reinterpret_cast<CallbackTester*>(user_data)->num_close += 1;
+	reinterpret_cast<CallbackTester*>(user_data)->num_close += 1;
 }
 
 void test_log_callback()
@@ -313,8 +312,8 @@ void test_log_callback()
 static int winDbgHook(int reportType, char *message, int *)
 {
 	fprintf(stderr, "Report type: %d\nMessage: %s\n", reportType,
-	                (nullptr != message ? message : "nullptr message"));
-    return 1; // To prevent the Abort, Retry, Ignore dialog
+					(nullptr != message ? message : "nullptr message"));
+	return 1; // To prevent the Abort, Retry, Ignore dialog
 }
 #endif
 

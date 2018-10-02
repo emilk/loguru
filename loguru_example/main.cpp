@@ -2,8 +2,7 @@
 
 #include "loguru_example.hpp"
 
-#define LOGURU_IMPLEMENTATION 1
-#include "../loguru.hpp"
+#include "../loguru.cpp"
 
 int main(int argc, char* argv[])
 {
