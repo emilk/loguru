@@ -247,7 +247,7 @@ Scopes affects logging on all threads.
 
 
 ## Logging with streams
-By default, Loguru will only let you log with `printf`-style formatting. If you prefer to use C++-style stream logging you need to define `LOGURU_WITH_STREAMS=1` (e.g. set `#define LOGURU_WITH_STREAMS 1` before including `loguru.hpp` or pass `-DOGURU_WITH_STREAMS=1` to your compiler).
+By default, Loguru will only let you log with `printf`-style formatting. If you prefer to use C++-style stream logging you need to define `LOGURU_WITH_STREAMS=1` (e.g. set `#define LOGURU_WITH_STREAMS 1` before including `loguru.hpp` or pass `-DLOGURU_WITH_STREAMS=1` to your compiler).
 
 This will enable new logging functions with `_S` suffixes:
 
