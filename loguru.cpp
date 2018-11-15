@@ -71,7 +71,7 @@
 	#ifndef LOGURU_STACKTRACES
 		#define LOGURU_STACKTRACES 0
 	#endif
-#elif defined(__rtems__)
+#elif defined(__rtems__) || defined(__ANDROID__)
 	#define LOGURU_PTHREADS    1
 	#define LOGURU_WINTHREADS  0
 	#ifndef LOGURU_STACKTRACES
