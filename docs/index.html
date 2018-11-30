@@ -180,8 +180,8 @@ There are also combinations of the `RAW`, `IF`, and `V` versions. Here is the co
 
 ``` C++
 	LOG_F(verbosity_name, fmt, ...)
-	VLOG_F(verbosity, cond, fmt, ...)
-	LOG_IF_F(verbosity_name, fmt, ...)
+	VLOG_F(verbosity, fmt, ...)
+	LOG_IF_F(verbosity_name, cond, fmt, ...)
 	VLOG_IF_F(verbosity, cond, fmt, ...)
 	RAW_LOG_F(verbosity_name, fmt, ...)
 	RAW_VLOG_F(verbosity, fmt, ...)
@@ -192,8 +192,8 @@ In addition, there are variants who only log in debug builds (and/or when `LOGUR
 
 ``` C++
 	DLOG_F(verbosity_name, fmt, ...)
-	DVLOG_F(verbosity, cond, fmt, ...)
-	DLOG_IF_F(verbosity_name, fmt, ...)
+	DVLOG_F(verbosity, fmt, ...)
+	DLOG_IF_F(verbosity_name, cond, fmt, ...)
 	DVLOG_IF_F(verbosity, cond, fmt, ...)
 	DRAW_LOG_F(verbosity_name, fmt, ...)
 	DRAW_VLOG_F(verbosity, fmt, ...)
