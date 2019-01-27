@@ -8,8 +8,8 @@ Website: www.ilikebigbits.com
 
 # License
 	This software is in the public domain. Where that dedication is not
-	recognized, you are granted a perpetual, irrevocable license to copy
-	and modify this file as you see fit.
+	recognized, you are granted a perpetual, irrevocable license to
+	copy, modify and distribute it as you see fit.
 
 # Inspiration
 	Much of Loguru was inspired by GLOG, https://code.google.com/p/google-glog/.
