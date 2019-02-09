@@ -338,6 +338,11 @@ namespace loguru
 	LOGURU_EXPORT extern unsigned  g_flush_interval_ms; // 0 (unbuffered) by default.
 	LOGURU_EXPORT extern bool      g_preamble; // Prefix each log line with date, time etc? True by default.
 
+	/* Specify the verbosity used by loguru to log its info messages including the header
+	logged when logged::init() is called or on exit. Default is 0 (INFO).
+	*/
+	LOGURU_EXPORT extern Verbosity g_internal_verbosity;
+
 	// Turn off individual parts of the preamble
 	LOGURU_EXPORT extern bool      g_preamble_date; // The date field
 	LOGURU_EXPORT extern bool      g_preamble_time; // The time of the current day
