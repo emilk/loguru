@@ -901,7 +901,9 @@ namespace loguru
 	{
 		#if LOGURU_PTLS_NAMES
 			(void)pthread_once(&s_pthread_key_once, make_pthread_key_name);
-			(void)pthread_setspecific(s_pthread_key_name, strdup(name));
+			char* name_dup = strdup(name);
+			(void)pthread_setspecific(s_pthread_key_name, name_dup);
+			free(name_dup);
 
 		#elif LOGURU_PTHREADS
 			#ifdef __APPLE__
