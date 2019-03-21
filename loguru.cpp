@@ -1,3 +1,4 @@
+#ifndef _WIN32
 // Disable all warnings from gcc/clang:
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpragmas"
@@ -15,6 +16,7 @@
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
 #pragma GCC diagnostic ignored "-Wunused-macros"
 #pragma GCC diagnostic ignored "-Wzero-as-null-pointer-constant"
+#endif
 
 #include "loguru.hpp"
 
@@ -510,17 +512,17 @@ namespace loguru
 		char buff[256];
 	#if defined(__GLIBC__) && defined(_GNU_SOURCE)
 		// GNU Version
-		return Text(strdup(strerror_r(errno, buff, sizeof(buff))));
+		return Text(STRDUP(strerror_r(errno, buff, sizeof(buff))));
 	#elif defined(__APPLE__) || _POSIX_C_SOURCE >= 200112L
 		// XSI Version
 		strerror_r(errno, buff, sizeof(buff));
 		return Text(strdup(buff));
 	#elif defined(_WIN32)
 		strerror_s(buff, sizeof(buff), errno);
-		return Text(strdup(buff));
+		return Text(STRDUP(buff));
 	#else
 		// Not thread-safe.
-		return Text(strdup(strerror(errno)));
+		return Text(STRDUP(strerror(errno)));
 	#endif
 	}
 
@@ -673,7 +675,7 @@ namespace loguru
 	bool create_directories(const char* file_path_const)
 	{
 		CHECK_F(file_path_const && *file_path_const);
-		char* file_path = strdup(file_path_const);
+		char* file_path = STRDUP(file_path_const);
 		for (char* p = strchr(file_path + 1, '/'); p; p = strchr(p + 1, '/')) {
 			*p = '\0';
 
@@ -901,7 +903,7 @@ namespace loguru
 	{
 		#if LOGURU_PTLS_NAMES
 			(void)pthread_once(&s_pthread_key_once, make_pthread_key_name);
-			(void)pthread_setspecific(s_pthread_key_name, strdup(name));
+			(void)pthread_setspecific(s_pthread_key_name, STRDUP(name));
 
 		#elif LOGURU_PTHREADS
 			#ifdef __APPLE__
@@ -928,6 +930,9 @@ namespace loguru
 
 	void get_thread_name(char* buffer, unsigned long long length, bool right_align_hext_id)
 	{
+#ifdef _WIN32
+		(void)right_align_hext_id;
+#endif
 		CHECK_NE_F(length, 0u, "Zero length buffer in get_thread_name");
 		CHECK_NOTNULL_F(buffer, "nullptr in get_thread_name");
 #if LOGURU_PTHREADS
@@ -982,7 +987,7 @@ namespace loguru
 	{
 		int status = -1;
 		char* demangled = abi::__cxa_demangle(name, 0, 0, &status);
-		Text result{status == 0 ? demangled : strdup(name)};
+		Text result{status == 0 ? demangled : STRDUP(name)};
 		return result;
 	}
 
@@ -1090,7 +1095,7 @@ namespace loguru
 #else // LOGURU_STACKTRACES
 	Text demangle(const char* name)
 	{
-		return Text(strdup(name));
+		return Text(STRDUP(name));
 	}
 
 	std::string stacktrace_as_stdstring(int)
@@ -1104,7 +1109,7 @@ namespace loguru
 	Text stacktrace(int skip)
 	{
 		auto str = stacktrace_as_stdstring(skip + 1);
-		return Text(strdup(str.c_str()));
+		return Text(STRDUP(str.c_str()));
 	}
 
 	// ------------------------------------------------------------------------
@@ -1553,7 +1558,7 @@ namespace loguru
 			}
 			result.str += "------------------------------------------------";
 		}
-		return Text(strdup(result.str.c_str()));
+		return Text(STRDUP(result.str.c_str()));
 	}
 
 	EcEntryBase::EcEntryBase(const char* file, unsigned line, const char* descr)
@@ -1576,7 +1581,7 @@ namespace loguru
 		// Add quotes around the string to make it obvious where it begin and ends.
 		// This is great for detecting erroneous leading or trailing spaces in e.g. an identifier.
 		auto str = "\"" + std::string(value) + "\"";
-		return Text{strdup(str.c_str())};
+		return Text{STRDUP(str.c_str())};
 	}
 
 	Text ec_to_text(char c)
@@ -1614,14 +1619,14 @@ namespace loguru
 
 		str += "'";
 
-		return Text{strdup(str.c_str())};
+		return Text{STRDUP(str.c_str())};
 	}
 
 	#define DEFINE_EC(Type)                        \
 		Text ec_to_text(Type value)                \
 		{                                          \
 			auto str = std::to_string(value);      \
-			return Text{strdup(str.c_str())};      \
+			return Text{STRDUP(str.c_str())};      \
 		}
 
 	DEFINE_EC(int)
