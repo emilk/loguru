@@ -930,6 +930,9 @@ namespace loguru
 
 	void get_thread_name(char* buffer, unsigned long long length, bool right_align_hext_id)
 	{
+#ifdef _WIN32
+		(void)right_align_hext_id;
+#endif
 		CHECK_NE_F(length, 0u, "Zero length buffer in get_thread_name");
 		CHECK_NOTNULL_F(buffer, "nullptr in get_thread_name");
 #if LOGURU_PTHREADS
