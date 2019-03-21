@@ -166,6 +166,8 @@ namespace loguru
 	unsigned  g_flush_interval_ms = 0;
 	bool      g_preamble          = true;
 
+	Verbosity g_internal_verbosity = Verbosity_0;
+
 	// Preamble details
 	bool      g_preamble_date     = true;
 	bool      g_preamble_time     = true;
@@ -334,13 +336,13 @@ namespace loguru
 				fclose(file_abs->fp);
 			}
 			if (!file_abs->fp) {
-				LOG_F(INFO, "Reopening file '%s' due to previous error", file_abs->path);
+				VLOG_F(g_internal_verbosity, "Reopening file '%s' due to previous error", file_abs->path);
 			}
 			else if (ret < 0) {
 				const auto why = errno_as_text();
-				LOG_F(INFO, "Reopening file '%s' due to '%s'", file_abs->path, why.c_str());
+				VLOG_F(g_internal_verbosity, "Reopening file '%s' due to '%s'", file_abs->path, why.c_str());
 			} else {
-				LOG_F(INFO, "Reopening file '%s' due to file changed", file_abs->path);
+				VLOG_F(g_internal_verbosity, "Reopening file '%s' due to file changed", file_abs->path);
 			}
 			// try reopen current file.
 			if (!create_directories(file_abs->path)) {
@@ -466,7 +468,7 @@ namespace loguru
 
 	static void on_atexit()
 	{
-		LOG_F(INFO, "atexit");
+		VLOG_F(g_internal_verbosity, "atexit");
 		flush();
 	}
 
@@ -586,13 +588,13 @@ namespace loguru
 			}
 			fflush(stderr);
 		}
-		LOG_F(INFO, "arguments: %s", s_arguments.c_str());
+		VLOG_F(g_internal_verbosity, "arguments: %s", s_arguments.c_str());
 		if (strlen(s_current_dir) != 0)
 		{
-			LOG_F(INFO, "Current dir: %s", s_current_dir);
+			VLOG_F(g_internal_verbosity, "Current dir: %s", s_current_dir);
 		}
-		LOG_F(INFO, "stderr verbosity: %d", g_stderr_verbosity);
-		LOG_F(INFO, "-----------------------------------");
+		VLOG_F(g_internal_verbosity, "stderr verbosity: %d", g_stderr_verbosity);
+		VLOG_F(g_internal_verbosity, "-----------------------------------");
 
 		install_signal_handlers();
 
@@ -601,7 +603,7 @@ namespace loguru
 
 	void shutdown()
 	{
-		LOG_F(INFO, "loguru::shutdown()");
+		VLOG_F(g_internal_verbosity, "loguru::shutdown()");
 		remove_all_callbacks();
 		set_fatal_handler(nullptr);
 		set_verbosity_to_name_callback(nullptr);
@@ -750,7 +752,7 @@ namespace loguru
 		}
 		fflush(file);
 
-		LOG_F(INFO, "Logging to '%s', mode: '%s', verbosity: %d", path, mode_str, verbosity);
+		VLOG_F(g_internal_verbosity, "Logging to '%s', mode: '%s', verbosity: %d", path, mode_str, verbosity);
 		return true;
 	}
 
