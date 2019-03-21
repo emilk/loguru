@@ -232,6 +232,12 @@ Website: www.ilikebigbits.com
 	#include <fmt/format.h>
 #endif
 
+#ifdef _WIN32
+	#define STRDUP(str) _strdup(str)
+#else
+	#define STRDUP(str) strdup(str)
+#endif
+
 // --------------------------------------------------------------------
 
 namespace loguru
@@ -878,14 +884,14 @@ namespace loguru
 			{
 				// Called only when needed, i.e. on a crash.
 				std::string str = small_value.as_string(); // Format 'small_value' here somehow.
-				return Text{strdup(str.c_str())};
+				return Text{STRDUP(str.c_str())};
 			}
 
 			Text ec_to_text(const MyBigType* big_value)
 			{
 				// Called only when needed, i.e. on a crash.
 				std::string str = big_value->as_string(); // Format 'big_value' here somehow.
-				return Text{strdup(str.c_str())};
+				return Text{STRDUP(str.c_str())};
 			}
 		} // namespace loguru
 
