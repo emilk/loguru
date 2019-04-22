@@ -366,7 +366,7 @@ namespace loguru
 	Text::~Text() { free(_str); }
 
 #if LOGURU_USE_FMTLIB
-    static Text vtextprintf(const char* format, fmt::format_args args)
+    Text vtextprintf(const char* format, fmt::format_args args)
     {
 	    std::string str = fmt::vformat(format, args);
 	    char* buf = (char*)malloc(str.size());

@@ -277,7 +277,7 @@ namespace loguru
 	// Like printf, but returns the formated text.
 #if LOGURU_USE_FMTLIB
     LOGURU_EXPORT
-    static Text vtextprintf(const char* format, fmt::format_args args);
+    Text vtextprintf(const char* format, fmt::format_args args);
 
     template<typename... Args>
     LOGURU_EXPORT
