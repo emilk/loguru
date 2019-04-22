@@ -368,10 +368,7 @@ namespace loguru
 #if LOGURU_USE_FMTLIB
     Text vtextprintf(const char* format, fmt::format_args args)
     {
-	    std::string str = fmt::vformat(format, args);
-	    char* buf = (char*)malloc(str.size());
-	    memcpy(buf, str.c_str(), str.size());
-	    return Text(buf);
+	    return Text(STRDUP(fmt::vformat(format, args).c_str()));
     }
 #else
 	LOGURU_PRINTF_LIKE(1, 0)
