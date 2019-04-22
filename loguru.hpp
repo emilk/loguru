@@ -521,15 +521,23 @@ namespace loguru
 	Verbosity current_verbosity_cutoff();
 
 #if LOGURU_USE_FMTLIB
+	// Internal functions
+    void vlog(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, fmt::format_args args);
+    void raw_vlog(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, fmt::format_args args);
+
 	// Actual logging function. Use the LOG macro instead of calling this directly.
+	template <typename... Args>
 	LOGURU_EXPORT
-	void log(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, fmt::ArgList args);
-	FMT_VARIADIC(void, log, Verbosity, const char*, unsigned, LOGURU_FORMAT_STRING_TYPE)
+	void log(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, const Args &... args) {
+	    vlog(verbosity, file, line, format, fmt::make_format_args(args...));
+	}
 
 	// Log without any preamble or indentation.
+    template <typename... Args>
 	LOGURU_EXPORT
-	void raw_log(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, fmt::ArgList args);
-	FMT_VARIADIC(void, raw_log, Verbosity, const char*, unsigned, LOGURU_FORMAT_STRING_TYPE)
+	void raw_log(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, const Args &... args) {
+	    raw_vlog(verbosity, file, line, format, fmt::make_format_args(args...));
+	}
 #else // LOGURU_USE_FMTLIB?
 	// Actual logging function. Use the LOG macro instead of calling this directly.
 	LOGURU_EXPORT

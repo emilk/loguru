@@ -1316,19 +1316,18 @@ namespace loguru
 	}
 
 #if LOGURU_USE_FMTLIB
-	void log(Verbosity verbosity, const char* file, unsigned line, const char* format, fmt::ArgList args)
-	{
-		auto formatted = fmt::format(format, args);
-		log_to_everywhere(1, verbosity, file, line, "", formatted.c_str());
-	}
+    void vlog(Verbosity verbosity, const char* file, unsigned line, const char* format, fmt::format_args args)
+    {
+        auto formatted = fmt::vformat(format, args);
+        log_to_everywhere(1, verbosity, file, line, "", formatted.c_str());
+    }
 
-	void raw_log(Verbosity verbosity, const char* file, unsigned line, const char* format, fmt::ArgList args)
-	{
-		auto formatted = fmt::format(format, args);
-		auto message = Message{verbosity, file, line, "", "", "", formatted.c_str()};
-		log_message(1, message, false, true);
-	}
-
+    void raw_vlog(Verbosity verbosity, const char* file, unsigned line, const char* format, fmt::format_args args)
+    {
+        auto formatted = fmt::vformat(format, args);
+        auto message = Message{verbosity, file, line, "", "", "", formatted.c_str()};
+        log_message(1, message, false, true);
+    }
 #else
 	void log(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
 	{
