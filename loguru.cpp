@@ -1418,7 +1418,11 @@ namespace loguru
 			}
 #if LOGURU_VERBOSE_SCOPE_ENDINGS
 			auto duration_sec = (now_ns() - _start_time_ns) / 1e9;
-			auto buff = textprintf("%.*f s: %s", LOGURU_SCOPE_TIME_PRECISION, duration_sec, _name);
+#if LOGURU_USE_FMTLIB
+            auto buff = textprintf("{:.{}f} s: {:s}", duration_sec, LOGURU_SCOPE_TIME_PRECISION, _name);
+#else
+            auto buff = textprintf("%.*f s: %s, LOGURU_SCOPE_TIME_PRECISION, duration_sec, _name);
+#endif
 			log_to_everywhere(1, _verbosity, _file, _line, "} ", buff.c_str());
 #else
 			log_to_everywhere(1, _verbosity, _file, _line, "}", "");
@@ -1490,13 +1494,13 @@ namespace loguru
 	StreamLogger::~StreamLogger() noexcept(false)
 	{
 		auto message = _ss.str();
-		log(_verbosity, _file, _line, "%s", message.c_str());
+		log(_verbosity, _file, _line, LOGURU_FMT(s), message.c_str());
 	}
 
 	AbortLogger::~AbortLogger() noexcept(false)
 	{
 		auto message = _ss.str();
-		loguru::log_and_abort(1, _expr, _file, _line, "%s", message.c_str());
+		loguru::log_and_abort(1, _expr, _file, _line, LOGURU_FMT(s), message.c_str());
 	}
 
 	#endif // LOGURU_WITH_STREAMS
@@ -1587,8 +1591,13 @@ namespace loguru
 			result.str += "------------------------------------------------\n";
 			for (auto entry : stack) {
 				const auto description = std::string(entry->_descr) + ":";
+#if LOGURU_USE_FMTLIB
+                auto prefix = textprintf("[ErrorContext] {.{}s}:{:-5u} {:-20s} ",
+                    filename(entry->_file), LOGURU_FILENAME_WIDTH, entry->_line, description.c_str());
+#else
 				auto prefix = textprintf("[ErrorContext] %*s:%-5u %-20s ",
 					LOGURU_FILENAME_WIDTH, filename(entry->_file), entry->_line, description.c_str());
+#endif
 				result.str += prefix.c_str();
 				entry->print_value(result);
 				result.str += "\n";
