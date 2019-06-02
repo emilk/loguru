@@ -1418,7 +1418,7 @@ namespace loguru
 #if LOGURU_USE_FMTLIB
             auto buff = textprintf("{:.{}f} s: {:s}", duration_sec, LOGURU_SCOPE_TIME_PRECISION, _name);
 #else
-            auto buff = textprintf("%.*f s: %s, LOGURU_SCOPE_TIME_PRECISION, duration_sec, _name);
+            auto buff = textprintf("%.*f s: %s", LOGURU_SCOPE_TIME_PRECISION, duration_sec, _name);
 #endif
 			log_to_everywhere(1, _verbosity, _file, _line, "} ", buff.c_str());
 #else
