@@ -215,6 +215,7 @@ namespace loguru
 					|| 0 == strcmp(term, "rxvt-unicode-256color")
 					|| 0 == strcmp(term, "screen")
 					|| 0 == strcmp(term, "screen-256color")
+					|| 0 == strcmp(term, "screen.xterm-256color")
 					|| 0 == strcmp(term, "tmux-256color")
 					|| 0 == strcmp(term, "xterm")
 					|| 0 == strcmp(term, "xterm-256color")
