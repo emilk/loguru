@@ -16,6 +16,11 @@
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
 #pragma GCC diagnostic ignored "-Wunused-macros"
 #pragma GCC diagnostic ignored "-Wzero-as-null-pointer-constant"
+#else
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4018)
+#endif // _MSC_VER
 #endif
 
 #include "loguru.hpp"
@@ -1790,6 +1795,12 @@ namespace loguru
 	}
 } // namespace loguru
 
+#endif // _WIN32
+
+#ifdef _WIN32
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif // _MSC_VER
 #endif // _WIN32
 
 #endif // LOGURU_IMPLEMENTATION
