@@ -1715,11 +1715,7 @@ namespace loguru
 namespace loguru {
 	void install_signal_handlers()
 	{
-		#if defined(_MSC_VER)
-		#pragma message ( "No signal handlers on Win32" )
-		#else
-		#warning "No signal handlers on Win32"
-		#endif
+		// TODO: implement signal handlers on windows
 	}
 } // namespace loguru
 
