@@ -542,7 +542,7 @@ namespace loguru
 	#endif
 	}
 
-	void init(int& argc, char* argv[], const char* verbosity_flag)
+	void init(int& argc, char* argv[], const Options& options)
 	{
 		CHECK_GT_F(argc,       0,       "Expected proper argc/argv");
 		CHECK_EQ_F(argv[argc], nullptr, "Expected proper argc/argv");
@@ -553,8 +553,7 @@ namespace loguru
 			#define getcwd _getcwd
 		#endif
 
-		if (!getcwd(s_current_dir, sizeof(s_current_dir)))
-		{
+		if (!getcwd(s_current_dir, sizeof(s_current_dir))) {
 			const auto error_text = errno_as_text();
 			LOG_F(WARNING, "Failed to get current working directory: " LOGURU_FMT(s) "", error_text.c_str());
 		}
@@ -567,28 +566,30 @@ namespace loguru
 			}
 		}
 
-		if (verbosity_flag) {
-			parse_args(argc, argv, verbosity_flag);
+		if (options.verbosity_flag) {
+			parse_args(argc, argv, options.verbosity_flag);
 		}
 
-		#if LOGURU_PTLS_NAMES || LOGURU_WINTHREADS
-			set_thread_name("main thread");
-		#elif LOGURU_PTHREADS
-			char old_thread_name[16] = {0};
-			auto this_thread = pthread_self();
-			#if defined(__APPLE__) || defined(__linux__)
-				pthread_getname_np(this_thread, old_thread_name, sizeof(old_thread_name));
-			#endif
-			if (old_thread_name[0] == 0) {
-				#ifdef __APPLE__
-					pthread_setname_np("main thread");
-				#elif defined(__FreeBSD__) || defined(__OpenBSD__)
-					pthread_set_name_np(this_thread, "main thread");
-				#elif defined(__linux__)
-					pthread_setname_np(this_thread, "main thread");
+		if (const auto main_thread_name = options.main_thread_name) {
+			#if LOGURU_PTLS_NAMES || LOGURU_WINTHREADS
+				set_thread_name(main_thread_name);
+			#elif LOGURU_PTHREADS
+				char old_thread_name[16] = {0};
+				auto this_thread = pthread_self();
+				#if defined(__APPLE__) || defined(__linux__)
+					pthread_getname_np(this_thread, old_thread_name, sizeof(old_thread_name));
 				#endif
-			}
-		#endif // LOGURU_PTHREADS
+				if (old_thread_name[0] == 0) {
+					#ifdef __APPLE__
+						pthread_setname_np(main_thread_name);
+					#elif defined(__FreeBSD__) || defined(__OpenBSD__)
+						pthread_set_name_np(this_thread, main_thread_name);
+					#elif defined(__linux__)
+						pthread_setname_np(this_thread, main_thread_name);
+					#endif
+				}
+			#endif // LOGURU_PTHREADS
+		}
 
 		if (g_stderr_verbosity >= Verbosity_INFO) {
 			if (g_preamble) {
