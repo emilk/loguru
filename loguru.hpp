@@ -79,7 +79,7 @@ Website: www.ilikebigbits.com
 */
 
 #if defined(LOGURU_IMPLEMENTATION)
-	#warning "You are defining LOGURU_IMPLEMENTATION. This is for older versions of Loguru. You should now instead include loguru.cpp (or build it and link with it)"
+	#error "You are defining LOGURU_IMPLEMENTATION. This is for older versions of Loguru. You should now instead include loguru.cpp (or build it and link with it)"
 #endif
 
 // Disable all warnings from gcc/clang:
@@ -157,7 +157,7 @@ Website: www.ilikebigbits.com
 #endif
 
 #if defined(LOGURU_UNSAFE_SIGNAL_HANDLER)
-	#warning "You are defining LOGURU_UNSAFE_SIGNAL_HANDLER. This is for older versions of Loguru. You should now instead set the unsafe_signal_handler option when you call loguru::init."
+	#error "You are defining LOGURU_UNSAFE_SIGNAL_HANDLER. This is for older versions of Loguru. You should now instead set the unsafe_signal_handler option when you call loguru::init."
 #endif
 
 #if LOGURU_IMPLEMENTATION
