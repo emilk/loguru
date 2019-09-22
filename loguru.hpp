@@ -230,9 +230,9 @@ Website: www.ilikebigbits.com
 
 #if LOGURU_USE_FMTLIB
 	#include <fmt/format.h>
-    #define LOGURU_FMT(x) "{:" #x "}"
+	#define LOGURU_FMT(x) "{:" #x "}"
 #else
-    #define LOGURU_FMT(x) "%" #x
+	#define LOGURU_FMT(x) "%" #x
 #endif
 
 #ifdef _WIN32
@@ -276,14 +276,14 @@ namespace loguru
 
 	// Like printf, but returns the formated text.
 #if LOGURU_USE_FMTLIB
-    LOGURU_EXPORT
-    Text vtextprintf(const char* format, fmt::format_args args);
+	LOGURU_EXPORT
+	Text vtextprintf(const char* format, fmt::format_args args);
 
-    template<typename... Args>
-    LOGURU_EXPORT
-    Text textprintf(LOGURU_FORMAT_STRING_TYPE format, const Args&... args) {
-        return vtextprintf(format, fmt::make_format_args(args...));
-    }
+	template<typename... Args>
+	LOGURU_EXPORT
+	Text textprintf(LOGURU_FORMAT_STRING_TYPE format, const Args&... args) {
+		return vtextprintf(format, fmt::make_format_args(args...));
+	}
 #else
 	LOGURU_EXPORT
 	Text textprintf(LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(1, 2);
@@ -536,8 +536,8 @@ namespace loguru
 
 #if LOGURU_USE_FMTLIB
 	// Internal functions
-    void vlog(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, fmt::format_args args);
-    void raw_vlog(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, fmt::format_args args);
+	void vlog(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, fmt::format_args args);
+	void raw_vlog(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, fmt::format_args args);
 
 	// Actual logging function. Use the LOG macro instead of calling this directly.
 	template <typename... Args>
@@ -547,7 +547,7 @@ namespace loguru
 	}
 
 	// Log without any preamble or indentation.
-    template <typename... Args>
+	template <typename... Args>
 	LOGURU_EXPORT
 	void raw_log(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, const Args &... args) {
 	    raw_vlog(verbosity, file, line, format, fmt::make_format_args(args...));
@@ -607,15 +607,15 @@ namespace loguru
 	// Marked as 'noreturn' for the benefit of the static analyzer and optimizer.
 	// stack_trace_skip is the number of extrace stack frames to skip above log_and_abort.
 #if LOGURU_USE_FMTLIB
-    LOGURU_EXPORT
-    LOGURU_NORETURN void vlog_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, fmt::format_args);
-    template <typename... Args>
+	LOGURU_EXPORT
+	LOGURU_NORETURN void vlog_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, fmt::format_args);
+	template <typename... Args>
 	LOGURU_EXPORT
 	LOGURU_NORETURN void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, const Args&... args) {
 	    vlog_and_abort(stack_trace_skip, expr, file, line, format, fmt::make_format_args(args...));
 	}
 #else
-    LOGURU_EXPORT
+	LOGURU_EXPORT
 	LOGURU_NORETURN void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(5, 6);
 #endif
 	LOGURU_EXPORT
