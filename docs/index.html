@@ -433,6 +433,11 @@ struct Options
 	// if a thread name has not already been set.
 	// To always set a thread name, use loguru::set_thread_name instead.
 	const char+ main_thread_name = "main thread";
+
+	// Make Loguru try to do unsafe but useful things,
+	// like printing a stack trace, when catching signals.
+	// This may lead to bad things like deadlocks in certain situations.
+	bool unsafe_signal_handler = true;
 };
 ```
 
@@ -638,11 +643,6 @@ This is off by default to keep down compilation times.
 
 ### `LOGURU_REPLACE_GLOG = 0`
 Make Loguru mimic GLOG as close as possible, including #defining `LOG`, `CHECK`, `VLOG_IS_ON` etc. Great if you plan to migrate from GLOG to Loguru and don't want to add _S suffixes to all your logging functions (see `LOGURU_WITH_STREAMS`). `LOGURU_REPLACE_GLOG` implies `LOGURU_WITH_STREAMS`.
-
-### `LOGURU_UNSAFE_SIGNAL_HANDLER = 1`
-Make Loguru try to do unsafe but useful things,
-like printing a stack trace, when catching signals.
-This may lead to bad things like deadlocks in certain situations.
 
 ### `LOGURU_USE_FMTLIB = 0`
 Use fmtlib formatting. See https://github.com/fmtlib/fmt

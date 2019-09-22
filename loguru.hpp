@@ -156,8 +156,8 @@ Website: www.ilikebigbits.com
 	#define LOGURU_WITH_STREAMS 1
 #endif
 
-#ifndef LOGURU_UNSAFE_SIGNAL_HANDLER
-	#define LOGURU_UNSAFE_SIGNAL_HANDLER 1
+#if defined(LOGURU_UNSAFE_SIGNAL_HANDLER)
+	#warning "You are defining LOGURU_UNSAFE_SIGNAL_HANDLER. This is for older versions of Loguru. You should now instead set the unsafe_signal_handler option when you call loguru::init."
 #endif
 
 #if LOGURU_IMPLEMENTATION
@@ -402,6 +402,11 @@ namespace loguru
 		// if a thread name has not already been set.
 		// To always set a thread name, use loguru::set_thread_name instead.
 		const char* main_thread_name = "main thread";
+
+		// Make Loguru try to do unsafe but useful things,
+		// like printing a stack trace, when catching signals.
+		// This may lead to bad things like deadlocks in certain situations.
+		bool unsafe_signal_handler = true;
 	};
 
 	/*  Should be called from the main thread.

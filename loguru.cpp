@@ -486,7 +486,7 @@ namespace loguru
 		flush();
 	}
 
-	static void install_signal_handlers();
+	static void install_signal_handlers(bool unsafe_signal_handler);
 
 	static void write_hex_digit(std::string& out, unsigned num)
 	{
@@ -611,7 +611,7 @@ namespace loguru
 		VLOG_F(g_internal_verbosity, "stderr verbosity: " LOGURU_FMT(d) "", g_stderr_verbosity);
 		VLOG_F(g_internal_verbosity, "-----------------------------------");
 
-		install_signal_handlers();
+		install_signal_handlers(options.unsafe_signal_handler);
 
 		atexit(on_atexit);
 	}
@@ -1713,8 +1713,9 @@ namespace loguru
 
 #ifdef _WIN32
 namespace loguru {
-	void install_signal_handlers()
+	void install_signal_handlers(bool unsafe_signal_handler)
 	{
+		(void)unsafe_signal_handler;
 		// TODO: implement signal handlers on windows
 	}
 } // namespace loguru
@@ -1761,6 +1762,8 @@ namespace loguru
 		kill(getpid(), signal_number);
 	}
 
+	static bool s_unsafe_signal_handler = false;
+
 	void signal_handler(int signal_number, siginfo_t*, void*)
 	{
 		const char* signal_name = "UNKNOWN SIGNAL";
@@ -1794,33 +1797,35 @@ namespace loguru
 
 		// --------------------------------------------------------------------
 
-#if LOGURU_UNSAFE_SIGNAL_HANDLER
-		// --------------------------------------------------------------------
-		/* Now we do unsafe things. This can for example lead to deadlocks if
-		   the signal was triggered from the system's memory management functions
-		   and the code below tries to do allocations.
-		*/
+		if (s_unsafe_signal_handler) {
+			// --------------------------------------------------------------------
+			/* Now we do unsafe things. This can for example lead to deadlocks if
+			   the signal was triggered from the system's memory management functions
+			   and the code below tries to do allocations.
+			*/
 
-		flush();
-		char preamble_buff[LOGURU_PREAMBLE_WIDTH];
-		print_preamble(preamble_buff, sizeof(preamble_buff), Verbosity_FATAL, "", 0);
-		auto message = Message{Verbosity_FATAL, "", 0, preamble_buff, "", "Signal: ", signal_name};
-		try {
-			log_message(1, message, false, false);
-		} catch (...) {
-			// This can happed due to s_fatal_handler.
-			write_to_stderr("Exception caught and ignored by Loguru signal handler.\n");
+			flush();
+			char preamble_buff[LOGURU_PREAMBLE_WIDTH];
+			print_preamble(preamble_buff, sizeof(preamble_buff), Verbosity_FATAL, "", 0);
+			auto message = Message{Verbosity_FATAL, "", 0, preamble_buff, "", "Signal: ", signal_name};
+			try {
+				log_message(1, message, false, false);
+			} catch (...) {
+				// This can happed due to s_fatal_handler.
+				write_to_stderr("Exception caught and ignored by Loguru signal handler.\n");
+			}
+			flush();
+
+			// --------------------------------------------------------------------
 		}
-		flush();
-
-		// --------------------------------------------------------------------
-#endif // LOGURU_UNSAFE_SIGNAL_HANDLER
 
 		call_default_signal_handler(signal_number);
 	}
 
-	void install_signal_handlers()
+	void install_signal_handlers(bool unsafe_signal_handler)
 	{
+		s_unsafe_signal_handler = unsafe_signal_handler;
+
 		struct sigaction sig_action;
 		memset(&sig_action, 0, sizeof(sig_action));
 		sigemptyset(&sig_action.sa_mask);
