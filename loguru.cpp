@@ -129,6 +129,7 @@
    #define LOGURU_PTLS_NAMES 0
 #endif
 
+
 namespace loguru
 {
 	using namespace std::chrono;
@@ -342,21 +343,21 @@ namespace loguru
 				fclose(file_abs->fp);
 			}
 			if (!file_abs->fp) {
-				VLOG_F(g_internal_verbosity, "Reopening file '%s' due to previous error", file_abs->path);
+				VLOG_F(g_internal_verbosity, "Reopening file '" LOGURU_FMT(s) "' due to previous error", file_abs->path);
 			}
 			else if (ret < 0) {
 				const auto why = errno_as_text();
-				VLOG_F(g_internal_verbosity, "Reopening file '%s' due to '%s'", file_abs->path, why.c_str());
+				VLOG_F(g_internal_verbosity, "Reopening file '" LOGURU_FMT(s) "' due to '" LOGURU_FMT(s) "'", file_abs->path, why.c_str());
 			} else {
-				VLOG_F(g_internal_verbosity, "Reopening file '%s' due to file changed", file_abs->path);
+				VLOG_F(g_internal_verbosity, "Reopening file '" LOGURU_FMT(s) "' due to file changed", file_abs->path);
 			}
 			// try reopen current file.
 			if (!create_directories(file_abs->path)) {
-				LOG_F(ERROR, "Failed to create directories to '%s'", file_abs->path);
+				LOG_F(ERROR, "Failed to create directories to '" LOGURU_FMT(s) "'", file_abs->path);
 			}
 			file_abs->fp = fopen(file_abs->path, file_abs->mode_str);
 			if (!file_abs->fp) {
-				LOG_F(ERROR, "Failed to open '%s'", file_abs->path);
+				LOG_F(ERROR, "Failed to open '" LOGURU_FMT(s) "'", file_abs->path);
 			} else {
 				stat(file_abs->path, &file_abs->st);
 			}
@@ -370,6 +371,12 @@ namespace loguru
 
 	Text::~Text() { free(_str); }
 
+#if LOGURU_USE_FMTLIB
+	Text vtextprintf(const char* format, fmt::format_args args)
+	{
+		return Text(STRDUP(fmt::vformat(format, args).c_str()));
+	}
+#else
 	LOGURU_PRINTF_LIKE(1, 0)
 	static Text vtextprintf(const char* format, va_list vlist)
 	{
@@ -382,7 +389,7 @@ namespace loguru
 #else
 		char* buff = nullptr;
 		int result = vasprintf(&buff, format, vlist);
-		CHECK_F(result >= 0, "Bad string format: '%s'", format);
+		CHECK_F(result >= 0, "Bad string format: '" LOGURU_FMT(s) "'", format);
 		return Text(buff);
 #endif
 	}
@@ -395,6 +402,7 @@ namespace loguru
 		va_end(vlist);
 		return result;
 	}
+#endif
 
 	// Overloaded for variadic template matching.
 	Text textprintf()
@@ -430,7 +438,7 @@ namespace loguru
 				if (value_str[0] == '\0') {
 					// Value in separate argument
 					arg_it += 1;
-					CHECK_LT_F(arg_it, argc, "Missing verbosiy level after %s", verbosity_flag);
+					CHECK_LT_F(arg_it, argc, "Missing verbosiy level after " LOGURU_FMT(s) "", verbosity_flag);
 					value_str = argv[arg_it];
 					out_argc -= 1;
 				}
@@ -443,7 +451,7 @@ namespace loguru
 					char* end = 0;
 					g_stderr_verbosity = static_cast<int>(strtol(value_str, &end, 10));
 					CHECK_F(end && *end == '\0',
-						"Invalid verbosity. Expected integer, INFO, WARNING, ERROR or OFF, got '%s'", value_str);
+						"Invalid verbosity. Expected integer, INFO, WARNING, ERROR or OFF, got '" LOGURU_FMT(s) "'", value_str);
 				}
 			} else {
 				argv[arg_dest++] = argv[arg_it];
@@ -548,7 +556,7 @@ namespace loguru
 		if (!getcwd(s_current_dir, sizeof(s_current_dir)))
 		{
 			const auto error_text = errno_as_text();
-			LOG_F(WARNING, "Failed to get current working directory: %s", error_text.c_str());
+			LOG_F(WARNING, "Failed to get current working directory: " LOGURU_FMT(s) "", error_text.c_str());
 		}
 
 		s_arguments = "";
@@ -594,12 +602,12 @@ namespace loguru
 			}
 			fflush(stderr);
 		}
-		VLOG_F(g_internal_verbosity, "arguments: %s", s_arguments.c_str());
+		VLOG_F(g_internal_verbosity, "arguments: " LOGURU_FMT(s) "", s_arguments.c_str());
 		if (strlen(s_current_dir) != 0)
 		{
-			VLOG_F(g_internal_verbosity, "Current dir: %s", s_current_dir);
+			VLOG_F(g_internal_verbosity, "Current dir: " LOGURU_FMT(s) "", s_current_dir);
 		}
-		VLOG_F(g_internal_verbosity, "stderr verbosity: %d", g_stderr_verbosity);
+		VLOG_F(g_internal_verbosity, "stderr verbosity: " LOGURU_FMT(d) "", g_stderr_verbosity);
 		VLOG_F(g_internal_verbosity, "-----------------------------------");
 
 		install_signal_handlers();
@@ -693,7 +701,7 @@ namespace loguru
 			if (mkdir(file_path, 0755) == -1) {
 	#endif
 				if (errno != EEXIST) {
-					LOG_F(ERROR, "Failed to create directory '%s'", file_path);
+					LOG_F(ERROR, "Failed to create directory '" LOGURU_FMT(s) "'", file_path);
 					LOG_IF_F(ERROR, errno == EACCES,       "EACCES");
 					LOG_IF_F(ERROR, errno == ENAMETOOLONG, "ENAMETOOLONG");
 					LOG_IF_F(ERROR, errno == ENOENT,       "ENOENT");
@@ -720,13 +728,13 @@ namespace loguru
 		}
 
 		if (!create_directories(path)) {
-			LOG_F(ERROR, "Failed to create directories to '%s'", path);
+			LOG_F(ERROR, "Failed to create directories to '" LOGURU_FMT(s) "'", path);
 		}
 
 		const char* mode_str = (mode == FileMode::Truncate ? "w" : "a");
 		auto file = fopen(path, mode_str);
 		if (!file) {
-			LOG_F(ERROR, "Failed to open '%s'", path);
+			LOG_F(ERROR, "Failed to open '" LOGURU_FMT(s) "'", path);
 			return false;
 		}
 #if LOGURU_WITH_FILEABS
@@ -758,7 +766,7 @@ namespace loguru
 		}
 		fflush(file);
 
-		VLOG_F(g_internal_verbosity, "Logging to '%s', mode: '%s', verbosity: %d", path, mode_str, verbosity);
+		VLOG_F(g_internal_verbosity, "Logging to '" LOGURU_FMT(s) "', mode: '" LOGURU_FMT(s) "', verbosity: " LOGURU_FMT(d) "", path, mode_str, verbosity);
 		return true;
 	}
 
@@ -875,7 +883,7 @@ namespace loguru
 			on_callback_change();
 			return true;
 		} else {
-			LOG_F(ERROR, "Failed to locate callback with id '%s'", id);
+			LOG_F(ERROR, "Failed to locate callback with id '" LOGURU_FMT(s) "'", id);
 			return false;
 		}
 	}
@@ -1220,12 +1228,12 @@ namespace loguru
 		if (message.verbosity == Verbosity_FATAL) {
 			auto st = loguru::stacktrace(stack_trace_skip + 2);
 			if (!st.empty()) {
-				RAW_LOG_F(ERROR, "Stack trace:\n%s", st.c_str());
+				RAW_LOG_F(ERROR, "Stack trace:\n" LOGURU_FMT(s) "", st.c_str());
 			}
 
 			auto ec = loguru::get_error_context();
 			if (!ec.empty()) {
-				RAW_LOG_F(ERROR, "%s", ec.c_str());
+				RAW_LOG_F(ERROR, "" LOGURU_FMT(s) "", ec.c_str());
 			}
 		}
 
@@ -1322,19 +1330,18 @@ namespace loguru
 	}
 
 #if LOGURU_USE_FMTLIB
-	void log(Verbosity verbosity, const char* file, unsigned line, const char* format, fmt::ArgList args)
+	void vlog(Verbosity verbosity, const char* file, unsigned line, const char* format, fmt::format_args args)
 	{
-		auto formatted = fmt::format(format, args);
+		auto formatted = fmt::vformat(format, args);
 		log_to_everywhere(1, verbosity, file, line, "", formatted.c_str());
 	}
 
-	void raw_log(Verbosity verbosity, const char* file, unsigned line, const char* format, fmt::ArgList args)
+	void raw_vlog(Verbosity verbosity, const char* file, unsigned line, const char* format, fmt::format_args args)
 	{
-		auto formatted = fmt::format(format, args);
+		auto formatted = fmt::vformat(format, args);
 		auto message = Message{verbosity, file, line, "", "", "", formatted.c_str()};
 		log_message(1, message, false, true);
 	}
-
 #else
 	void log(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
 	{
@@ -1414,7 +1421,11 @@ namespace loguru
 			}
 #if LOGURU_VERBOSE_SCOPE_ENDINGS
 			auto duration_sec = (now_ns() - _start_time_ns) / 1e9;
+#if LOGURU_USE_FMTLIB
+			auto buff = textprintf("{:.{}f} s: {:s}", duration_sec, LOGURU_SCOPE_TIME_PRECISION, _name);
+#else
 			auto buff = textprintf("%.*f s: %s", LOGURU_SCOPE_TIME_PRECISION, duration_sec, _name);
+#endif
 			log_to_everywhere(1, _verbosity, _file, _line, "} ", buff.c_str());
 #else
 			log_to_everywhere(1, _verbosity, _file, _line, "}", "");
@@ -1422,6 +1433,14 @@ namespace loguru
 		}
 	}
 
+#if LOGURU_USE_FMTLIB
+	void vlog_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line, const char* format, fmt::format_args args)
+	{
+		auto formatted = fmt::vformat(format, args);
+		log_to_everywhere(stack_trace_skip + 1, Verbosity_FATAL, file, line, expr, formatted.c_str());
+		abort(); // log_to_everywhere already does this, but this makes the analyzer happy.
+	}
+#else
 	void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line, const char* format, ...)
 	{
 		va_list vlist;
@@ -1431,6 +1450,7 @@ namespace loguru
 		va_end(vlist);
 		abort(); // log_to_everywhere already does this, but this makes the analyzer happy.
 	}
+#endif
 
 	void log_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line)
 	{
@@ -1440,6 +1460,21 @@ namespace loguru
 	// ----------------------------------------------------------------------------
 	// Streams:
 
+#if LOGURU_USE_FMTLIB
+	template<typename... Args>
+	std::string vstrprintf(const char* format, const Args&... args)
+	{
+		auto text = textprintf(format, args...);
+		std::string result = text.c_str();
+		return result;
+	}
+
+	template<typename... Args>
+	std::string strprintf(const char* format, const Args&... args)
+	{
+		return vstrprintf(format, args...);
+	}
+#else
 	std::string vstrprintf(const char* format, va_list vlist)
 	{
 		auto text = vtextprintf(format, vlist);
@@ -1455,19 +1490,20 @@ namespace loguru
 		va_end(vlist);
 		return result;
 	}
+#endif
 
 	#if LOGURU_WITH_STREAMS
 
 	StreamLogger::~StreamLogger() noexcept(false)
 	{
 		auto message = _ss.str();
-		log(_verbosity, _file, _line, "%s", message.c_str());
+		log(_verbosity, _file, _line, LOGURU_FMT(s), message.c_str());
 	}
 
 	AbortLogger::~AbortLogger() noexcept(false)
 	{
 		auto message = _ss.str();
-		loguru::log_and_abort(1, _expr, _file, _line, "%s", message.c_str());
+		loguru::log_and_abort(1, _expr, _file, _line, LOGURU_FMT(s), message.c_str());
 	}
 
 	#endif // LOGURU_WITH_STREAMS
@@ -1558,8 +1594,13 @@ namespace loguru
 			result.str += "------------------------------------------------\n";
 			for (auto entry : stack) {
 				const auto description = std::string(entry->_descr) + ":";
+#if LOGURU_USE_FMTLIB
+				auto prefix = textprintf("[ErrorContext] {.{}s}:{:-5u} {:-20s} ",
+					filename(entry->_file), LOGURU_FILENAME_WIDTH, entry->_line, description.c_str());
+#else
 				auto prefix = textprintf("[ErrorContext] %*s:%-5u %-20s ",
 					LOGURU_FILENAME_WIDTH, filename(entry->_file), entry->_line, description.c_str());
+#endif
 				result.str += prefix.c_str();
 				entry->print_value(result);
 				result.str += "\n";
@@ -1790,7 +1831,7 @@ namespace loguru
 		sig_action.sa_sigaction = &signal_handler;
 		for (const auto& s : ALL_SIGNALS) {
 			CHECK_F(sigaction(s.number, &sig_action, NULL) != -1,
-				"Failed to install handler for %s", s.name);
+				"Failed to install handler for " LOGURU_FMT(s) "", s.name);
 		}
 	}
 } // namespace loguru
