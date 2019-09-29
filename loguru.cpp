@@ -486,7 +486,7 @@ namespace loguru
 		flush();
 	}
 
-	static void install_signal_handlers();
+	static void install_signal_handlers(bool unsafe_signal_handler);
 
 	static void write_hex_digit(std::string& out, unsigned num)
 	{
@@ -542,7 +542,7 @@ namespace loguru
 	#endif
 	}
 
-	void init(int& argc, char* argv[], const char* verbosity_flag)
+	void init(int& argc, char* argv[], const Options& options)
 	{
 		CHECK_GT_F(argc,       0,       "Expected proper argc/argv");
 		CHECK_EQ_F(argv[argc], nullptr, "Expected proper argc/argv");
@@ -553,8 +553,7 @@ namespace loguru
 			#define getcwd _getcwd
 		#endif
 
-		if (!getcwd(s_current_dir, sizeof(s_current_dir)))
-		{
+		if (!getcwd(s_current_dir, sizeof(s_current_dir))) {
 			const auto error_text = errno_as_text();
 			LOG_F(WARNING, "Failed to get current working directory: " LOGURU_FMT(s) "", error_text.c_str());
 		}
@@ -567,28 +566,30 @@ namespace loguru
 			}
 		}
 
-		if (verbosity_flag) {
-			parse_args(argc, argv, verbosity_flag);
+		if (options.verbosity_flag) {
+			parse_args(argc, argv, options.verbosity_flag);
 		}
 
-		#if LOGURU_PTLS_NAMES || LOGURU_WINTHREADS
-			set_thread_name("main thread");
-		#elif LOGURU_PTHREADS
-			char old_thread_name[16] = {0};
-			auto this_thread = pthread_self();
-			#if defined(__APPLE__) || defined(__linux__)
-				pthread_getname_np(this_thread, old_thread_name, sizeof(old_thread_name));
-			#endif
-			if (old_thread_name[0] == 0) {
-				#ifdef __APPLE__
-					pthread_setname_np("main thread");
-				#elif defined(__FreeBSD__) || defined(__OpenBSD__)
-					pthread_set_name_np(this_thread, "main thread");
-				#elif defined(__linux__)
-					pthread_setname_np(this_thread, "main thread");
+		if (const auto main_thread_name = options.main_thread_name) {
+			#if LOGURU_PTLS_NAMES || LOGURU_WINTHREADS
+				set_thread_name(main_thread_name);
+			#elif LOGURU_PTHREADS
+				char old_thread_name[16] = {0};
+				auto this_thread = pthread_self();
+				#if defined(__APPLE__) || defined(__linux__)
+					pthread_getname_np(this_thread, old_thread_name, sizeof(old_thread_name));
 				#endif
-			}
-		#endif // LOGURU_PTHREADS
+				if (old_thread_name[0] == 0) {
+					#ifdef __APPLE__
+						pthread_setname_np(main_thread_name);
+					#elif defined(__FreeBSD__) || defined(__OpenBSD__)
+						pthread_set_name_np(this_thread, main_thread_name);
+					#elif defined(__linux__)
+						pthread_setname_np(this_thread, main_thread_name);
+					#endif
+				}
+			#endif // LOGURU_PTHREADS
+		}
 
 		if (g_stderr_verbosity >= Verbosity_INFO) {
 			if (g_preamble) {
@@ -610,7 +611,7 @@ namespace loguru
 		VLOG_F(g_internal_verbosity, "stderr verbosity: " LOGURU_FMT(d) "", g_stderr_verbosity);
 		VLOG_F(g_internal_verbosity, "-----------------------------------");
 
-		install_signal_handlers();
+		install_signal_handlers(options.unsafe_signal_handler);
 
 		atexit(on_atexit);
 	}
@@ -1712,13 +1713,10 @@ namespace loguru
 
 #ifdef _WIN32
 namespace loguru {
-	void install_signal_handlers()
+	void install_signal_handlers(bool unsafe_signal_handler)
 	{
-		#if defined(_MSC_VER)
-		#pragma message ( "No signal handlers on Win32" )
-		#else
-		#warning "No signal handlers on Win32"
-		#endif
+		(void)unsafe_signal_handler;
+		// TODO: implement signal handlers on windows
 	}
 } // namespace loguru
 
@@ -1764,6 +1762,8 @@ namespace loguru
 		kill(getpid(), signal_number);
 	}
 
+	static bool s_unsafe_signal_handler = false;
+
 	void signal_handler(int signal_number, siginfo_t*, void*)
 	{
 		const char* signal_name = "UNKNOWN SIGNAL";
@@ -1797,33 +1797,35 @@ namespace loguru
 
 		// --------------------------------------------------------------------
 
-#if LOGURU_UNSAFE_SIGNAL_HANDLER
-		// --------------------------------------------------------------------
-		/* Now we do unsafe things. This can for example lead to deadlocks if
-		   the signal was triggered from the system's memory management functions
-		   and the code below tries to do allocations.
-		*/
+		if (s_unsafe_signal_handler) {
+			// --------------------------------------------------------------------
+			/* Now we do unsafe things. This can for example lead to deadlocks if
+			   the signal was triggered from the system's memory management functions
+			   and the code below tries to do allocations.
+			*/
 
-		flush();
-		char preamble_buff[LOGURU_PREAMBLE_WIDTH];
-		print_preamble(preamble_buff, sizeof(preamble_buff), Verbosity_FATAL, "", 0);
-		auto message = Message{Verbosity_FATAL, "", 0, preamble_buff, "", "Signal: ", signal_name};
-		try {
-			log_message(1, message, false, false);
-		} catch (...) {
-			// This can happed due to s_fatal_handler.
-			write_to_stderr("Exception caught and ignored by Loguru signal handler.\n");
+			flush();
+			char preamble_buff[LOGURU_PREAMBLE_WIDTH];
+			print_preamble(preamble_buff, sizeof(preamble_buff), Verbosity_FATAL, "", 0);
+			auto message = Message{Verbosity_FATAL, "", 0, preamble_buff, "", "Signal: ", signal_name};
+			try {
+				log_message(1, message, false, false);
+			} catch (...) {
+				// This can happed due to s_fatal_handler.
+				write_to_stderr("Exception caught and ignored by Loguru signal handler.\n");
+			}
+			flush();
+
+			// --------------------------------------------------------------------
 		}
-		flush();
-
-		// --------------------------------------------------------------------
-#endif // LOGURU_UNSAFE_SIGNAL_HANDLER
 
 		call_default_signal_handler(signal_number);
 	}
 
-	void install_signal_handlers()
+	void install_signal_handlers(bool unsafe_signal_handler)
 	{
+		s_unsafe_signal_handler = unsafe_signal_handler;
+
 		struct sigaction sig_action;
 		memset(&sig_action, 0, sizeof(sig_action));
 		sigemptyset(&sig_action.sa_mask);

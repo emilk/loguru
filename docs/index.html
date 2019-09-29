@@ -388,7 +388,7 @@ The `ERROR_CONTEXT` feature of Loguru is actually orthogonal to the logging. If 
 
 
 # Functions
-## `void init(int& argc, char* argv[], const char* verbosity_flag = "-v")`
+## `void init(int& argc, char* argv[], const Options& options = {})`
 
 Should be called from the main thread.
 You don't *need* to call this, but if you do you get:
@@ -416,7 +416,30 @@ Tip: You can set `g_stderr_verbosity` before calling `loguru::init`.
 That way you can set the default but have the user override it with the `-v` flag.
 Note that `-v` does not affect file logging (see `loguru::add_file`).
 
-If you want to use the `-v` flag for something else than Loguru, you can set the `verbosity_flag` parameter to e.g. `"--loguru_verbosity"` or `nullptr`.
+You can you something other than the `-v` flag by setting the `verbosity_flag` option.
+
+``` C++
+// Runtime options passed to loguru::init
+struct Options
+{
+	// This allows you to use something else instead of "-v" via verbosity_flag.
+	// Set to nullptr to if you don't want Loguru to parse verbosity from the args.'
+	const char* verbosity_flag = "-v";
+
+	// loguru::init will set the name of the calling thread to this.
+	// If you don't want Loguru to set the name of the main thread,
+	// set this to nullptr.
+	// NOTE: on SOME platforms loguru::init will only overwrite the thread name
+	// if a thread name has not already been set.
+	// To always set a thread name, use loguru::set_thread_name instead.
+	const char+ main_thread_name = "main thread";
+
+	// Make Loguru try to do unsafe but useful things,
+	// like printing a stack trace, when catching signals.
+	// This may lead to bad things like deadlocks in certain situations.
+	bool unsafe_signal_handler = true;
+};
+```
 
 ## `void shutdown()`
 Will call `loguru::remove_all_callbacks()`, thus stopping all logging except to `stderr`.
@@ -620,11 +643,6 @@ This is off by default to keep down compilation times.
 
 ### `LOGURU_REPLACE_GLOG = 0`
 Make Loguru mimic GLOG as close as possible, including #defining `LOG`, `CHECK`, `VLOG_IS_ON` etc. Great if you plan to migrate from GLOG to Loguru and don't want to add _S suffixes to all your logging functions (see `LOGURU_WITH_STREAMS`). `LOGURU_REPLACE_GLOG` implies `LOGURU_WITH_STREAMS`.
-
-### `LOGURU_UNSAFE_SIGNAL_HANDLER = 1`
-Make Loguru try to do unsafe but useful things,
-like printing a stack trace, when catching signals.
-This may lead to bad things like deadlocks in certain situations.
 
 ### `LOGURU_USE_FMTLIB = 0`
 Use fmtlib formatting. See https://github.com/fmtlib/fmt

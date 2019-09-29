@@ -55,6 +55,7 @@ Website: www.ilikebigbits.com
 	* Version 1.8.0 - 2018-04-23 - Shorten long file names to keep preamble fixed width
 	* Version 1.9.0 - 2018-09-22 - Adjust terminal colors, add LOGURU_VERBOSE_SCOPE_ENDINGS, add LOGURU_SCOPE_TIME_PRECISION, add named log levels
 	* Version 2.0.0 - 2018-09-22 - Split loguru.hpp into loguru.hpp and loguru.cpp
+	* Version 2.1.0 - 2019-09-23 - Update fmtlib = add option to loguru::init to NOT set main thread name.
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -78,7 +79,7 @@ Website: www.ilikebigbits.com
 */
 
 #if defined(LOGURU_IMPLEMENTATION)
-	#warning "You are defining LOGURU_IMPLEMENTATION. This is for older versions of Loguru. You should now instead include loguru.cpp (or build it and link with it)"
+	#error "You are defining LOGURU_IMPLEMENTATION. This is for older versions of Loguru. You should now instead include loguru.cpp (or build it and link with it)"
 #endif
 
 // Disable all warnings from gcc/clang:
@@ -93,7 +94,7 @@ Website: www.ilikebigbits.com
 
 // Semantic versioning. Loguru version can be printed with printf("%d.%d.%d", LOGURU_VERSION_MAJOR, LOGURU_VERSION_MINOR, LOGURU_VERSION_PATCH);
 #define LOGURU_VERSION_MAJOR 2
-#define LOGURU_VERSION_MINOR 0
+#define LOGURU_VERSION_MINOR 1
 #define LOGURU_VERSION_PATCH 0
 
 #if defined(_MSC_VER)
@@ -155,8 +156,8 @@ Website: www.ilikebigbits.com
 	#define LOGURU_WITH_STREAMS 1
 #endif
 
-#ifndef LOGURU_UNSAFE_SIGNAL_HANDLER
-	#define LOGURU_UNSAFE_SIGNAL_HANDLER 1
+#if defined(LOGURU_UNSAFE_SIGNAL_HANDLER)
+	#error "You are defining LOGURU_UNSAFE_SIGNAL_HANDLER. This is for older versions of Loguru. You should now instead set the unsafe_signal_handler option when you call loguru::init."
 #endif
 
 #if LOGURU_IMPLEMENTATION
@@ -387,6 +388,27 @@ namespace loguru
 	// Verbosity_INVALID if name is not recognized.
 	typedef Verbosity (*name_to_verbosity_t)(const char* name);
 
+	// Runtime options passed to loguru::init
+	struct Options
+	{
+		// This allows you to use something else instead of "-v" via verbosity_flag.
+		// Set to nullptr to if you don't want Loguru to parse verbosity from the args.'
+		const char* verbosity_flag = "-v";
+
+		// loguru::init will set the name of the calling thread to this.
+		// If you don't want Loguru to set the name of the main thread,
+		// set this to nullptr.
+		// NOTE: on SOME platforms loguru::init will only overwrite the thread name
+		// if a thread name has not already been set.
+		// To always set a thread name, use loguru::set_thread_name instead.
+		const char* main_thread_name = "main thread";
+
+		// Make Loguru try to do unsafe but useful things,
+		// like printing a stack trace, when catching signals.
+		// This may lead to bad things like deadlocks in certain situations.
+		bool unsafe_signal_handler = true;
+	};
+
 	/*  Should be called from the main thread.
 		You don't *need* to call this, but if you do you get:
 			* Signal handlers installed
@@ -411,11 +433,10 @@ namespace loguru
 		That way you can set the default but have the user override it with the -v flag.
 		Note that -v does not affect file logging (see loguru::add_file).
 
-		You can use something else instead of "-v" via verbosity_flag.
-		You can also set verbosity_flag to nullptr.
+		You can you something other than the -v flag by setting the verbosity_flag option.
 	*/
 	LOGURU_EXPORT
-	void init(int& argc, char* argv[], const char* verbosity_flag = "-v");
+	void init(int& argc, char* argv[], const Options& options = {});
 
 	// Will call remove_all_callbacks(). After calling this, logging will still go to stderr.
 	// You generally don't need to call this.
