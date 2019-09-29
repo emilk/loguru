@@ -55,7 +55,7 @@ Website: www.ilikebigbits.com
 	* Version 1.8.0 - 2018-04-23 - Shorten long file names to keep preamble fixed width
 	* Version 1.9.0 - 2018-09-22 - Adjust terminal colors, add LOGURU_VERBOSE_SCOPE_ENDINGS, add LOGURU_SCOPE_TIME_PRECISION, add named log levels
 	* Version 2.0.0 - 2018-09-22 - Split loguru.hpp into loguru.hpp and loguru.cpp
-	* Version 2.1.0 - 2019-09-23 - Update fmtlib = add option to loguru::init to NOT set main thread name.
+	* Version 2.1.0 - 2019-09-23 - Update fmtlib + add option to loguru::init to NOT set main thread name.
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
