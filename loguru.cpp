@@ -655,8 +655,10 @@ namespace loguru
 	const char* home_dir()
 	{
 		#ifdef _WIN32
-			auto user_profile = getenv("USERPROFILE");
-			CHECK_F(user_profile != nullptr, "Missing USERPROFILE");
+			char* user_profile;
+			size_t len;
+			errno_t err = _dupenv_s(&user_profile, &len, "USERPROFILE");
+			CHECK_F(err != 0, "Missing USERPROFILE");
 			return user_profile;
 		#else // _WIN32
 			auto home = getenv("HOME");
@@ -683,10 +685,17 @@ namespace loguru
 			}
 		}
 
-		strncat(buff, s_argv0_filename.c_str(), buff_size - strlen(buff) - 1);
-		strncat(buff, "/",                      buff_size - strlen(buff) - 1);
+	#ifdef _WIN32
+		strncat_s(buff, buff_size - strlen(buff) - 1, s_argv0_filename.c_str(), buff_size - strlen(buff) - 1);
+		strncat_s(buff, buff_size - strlen(buff) - 1, "/",                      buff_size - strlen(buff) - 1);
 		write_date_time(buff + strlen(buff),    buff_size - strlen(buff));
-		strncat(buff, ".log",                   buff_size - strlen(buff) - 1);
+		strncat_s(buff, buff_size - strlen(buff) - 1, ".log",                   buff_size - strlen(buff) - 1);
+	#else
+		strncat(buff, s_argv0_filename.c_str(), buff_size - strlen(buff) - 1);
+		strncat(buff, "/", buff_size - strlen(buff) - 1);
+		write_date_time(buff + strlen(buff), buff_size - strlen(buff));
+		strncat(buff, ".log", buff_size - strlen(buff) - 1);
+	#endif
 	}
 
 	bool create_directories(const char* file_path_const)
@@ -733,8 +742,14 @@ namespace loguru
 		}
 
 		const char* mode_str = (mode == FileMode::Truncate ? "w" : "a");
-		auto file = fopen(path, mode_str);
+		FILE* file;
+	#ifdef _WIN32
+		errno_t file_error = fopen_s(&file, path, mode_str);
+		if (file_error) {
+	#else
+		file = fopen(path, mode_str);
 		if (!file) {
+	#endif
 			LOG_F(ERROR, "Failed to open '" LOGURU_FMT(s) "'", path);
 			return false;
 		}
@@ -1694,9 +1709,14 @@ namespace loguru
 	Text ec_to_text(EcHandle ec_handle)
 	{
 		Text parent_ec = get_error_context_for(ec_handle);
-		char* with_newline = reinterpret_cast<char*>(malloc(strlen(parent_ec.c_str()) + 2));
+		size_t buffer_size = strlen(parent_ec.c_str()) + 2;
+		char* with_newline = reinterpret_cast<char*>(malloc(buffer_size));
 		with_newline[0] = '\n';
+	#ifdef _WIN32
+		strncpy_s(with_newline + 1, buffer_size, parent_ec.c_str(), buffer_size - 2);
+	#else
 		strcpy(with_newline + 1, parent_ec.c_str());
+	#endif
 		return Text(with_newline);
 	}
 
