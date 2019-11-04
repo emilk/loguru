@@ -371,7 +371,7 @@ namespace loguru
 
 	Text::~Text() { free(_str); }
 
-#ifdef LOGURU_USE_FMTLIB
+#if defined(LOGURU_USE_FMTLIB)
 	Text vtextprintf(const char* format, fmt::format_args args)
 	{
 		return Text(STRDUP(fmt::vformat(format, args).c_str()));
@@ -1345,7 +1345,7 @@ namespace loguru
 		log_message(stack_trace_skip + 1, message, true, true);
 	}
 
-#ifdef LOGURU_USE_FMTLIB
+#if defined(LOGURU_USE_FMTLIB)
 	void vlog(Verbosity verbosity, const char* file, unsigned line, const char* format, fmt::format_args args)
 	{
 		auto formatted = fmt::vformat(format, args);
@@ -1437,7 +1437,7 @@ namespace loguru
 			}
 #if LOGURU_VERBOSE_SCOPE_ENDINGS
 			auto duration_sec = (now_ns() - _start_time_ns) / 1e9;
-#ifdef LOGURU_USE_FMTLIB
+#if defined(LOGURU_USE_FMTLIB)
 			auto buff = textprintf("{:.{}f} s: {:s}", duration_sec, LOGURU_SCOPE_TIME_PRECISION, _name);
 #else
 			auto buff = textprintf("%.*f s: %s", LOGURU_SCOPE_TIME_PRECISION, duration_sec, _name);
@@ -1449,7 +1449,7 @@ namespace loguru
 		}
 	}
 
-#ifdef LOGURU_USE_FMTLIB
+#if defined(LOGURU_USE_FMTLIB)
 	void vlog_and_abort(int stack_trace_skip, const char* expr, const char* file, unsigned line, const char* format, fmt::format_args args)
 	{
 		auto formatted = fmt::vformat(format, args);
@@ -1476,7 +1476,7 @@ namespace loguru
 	// ----------------------------------------------------------------------------
 	// Streams:
 
-#ifdef LOGURU_USE_FMTLIB
+#if defined(LOGURU_USE_FMTLIB)
 	template<typename... Args>
 	std::string vstrprintf(const char* format, const Args&... args)
 	{
@@ -1610,7 +1610,7 @@ namespace loguru
 			result.str += "------------------------------------------------\n";
 			for (auto entry : stack) {
 				const auto description = std::string(entry->_descr) + ":";
-#ifdef LOGURU_USE_FMTLIB
+#if defined(LOGURU_USE_FMTLIB)
 				auto prefix = textprintf("[ErrorContext] {.{}s}:{:-5u} {:-20s} ",
 					filename(entry->_file), LOGURU_FILENAME_WIDTH, entry->_line, description.c_str());
 #else
