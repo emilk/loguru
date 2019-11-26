@@ -1,0 +1,32 @@
+{
+    "logurucpplogger": {
+        "title": "Loguru c++ logger format",
+        "description": "Log format used by loguru c++ class",
+        "url": "",
+        "regex": {
+            "main" : {
+                "pattern": "^(?<timestamp>\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}) \\((?<uptime>.*)s\\) \\[(?<thread>.*)\\]\\s+(?<class>\\S+):(?<line>\\w+)\\s+(?<level>\\w+)\\| (?<bod$
+            }
+        },
+        "level-field": "level",
+        "level": {
+            "critical": "FATL",
+            "error": "ERR",
+            "warning": "WARN",
+            "info": "INFO"
+        },
+        "value": {
+            "level": { "kind" : "string", "identifier" : true },
+            "class": { "kind" : "string", "identifier" : true },
+            "body": { "kind" : "string" },
+            "thread": { "kind" : "string" },
+            "uptime": { "kind" : "string" },
+            "line": { "kind" : "string" }
+        },
+        "sample": [
+            {
+                "line": "2019-11-26 09:48:08.307 (   0.002s) [main thread     ]             loguru.cpp:612   INFO| stderr verbosity: 0"
+            }
+        ]
+    }
+}
