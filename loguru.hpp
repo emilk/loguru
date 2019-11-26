@@ -357,6 +357,7 @@ namespace loguru
 	LOGURU_EXPORT extern Verbosity g_stderr_verbosity;
 	LOGURU_EXPORT extern bool      g_colorlogtostderr; // True by default.
 	LOGURU_EXPORT extern unsigned  g_flush_interval_ms; // 0 (unbuffered) by default.
+	LOGURU_EXPORT extern bool      g_preamble_header; // Prepend each log start by a descriptions line with all columns name? True by default.
 	LOGURU_EXPORT extern bool      g_preamble; // Prefix each log line with date, time etc? True by default.
 
 	/* Specify the verbosity used by loguru to log its info messages including the header

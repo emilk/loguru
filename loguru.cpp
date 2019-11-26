@@ -170,6 +170,7 @@ namespace loguru
 	Verbosity g_stderr_verbosity  = Verbosity_0;
 	bool      g_colorlogtostderr  = true;
 	unsigned  g_flush_interval_ms = 0;
+	bool      g_preamble_header   = true;
 	bool      g_preamble          = true;
 
 	Verbosity g_internal_verbosity = Verbosity_0;
@@ -592,7 +593,7 @@ namespace loguru
 		}
 
 		if (g_stderr_verbosity >= Verbosity_INFO) {
-			if (g_preamble) {
+			if (g_preamble_header) {
 				char preamble_explain[LOGURU_PREAMBLE_WIDTH];
 				print_preamble_header(preamble_explain, sizeof(preamble_explain));
 				if (g_colorlogtostderr && s_terminal_has_color) {
@@ -775,7 +776,7 @@ namespace loguru
 			fprintf(file, "Current dir: %s\n", s_current_dir);
 		}
 		fprintf(file, "File verbosity level: %d\n", verbosity);
-		if (g_preamble) {
+		if (g_preamble_header) {
 			char preamble_explain[LOGURU_PREAMBLE_WIDTH];
 			print_preamble_header(preamble_explain, sizeof(preamble_explain));
 			fprintf(file, "%s\n", preamble_explain);
