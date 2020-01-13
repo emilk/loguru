@@ -216,6 +216,9 @@ namespace loguru
 			}
 			return false;
 		#else
+			if (!isatty(STDERR_FILENO)) {
+				return false;
+			}
 			if (const char* term = getenv("TERM")) {
 				return 0 == strcmp(term, "cygwin")
 					|| 0 == strcmp(term, "linux")
