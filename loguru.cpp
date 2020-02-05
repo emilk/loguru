@@ -507,7 +507,7 @@ namespace loguru
 
 	static void escape(std::string& out, const std::string& str)
 	{
-		for (char c : str) {
+		for (signed char c : str) {
 			/**/ if (c == '\a') { out += "\\a";  }
 			else if (c == '\b') { out += "\\b";  }
 			else if (c == '\f') { out += "\\f";  }
@@ -1189,7 +1189,7 @@ namespace loguru
 		localtime_r(&sec_since_epoch, &time_info);
 
 		auto uptime_ms = duration_cast<milliseconds>(steady_clock::now() - s_start_time).count();
-		auto uptime_sec = uptime_ms / 1000.0;
+		auto uptime_sec = static_cast<double>(uptime_ms) / 1000.0;
 
 		char thread_name[LOGURU_THREADNAME_WIDTH + 1] = {0};
 		get_thread_name(thread_name, LOGURU_THREADNAME_WIDTH + 1, true);
@@ -1440,7 +1440,7 @@ namespace loguru
 				}
 			}
 #if LOGURU_VERBOSE_SCOPE_ENDINGS
-			auto duration_sec = (now_ns() - _start_time_ns) / 1e9;
+			auto duration_sec = static_cast<double>(now_ns() - _start_time_ns) / 1e9;
 #if LOGURU_USE_FMTLIB
 			auto buff = textprintf("{:.{}f} s: {:s}", duration_sec, LOGURU_SCOPE_TIME_PRECISION, _name);
 #else
@@ -1653,7 +1653,7 @@ namespace loguru
 		return Text{STRDUP(str.c_str())};
 	}
 
-	Text ec_to_text(char c)
+	Text ec_to_text(signed char c)
 	{
 		// Add quotes around the character to make it obvious where it begin and ends.
 		std::string str = "'";
