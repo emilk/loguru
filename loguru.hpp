@@ -558,7 +558,9 @@ namespace loguru
 
 #if LOGURU_USE_FMTLIB
 	// Internal functions
+    LOGURU_EXPORT
 	void vlog(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, fmt::format_args args);
+    LOGURU_EXPORT
 	void raw_vlog(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, fmt::format_args args);
 
 	// Actual logging function. Use the LOG macro instead of calling this directly.
