@@ -664,11 +664,24 @@ namespace loguru
 	{
 	public:
 		LogScopeRAII() : _file(nullptr) {} // No logging
+#if LOGURU_USE_FMTLIB
+		template <typename... Args>
+		LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, const Args&... args) :
+			_verbosity(verbosity), _file(file), _line(line)
+		{
+			this->Init(format, fmt::make_format_args(args...));
+		}
+#else
 		LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, va_list vlist) LOGURU_PRINTF_LIKE(5, 0);
 		LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(5, 6);
+#endif
 		~LogScopeRAII();
 
+#if LOGURU_USE_FMTLIB
+		void Init(LOGURU_FORMAT_STRING_TYPE format, fmt::format_args args);
+#else
 		void Init(LOGURU_FORMAT_STRING_TYPE format, va_list vlist) LOGURU_PRINTF_LIKE(2, 0);
+#endif
 
 #if defined(_MSC_VER) && _MSC_VER > 1800
 		// older MSVC default move ctors close the scope on move. See

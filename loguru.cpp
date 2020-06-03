@@ -1564,6 +1564,7 @@ namespace loguru
 		s_needs_flushing = false;
 	}
 
+#if !LOGURU_USE_FMTLIB
 	LogScopeRAII::LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, const char* format, va_list vlist) :
 		_verbosity(verbosity), _file(file), _line(line)
 	{
@@ -1578,6 +1579,7 @@ namespace loguru
 		this->Init(format, vlist);
 		va_end(vlist);
 	}
+#endif
 
 	LogScopeRAII::~LogScopeRAII()
 	{
@@ -1609,13 +1611,21 @@ namespace loguru
 		}
 	}
 
+#if LOGURU_USE_FMTLIB
+	void LogScopeRAII::Init(const char* format, fmt::format_args args)
+#else
 	void LogScopeRAII::Init(const char* format, va_list vlist)
+#endif
 	{
 		if (_verbosity <= current_verbosity_cutoff()) {
 			std::lock_guard<std::recursive_mutex> lock(s_mutex);
 			_indent_stderr = (_verbosity <= g_stderr_verbosity);
 			_start_time_ns = now_ns();
+#if LOGURU_USE_FMTLIB
+			snprintf(_name, sizeof(_name), "%s", fmt::vformat(format, args).c_str());
+#else
 			vsnprintf(_name, sizeof(_name), format, vlist);
+#endif
 			log_to_everywhere(1, _verbosity, _file, _line, "{ ", _name);
 
 			if (_indent_stderr) {
