@@ -591,7 +591,7 @@ namespace loguru
 	{
 	public:
 		LogScopeRAII() : _file(nullptr) {} // No logging
-#ifdef LOGURU_USE_FMTLIB
+#if LOGURU_USE_FMTLIB
 	private:
         struct DirtyHackForCtor {};
 	public:
