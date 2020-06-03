@@ -591,7 +591,18 @@ namespace loguru
 	{
 	public:
 		LogScopeRAII() : _file(nullptr) {} // No logging
-		LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(5, 6);
+#ifdef LOGURU_USE_FMTLIB
+	private:
+        struct DirtyHackForCtor {};
+	public:
+        LogScopeRAII(DirtyHackForCtor, Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, fmt::format_args args);
+		template <typename... Args>
+        LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, const Args &... args) :
+        LogScopeRAII(DirtyHackForCtor{}, verbosity, file, line, format, fmt::make_format_args(args...)) {
+		};
+#else
+        LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(5, 6);
+#endif
 		~LogScopeRAII();
 
 #if defined(_MSC_VER) && _MSC_VER > 1800
