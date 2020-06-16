@@ -231,6 +231,7 @@ Website: www.ilikebigbits.com
 
 #if LOGURU_USE_FMTLIB
 	#include <fmt/format.h>
+	#include <fmt/ostream.h>
 	#define LOGURU_FMT(x) "{:" #x "}"
 #else
 	#define LOGURU_FMT(x) "%" #x
