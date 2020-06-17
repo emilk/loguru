@@ -112,7 +112,9 @@
 		   Additionally, all new threads inherit the name of the thread it got forked from.
 		   For this reason, Loguru use the pthread Thread Local Storage
 		   for storing thread names on Linux. */
-		#define LOGURU_PTLS_NAMES 1
+		#ifndef LOGURU_PTLS_NAMES
+			#define LOGURU_PTLS_NAMES 1
+		#endif
 	#endif
 #endif
 
