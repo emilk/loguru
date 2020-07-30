@@ -340,12 +340,12 @@ You can also call `ABORT_F` to abort your program with a message written to the 
 By calling `loguru::init` Loguru will also catch signals such as segmentation errors and divisions by zero. Here is the full list of signals caught by Loguru:
 
 * `SIGABRT` (can be turned off with LOGURU_CATCH_SIGABRT=0)
-* `SIGBUS`
-* `SIGFPE`
-* `SIGILL`
-* `SIGINT`
-* `SIGSEGV`
-* `SIGTERM`
+* `SIGBUS`  (can be turned off with LOGURU_CATCH_SIGBUS=0)
+* `SIGFPE` (can be turned off with LOGURU_CATCH_SIGFPE=0)
+* `SIGILL` (can be turned off with LOGURU_CATCH_SIGILL=0)
+* `SIGINT` (can be turned off with LOGURU_CATCH_SIGINT=0)
+* `SIGSEGV` (can be turned off with LOGURU_CATCH_SIGSEGV=0)
+* `SIGTERM` (can be turned off with LOGURU_CATCH_SIGTERM=0)
 
 ## Error context
 A stack trace gives you the names of the function at the point of a crash. With `ERROR_CONTEXT`, you can also get the values of select local variables. `ERROR_CONTEXT` is in effect a logging that only occurs if there is a crash.
@@ -630,6 +630,24 @@ Maximum length of text that can be printed by a `LOG_SCOPE`. This should be long
 
 ### `LOGURU_CATCH_SIGABRT = 1`
 Should Loguru catch SIGABRT to print stack trace etc?
+
+### `LOGURU_CATCH_SIGBUS = 1`
+Should Loguru catch SIGBUS to print stack trace etc?
+
+### `LOGURU_CATCH_SIGFPE = 1`
+Should Loguru catch SIGFPE to print stack trace etc?
+
+### `LOGURU_CATCH_SIGILL = 1`
+Should Loguru catch SIGILL to print stack trace etc?
+
+### `LOGURU_CATCH_SIGINT = 1`
+Should Loguru catch SIGINT to print stack trace etc?
+
+### `LOGURU_CATCH_SIGSEGV = 1`
+Should Loguru catch SIGSEGV to print stack trace etc?
+
+### `LOGURU_CATCH_SIGTERM = 1`
+Should Loguru catch SIGTERM to print stack trace etc?
 
 ### `LOGURU_REDEFINE_ASSERT = 0`
 Redefine "assert" to call Loguru version (!NDEBUG only).

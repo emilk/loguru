@@ -1759,12 +1759,24 @@ namespace loguru
 #if LOGURU_CATCH_SIGABRT
 		{ SIGABRT, "SIGABRT" },
 #endif
+#if LOGURU_CATCH_SIGBUS
 		{ SIGBUS,  "SIGBUS"  },
+#endif
+#if LOGURU_CATCH_SIGFPE
 		{ SIGFPE,  "SIGFPE"  },
+#endif
+#if LOGURU_CATCH_SIGILL
 		{ SIGILL,  "SIGILL"  },
+#endif
+#if LOGURU_CATCH_SIGINT
 		{ SIGINT,  "SIGINT"  },
+#endif
+#if LOGURU_CATCH_SIGSEGV
 		{ SIGSEGV, "SIGSEGV" },
+#endif
+#if LOGURU_CATCH_SIGTERM
 		{ SIGTERM, "SIGTERM" },
+#endif
 	};
 
 	void write_to_stderr(const char* data, size_t size)

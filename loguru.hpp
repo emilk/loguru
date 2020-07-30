@@ -134,6 +134,36 @@ Website: www.ilikebigbits.com
 	#define LOGURU_CATCH_SIGABRT 1
 #endif
 
+#ifndef LOGURU_CATCH_SIGBUS
+	// Should Loguru catch SIGBUS to print stack trace etc?
+	#define LOGURU_CATCH_SIGBUS 1
+#endif
+
+#ifndef LOGURU_CATCH_SIGFPE
+	// Should Loguru catch SIGFPE to print stack trace etc?
+	#define LOGURU_CATCH_SIGFPE 1
+#endif
+
+#ifndef LOGURU_CATCH_SIGILL
+	// Should Loguru catch SIGILL to print stack trace etc?
+	#define LOGURU_CATCH_SIGILL 1
+#endif
+
+#ifndef LOGURU_CATCH_SIGINT
+	// Should Loguru catch SIGINT to print stack trace etc?
+	#define LOGURU_CATCH_SIGINT 1
+#endif
+
+#ifndef LOGURU_CATCH_SIGSEGV
+	// Should Loguru catch SIGSEGV to print stack trace etc?
+	#define LOGURU_CATCH_SIGSEGV 1
+#endif
+
+#ifndef LOGURU_CATCH_SIGTERM
+	// Should Loguru catch SIGTERM to print stack trace etc?
+	#define LOGURU_CATCH_SIGTERM 1
+#endif
+
 #ifndef LOGURU_VERBOSE_SCOPE_ENDINGS
 	// Show milliseconds and scope name at end of scope.
 	#define LOGURU_VERBOSE_SCOPE_ENDINGS 1
