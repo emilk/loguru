@@ -202,6 +202,7 @@ namespace loguru
 	// For periodic flushing:
 	static std::thread* s_flush_thread   = nullptr;
 	static bool         s_needs_flushing = false;
+    static bool         s_needs_exit = false;
 
 	static SignalOptions s_signal_options = SignalOptions::none();
 
@@ -627,6 +628,13 @@ namespace loguru
 	void shutdown()
 	{
 		VLOG_F(g_internal_verbosity, "loguru::shutdown()");
+        s_needs_exit = true;
+        if (s_flush_thread) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(g_flush_interval_ms));
+            s_flush_thread->detach();
+            delete s_flush_thread;
+            s_flush_thread = nullptr;
+        }
 		remove_all_callbacks();
 		set_fatal_handler(nullptr);
 		set_verbosity_to_name_callback(nullptr);
