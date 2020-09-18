@@ -102,6 +102,11 @@ Website: www.ilikebigbits.com
 #include <sal.h>	// Needed for _In_z_ etc annotations
 #endif
 
+#ifdef __linux__
+// This is required here as LOG_USER is used as a default value to add_syslog()
+#include <syslog.h>
+#endif
+
 // ----------------------------------------------------------------------------
 
 #ifndef LOGURU_EXPORT
@@ -537,6 +542,15 @@ namespace loguru
 	*/
 	LOGURU_EXPORT
 	bool add_file(const char* path, FileMode mode, Verbosity verbosity);
+
+#ifdef __linux__
+	/*  Will add syslog as a standard sink for log messages
+		Any logging message with a verbosity lower or equal to
+		the given verbosity will be included.
+	*/
+	LOGURU_EXPORT
+	bool add_syslog(const char* appname, Verbosity verbosity, int facility = LOG_USER);
+#endif
 
 	/*  Will be called right before abort().
 		You can for instance use this to print custom error messages, or throw an exception.

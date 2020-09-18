@@ -374,7 +374,44 @@ namespace loguru
 	}
 #endif
 	// ------------------------------------------------------------------------------
+	// ------------------------------------------------------------------------------
+#ifdef __linux__
+	void syslog_log(void* /*user_data*/, const Message& message)
+	{
+		/*
+			Level 0: Is reserved for kernel panic type situations.
+			Level 1: Is for Major resource failure.
+			Level 2->7 Application level failures
+		*/
+		int level;
+		if (message.verbosity < Verbosity_FATAL) {
+			level = 1; // System Alert
+		} else {
+			switch(message.verbosity) {
+				case Verbosity_FATAL:   level = 2; break;	// System Critical
+				case Verbosity_ERROR:   level = 3; break;	// System Error
+				case Verbosity_WARNING: level = 4; break;	// System Warning
+				case Verbosity_INFO:    level = 5; break;	// System Notice
+				case Verbosity_1:       level = 6; break;	// System Info
+				default:                level = 7; break;	// System Debug
+			}
+		}
 
+		// Note: We don't add the time info.
+		// This is done automatically by the syslog deamon.
+		// Otherwise log all information that the file log does.
+		syslog(level, "%s%s%s", message.indentation, message.prefix, message.message);
+	}
+
+	void syslog_close(void* /*user_data*/)
+	{
+		closelog();
+	}
+
+	void syslog_flush(void* /*user_data*/)
+	{}
+#endif
+// ------------------------------------------------------------------------------
 	// Helpers:
 
 	Text::~Text() { free(_str); }
@@ -794,6 +831,19 @@ namespace loguru
 		return true;
 	}
 
+#ifdef __linux__
+	bool add_syslog(const char* appName, Verbosity verbosity, int facility /* Default: LOG_USER */)
+	{
+		if (appName == nullptr) {
+			appName = argv0_filename();
+		}
+		openlog(appName, 0, facility);
+		add_callback("'syslog'", syslog_log, nullptr, verbosity, syslog_close, syslog_flush);
+
+		VLOG_F(g_internal_verbosity, "Logging to 'syslog' , verbosity: " LOGURU_FMT(d) "", verbosity);
+		return true;
+	}
+#endif
 	// Will be called right before abort().
 	void set_fatal_handler(fatal_handler_t handler)
 	{
