@@ -375,7 +375,7 @@ namespace loguru
 #endif
 	// ------------------------------------------------------------------------------
 	// ------------------------------------------------------------------------------
-#ifdef __linux__
+#ifdef LOGURU_SYSLOG
 	void syslog_log(void* /*user_data*/, const Message& message)
 	{
 		/*
@@ -831,19 +831,22 @@ namespace loguru
 		return true;
 	}
 
-#ifdef __linux__
-	bool add_syslog(const char* appName, Verbosity verbosity, int facility /* Default: LOG_USER */)
+	bool add_syslog(const char* app_name, Verbosity verbosity, int facility /* Default: LOG_USER */)
 	{
-		if (appName == nullptr) {
-			appName = argv0_filename();
+#ifdef LOGURU_SYSLOG
+		if (app_name == nullptr) {
+			app_name = argv0_filename();
 		}
-		openlog(appName, 0, facility);
+		openlog(app_name, 0, facility);
 		add_callback("'syslog'", syslog_log, nullptr, verbosity, syslog_close, syslog_flush);
 
 		VLOG_F(g_internal_verbosity, "Logging to 'syslog' , verbosity: " LOGURU_FMT(d) "", verbosity);
 		return true;
-	}
+#else
+		VLOG_F(g_internal_verbosity, "syslog not implemented on this system. Request to install syslog logging ignored.");
+        return false;
 #endif
+	}
 	// Will be called right before abort().
 	void set_fatal_handler(fatal_handler_t handler)
 	{
