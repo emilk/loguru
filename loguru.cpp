@@ -46,6 +46,12 @@
 #include <thread>
 #include <vector>
 
+#if LOGURU_SYSLOG
+#include <syslog.h>
+#else
+#define LOG_USER 0
+#endif
+
 #ifdef _WIN32
 	#include <direct.h>
 
@@ -374,7 +380,44 @@ namespace loguru
 	}
 #endif
 	// ------------------------------------------------------------------------------
+	// ------------------------------------------------------------------------------
+#if LOGURU_SYSLOG
+	void syslog_log(void* /*user_data*/, const Message& message)
+	{
+		/*
+			Level 0: Is reserved for kernel panic type situations.
+			Level 1: Is for Major resource failure.
+			Level 2->7 Application level failures
+		*/
+		int level;
+		if (message.verbosity < Verbosity_FATAL) {
+			level = 1; // System Alert
+		} else {
+			switch(message.verbosity) {
+				case Verbosity_FATAL:   level = 2; break;	// System Critical
+				case Verbosity_ERROR:   level = 3; break;	// System Error
+				case Verbosity_WARNING: level = 4; break;	// System Warning
+				case Verbosity_INFO:    level = 5; break;	// System Notice
+				case Verbosity_1:       level = 6; break;	// System Info
+				default:                level = 7; break;	// System Debug
+			}
+		}
 
+		// Note: We don't add the time info.
+		// This is done automatically by the syslog deamon.
+		// Otherwise log all information that the file log does.
+		syslog(level, "%s%s%s", message.indentation, message.prefix, message.message);
+	}
+
+	void syslog_close(void* /*user_data*/)
+	{
+		closelog();
+	}
+
+	void syslog_flush(void* /*user_data*/)
+	{}
+#endif
+// ------------------------------------------------------------------------------
 	// Helpers:
 
 	Text::~Text() { free(_str); }
@@ -794,6 +837,44 @@ namespace loguru
 		return true;
 	}
 
+	/*
+		Will add syslog as a standard sink for log messages
+		Any logging message with a verbosity lower or equal to
+		the given verbosity will be included.
+
+		This works for Unix like systems (i.e. Linux/Mac)
+		There is no current implementation for Windows (as I don't know the
+		equivalent calls or have a way to test them). If you know please
+		add and send a pull request.
+
+		The code should still compile under windows but will only generate
+		a warning message that syslog is unavailable.
+
+		Search for LOGURU_SYSLOG to find and fix.
+	*/
+	bool add_syslog(const char* app_name, Verbosity verbosity)
+	{
+		return add_syslog(app_name, verbosity, LOG_USER);
+	}
+	bool add_syslog(const char* app_name, Verbosity verbosity, int facility)
+	{
+#if LOGURU_SYSLOG
+		if (app_name == nullptr) {
+			app_name = argv0_filename();
+		}
+		openlog(app_name, 0, facility);
+		add_callback("'syslog'", syslog_log, nullptr, verbosity, syslog_close, syslog_flush);
+
+		VLOG_F(g_internal_verbosity, "Logging to 'syslog' , verbosity: " LOGURU_FMT(d) "", verbosity);
+		return true;
+#else
+		(void)app_name;
+		(void)verbosity;
+		(void)facility;
+		VLOG_F(g_internal_verbosity, "syslog not implemented on this system. Request to install syslog logging ignored.");
+		return false;
+#endif
+	}
 	// Will be called right before abort().
 	void set_fatal_handler(fatal_handler_t handler)
 	{
