@@ -496,13 +496,13 @@ Examples:
 
 ```
 
-## `bool add_syslog(const char* appname, Verbosity verbosity, int facility = LOG_USER)`
+## `bool add_syslog(const char* app_name, Verbosity verbosity, int facility = LOG_USER)`
 Any logging message with a verbosity lower or equal to the given verbosity will be sent to <a href="https://man7.org/linux/man-pages/man3/syslog.3.html">syslog</a>.
 
 For systems that do not support syslog a note is made in the log that this functionality is not supported (and return false).
 
 Parameters:
- * appName:     If null uses argv[0]. The name of the application in the syslog.  
+ * app_name:    If null uses argv[0]. The name of the application in the syslog.  
  * verbosity:   Min verbosity need to add an item to syslog  
  * facility:    SysLog application type. You should not normally need to change this.  
                 Only change if you know what you are doing first.  

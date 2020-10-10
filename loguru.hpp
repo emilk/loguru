@@ -102,33 +102,10 @@ Website: www.ilikebigbits.com
 #include <sal.h>	// Needed for _In_z_ etc annotations
 #endif
 
-/*
-	Will add syslog as a standard sink for log messages
-	Any logging message with a verbosity lower or equal to
-	the given verbosity will be included.
-
-	This works for Unix like systems (i.e. Linux/Mac)
-	There is no current implementation for Windows (as I don't know the
-	equivalent calls or have a way to test them). If you know please
-	add and send a pull request.
-
-	The code should still compile under windows but will only generate
-	a warning message that syslog is unavailable.
-
-	Search for LOGURU_SYSLOG to find and fix.
-*/
 #if defined(__linux__) || defined(__APPLE__)
 #define LOGURU_SYSLOG 1
-#endif
-
-#ifdef LOGURU_SYSLOG
-// This is required here as LOG_USER is used as a default value to add_syslog()
-#include <syslog.h>
 #else
-/* To make the code compile on systems with syslog define LOG_USER
-   so it can be used as default parameter.
-*/
-#define LOG_USER 0
+#define LOGURU_SYSLOG 0
 #endif
 
 // ----------------------------------------------------------------------------
@@ -568,7 +545,12 @@ namespace loguru
 	bool add_file(const char* path, FileMode mode, Verbosity verbosity);
 
 	LOGURU_EXPORT
-	bool add_syslog(const char* app_name, Verbosity verbosity, int facility = LOG_USER);
+	// Send logs to syslog with LOG_USER facility (see next call)
+	bool add_syslog(const char* app_name, Verbosity verbosity);
+	LOGURU_EXPORT
+	// Send logs to syslog with your own choice of facility (LOG_USER, LOG_AUTH, ...)
+	// see loguru.cpp: syslog_log() for more details.
+	bool add_syslog(const char* app_name, Verbosity verbosity, int facility);
 
 	/*  Will be called right before abort().
 		You can for instance use this to print custom error messages, or throw an exception.
