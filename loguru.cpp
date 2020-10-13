@@ -1015,16 +1015,23 @@ namespace loguru
 #if LOGURU_WINTHREADS
 	char* get_thread_name_win32()
 	{
-		__declspec( thread ) static char thread_name[LOGURU_THREADNAME_WIDTH + 1] = {0};
+		const auto length = LOGURU_THREADNAME_WIDTH + 1;
+		__declspec( thread ) static char thread_name[length] = {0};
 		auto thread_name_buffer = &thread_name[0];
 		std::string thread_name_string(thread_name_buffer);
 		if(thread_name_string.empty())
 		{
 			const auto thread_id = std::this_thread::get_id();
 			const auto thread_id_hash = std::hash<std::thread::id>{}(thread_id);
-			const auto string_thread_id_hash = std::to_string(thread_id_hash);
-			const auto trimmed_thread_id_hash = string_thread_id_hash.substr(0, 8);
-			memcpy(thread_name_buffer, trimmed_thread_id_hash.c_str(), trimmed_thread_id_hash.size());
+			std::stringstream thread_id_string_stream;
+			thread_id_string_stream << std::hex << thread_id_hash;
+			std::string thread_id_hexadecimal(thread_id_string_stream.str());
+			for (auto& thread_id_hexadecimal_character : thread_id_hexadecimal)
+			{
+				thread_id_hexadecimal_character = toupper(thread_id_hexadecimal_character);
+			}
+			const auto trimmed_thread_id_hash = thread_id_hexadecimal.substr(0, 8);
+			snprintf(thread_name_buffer, length, "%*s", length - 1, trimmed_thread_id_hash.c_str());
 		}
 		return thread_name_buffer;
 	}
