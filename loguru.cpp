@@ -1016,7 +1016,17 @@ namespace loguru
 	char* get_thread_name_win32()
 	{
 		__declspec( thread ) static char thread_name[LOGURU_THREADNAME_WIDTH + 1] = {0};
-		return &thread_name[0];
+		auto thread_name_buffer = &thread_name[0];
+		std::string thread_name_string(thread_name_buffer);
+		if(thread_name_string.empty())
+		{
+			const auto thread_id = std::this_thread::get_id();
+			const auto thread_id_hash = std::hash<std::thread::id>{}(thread_id);
+			const auto string_thread_id_hash = std::to_string(thread_id_hash);
+			const auto trimmed_thread_id_hash = string_thread_id_hash.substr(0, 8);
+			memcpy(thread_name_buffer, trimmed_thread_id_hash.c_str(), trimmed_thread_id_hash.size());
+		}
+		return thread_name_buffer;
 	}
 #endif // LOGURU_WINTHREADS
 
