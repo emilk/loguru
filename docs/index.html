@@ -448,22 +448,22 @@ struct SignalOptions
 
 	/// Should Loguru catch SIGABRT ?
 	bool sigabrt = true;
-	
+
 	/// Should Loguru catch SIGBUS ?
 	bool sigbus = true;
-	
+
 	/// Should Loguru catch SIGFPE ?
 	bool sigfpe = true;
-	
+
 	/// Should Loguru catch SIGILL ?
 	bool sigill = true;
-	
+
 	/// Should Loguru catch SIGINT ?
 	bool sigint = true;
-	
+
 	/// Should Loguru catch SIGSEGV ?
 	bool sigsegv = true;
-	
+
 	/// Should Loguru catch SIGTERM ?
 	bool sigterm = true;
 }
@@ -502,10 +502,10 @@ Any logging message with a verbosity lower or equal to the given verbosity will 
 For systems that do not support syslog a note is made in the log that this functionality is not supported (and return false).
 
 Parameters:
- * app_name:    If null uses argv[0]. The name of the application in the syslog.  
- * verbosity:   Min verbosity need to add an item to syslog  
- * facility:    SysLog application type. You should not normally need to change this.  
-                Only change if you know what you are doing first.  
+ * app_name:    If null uses argv[0]. The name of the application in the syslog.
+ * verbosity:   Min verbosity need to add an item to syslog
+ * facility:    SysLog application type. You should not normally need to change this.
+                Only change if you know what you are doing first.
 
 
 ## `void suggest_log_path(const char* prefix, char* buff, unsigned buff_size)`
@@ -523,8 +523,17 @@ depending on the system.
 Try to limit the thread name to 15 characters or less.
 `loguru::init` will set the name of the calling thread to `"main thread"`.
 
+## `void get_thread_name(char* buffer, unsigned long long length, bool right_align_hex_id)`
+Returns the thread name for this thread.
+On most *nix systems this will return the system thread name (settable from both within and without Loguru).
+On other systems it will return whatever you set in `set_thread_name()`;
+If no thread name is set, this will return a hexadecimal thread id.
+`length` should be the number of bytes available in the buffer.
+17 is a good number for length.
+`right_align_hex_id` means any hexadecimal thread id will be written to the end of buffer.
+
 ## `Text stacktrace(int skip = 1)`
-Generates a readable stacktrace as a string. 'skip' specifies how many stack frames to skip. For instance, the default skip means: don't include the function loguru::stacktrace in the stack trace.
+Generates a readable stacktrace as a string. 'skip' specifies how many stack frames to skip. For instance, the default skip means: don't include the function `loguru::stacktrace` in the stack trace.
 
 `Text` here is just a simple wrapper type. You can print its content with `.c_str()` just like you would with an `std::string`.
 
