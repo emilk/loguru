@@ -442,7 +442,7 @@ namespace loguru
 	struct Options
 	{
 		// This allows you to use something else instead of "-v" via verbosity_flag.
-		// Set to nullptr to if you don't want Loguru to parse verbosity from the args.'
+		// Set to nullptr if you don't want Loguru to parse verbosity from the args.
 		const char* verbosity_flag = "-v";
 
 		// loguru::init will set the name of the calling thread to this.
