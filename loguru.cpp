@@ -652,7 +652,7 @@ namespace loguru
 		VLOG_F(g_internal_verbosity, "stderr verbosity: " LOGURU_FMT(d) "", g_stderr_verbosity);
 		VLOG_F(g_internal_verbosity, "-----------------------------------");
 
-		install_signal_handlers(options.signals);
+		install_signal_handlers(options.signal_options);
 
 		atexit(on_atexit);
 	}

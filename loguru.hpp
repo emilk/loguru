@@ -453,7 +453,7 @@ namespace loguru
 		// To always set a thread name, use loguru::set_thread_name instead.
 		const char* main_thread_name = "main thread";
 
-		SignalOptions signals;
+		SignalOptions signal_options;
 	};
 
 	/*  Should be called from the main thread.
