@@ -1057,7 +1057,7 @@ namespace loguru
 		#if LOGURU_PTLS_NAMES
 			(void)pthread_once(&s_pthread_key_once, make_pthread_key_name);
 			if (const char* name = static_cast<const char*>(pthread_getspecific(s_pthread_key_name))) {
-				snprintf(buffer, length, "%s", name);
+				snprintf(buffer, static_cast<size_t>(length), "%s", name);
 			} else {
 				buffer[0] = 0;
 			}
@@ -1067,7 +1067,7 @@ namespace loguru
 			// only some platforms support it (currently).
 			pthread_getname_np(pthread_self(), buffer, length);
 		#elif LOGURU_WINTHREADS
-			snprintf(buffer, (size_t)length, "%s", thread_name_buffer());
+			snprintf(buffer, static_cast<size_t>(length), "%s", thread_name_buffer());
 		#else
 			// Thread names unsupported
 			buffer[0] = 0;
@@ -1094,9 +1094,9 @@ namespace loguru
 			#endif
 
 			if (right_align_hex_id) {
-				snprintf(buffer, length, "%*X", static_cast<int>(length - 1), static_cast<unsigned>(thread_id));
+				snprintf(buffer, static_cast<size_t>(length), "%*X", static_cast<int>(length - 1), static_cast<unsigned>(thread_id));
 			} else {
-				snprintf(buffer, length, "%X", static_cast<unsigned>(thread_id));
+				snprintf(buffer, static_cast<size_t>(length), "%X", static_cast<unsigned>(thread_id));
 			}
 		}
 	}
