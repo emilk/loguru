@@ -695,7 +695,11 @@ namespace loguru
 
 	const char* home_dir()
 	{
-		#ifdef _WIN32
+		#ifdef __MINGW32__
+			auto home = getenv("USERPROFILE");
+			CHECK_F(home != nullptr, "Missing USERPROFILE");
+			return home;
+		#elif defined(_WIN32)
 			char* user_profile;
 			size_t len;
 			errno_t err = _dupenv_s(&user_profile, &len, "USERPROFILE");
