@@ -703,7 +703,7 @@ namespace loguru
 			char* user_profile;
 			size_t len;
 			errno_t err = _dupenv_s(&user_profile, &len, "USERPROFILE");
-			CHECK_F(err != 0, "Missing USERPROFILE");
+			CHECK_F(err == 0, "Missing USERPROFILE");
 			return user_profile;
 		#else // _WIN32
 			auto home = getenv("HOME");
