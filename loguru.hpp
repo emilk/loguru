@@ -539,10 +539,12 @@ namespace loguru
 		the given verbosity will be included.
 		The function will create all directories in 'path' if needed.
 		If path starts with a ~, it will be replaced with loguru::home_dir()
+		The log file will be limited by log_size_m and file_num. Eg: log_size_m = 2, file_num = 3 means
+		that log file max size is 2M and 3 log files will be rotating saved.
 		To stop the file logging, just call loguru::remove_callback(path) with the same path.
 	*/
 	LOGURU_EXPORT
-	bool add_file(const char* path, FileMode mode, Verbosity verbosity);
+	bool add_file(const char* path, FileMode mode, Verbosity verbosity, int log_size_m = 2, int file_num = 3);
 
 	LOGURU_EXPORT
 	// Send logs to syslog with LOG_USER facility (see next call)
