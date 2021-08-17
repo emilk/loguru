@@ -1347,12 +1347,15 @@ namespace loguru
 
 #if LOGURU_DEBUG_LOGGING
 	// Debug logging enabled:
+	#define DLOG_SCOPE_FUNCTION(verbosity)  if(0) {}
 	#define DVLOG_IF_S(verbosity, cond)     VLOG_IF_S(verbosity, cond)
 	#define DLOG_IF_S(verbosity_name, cond) LOG_IF_S(verbosity_name, cond)
 	#define DVLOG_S(verbosity)              VLOG_S(verbosity)
 	#define DLOG_S(verbosity_name)          LOG_S(verbosity_name)
 #else
 	// Debug logging disabled:
+	#define DLOG_SCOPE_FUNCTION(verbosity)  (void)0
+
 	#define DVLOG_IF_S(verbosity, cond)                                                     \
 		(true || (verbosity) > loguru::current_verbosity_cutoff() || (cond) == false)       \
 			? (void)0                                                                       \
