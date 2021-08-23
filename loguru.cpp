@@ -898,7 +898,7 @@ namespace loguru
 			return;
 		}
 
-		s_user_stack_cleanups.push_back(StringPair(find_this, replace_with_this));
+		s_user_stack_cleanups.emplace_back(StringPair(find_this, replace_with_this));
 	}
 
 	static void on_callback_change()
