@@ -1629,7 +1629,7 @@ namespace loguru
 
 	struct StringStream
 	{
-		std::string str;
+		std::string str{};
 	};
 
 	// Use this in your EcPrinter implementations.
