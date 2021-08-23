@@ -599,7 +599,7 @@ namespace loguru
 			LOG_F(WARNING, "Failed to get current working directory: " LOGURU_FMT(s) "", error_text.c_str());
 		}
 
-		s_arguments = "";
+		s_arguments.clear();
 		for (int i = 0; i < argc; ++i) {
 			escape(s_arguments, argv[i]);
 			if (i + 1 < argc) {
@@ -645,7 +645,7 @@ namespace loguru
 			fflush(stderr);
 		}
 		VLOG_F(g_internal_verbosity, "arguments: " LOGURU_FMT(s) "", s_arguments.c_str());
-		if (strlen(s_current_dir) != 0)
+		if (s_current_dir[0] != '\0')
 		{
 			VLOG_F(g_internal_verbosity, "Current dir: " LOGURU_FMT(s) "", s_current_dir);
 		}
@@ -817,7 +817,7 @@ namespace loguru
 		if (!s_arguments.empty()) {
 			fprintf(file, "arguments: %s\n", s_arguments.c_str());
 		}
-		if (strlen(s_current_dir) != 0) {
+		if (s_current_dir[0] != '\0') {
 			fprintf(file, "Current dir: %s\n", s_current_dir);
 		}
 		fprintf(file, "File verbosity level: %d\n", verbosity);
