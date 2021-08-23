@@ -1264,7 +1264,7 @@ namespace loguru
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "   v");
 		}
 		if (g_preamble_pipe && pos < out_buff_size) {
-			pos += snprintf(out_buff + pos, out_buff_size - pos, "| ");
+			/* pos += */ snprintf(out_buff + pos, out_buff_size - pos, "| ");
 		}
 	}
 
@@ -1325,7 +1325,7 @@ namespace loguru
 			               level_buff);
 		}
 		if (g_preamble_pipe && pos < out_buff_size) {
-			pos += snprintf(out_buff + pos, out_buff_size - pos, "| ");
+			/* pos += */ snprintf(out_buff + pos, out_buff_size - pos, "| ");
 		}
 	}
 
