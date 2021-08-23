@@ -747,6 +747,7 @@ namespace loguru
 	{
 		CHECK_F(file_path_const && *file_path_const);
 		char* file_path = STRDUP(file_path_const);
+		CHECK_F(file_path != nullptr, "Failed to allocate memory");
 		for (char* p = strchr(file_path + 1, '/'); p; p = strchr(p + 1, '/')) {
 			*p = '\0';
 
