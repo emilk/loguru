@@ -1807,6 +1807,7 @@ namespace loguru
 		Text parent_ec = get_error_context_for(ec_handle);
 		size_t buffer_size = strlen(parent_ec.c_str()) + 2;
 		char* with_newline = reinterpret_cast<char*>(malloc(buffer_size));
+		CHECK_F(with_newline != nullptr, "Failed to allocate memory for error context.");
 		with_newline[0] = '\n';
 	#ifdef _WIN32
 		strncpy_s(with_newline + 1, buffer_size, parent_ec.c_str(), buffer_size - 2);
