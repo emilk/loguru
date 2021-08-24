@@ -1858,7 +1858,10 @@ namespace loguru
 		memset(&sig_action, 0, sizeof(sig_action));
 		sigemptyset(&sig_action.sa_mask);
 		sig_action.sa_handler = SIG_DFL;
-		sigaction(signal_number, &sig_action, NULL);
+
+		// Note: Explicitly ignore sigaction's return value.
+		//       It's only used when setting up the signal handlers.
+		(void) sigaction(signal_number, &sig_action, NULL);
 		kill(getpid(), signal_number);
 	}
 
