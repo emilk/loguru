@@ -599,7 +599,7 @@ namespace loguru
 			LOG_F(WARNING, "Failed to get current working directory: " LOGURU_FMT(s) "", error_text.c_str());
 		}
 
-		s_arguments = "";
+		s_arguments.clear();
 		for (int i = 0; i < argc; ++i) {
 			escape(s_arguments, argv[i]);
 			if (i + 1 < argc) {
@@ -645,7 +645,7 @@ namespace loguru
 			fflush(stderr);
 		}
 		VLOG_F(g_internal_verbosity, "arguments: " LOGURU_FMT(s) "", s_arguments.c_str());
-		if (strlen(s_current_dir) != 0)
+		if (s_current_dir[0] != '\0')
 		{
 			VLOG_F(g_internal_verbosity, "Current dir: " LOGURU_FMT(s) "", s_current_dir);
 		}
@@ -747,6 +747,7 @@ namespace loguru
 	{
 		CHECK_F(file_path_const && *file_path_const);
 		char* file_path = STRDUP(file_path_const);
+		CHECK_F(file_path != nullptr, "Failed to allocate memory");
 		for (char* p = strchr(file_path + 1, '/'); p; p = strchr(p + 1, '/')) {
 			*p = '\0';
 
@@ -816,7 +817,7 @@ namespace loguru
 		if (!s_arguments.empty()) {
 			fprintf(file, "arguments: %s\n", s_arguments.c_str());
 		}
-		if (strlen(s_current_dir) != 0) {
+		if (s_current_dir[0] != '\0') {
 			fprintf(file, "Current dir: %s\n", s_current_dir);
 		}
 		fprintf(file, "File verbosity level: %d\n", verbosity);
@@ -897,7 +898,7 @@ namespace loguru
 			return;
 		}
 
-		s_user_stack_cleanups.push_back(StringPair(find_this, replace_with_this));
+		s_user_stack_cleanups.emplace_back(StringPair(find_this, replace_with_this));
 	}
 
 	static void on_callback_change()
@@ -1162,7 +1163,7 @@ namespace loguru
 
 		try {
 			std::regex std_allocator_re(R"(,\s*std::allocator<[^<>]+>)");
-			output = std::regex_replace(output, std_allocator_re, std::string(""));
+			output = std::regex_replace(output, std_allocator_re, std::string());
 
 			std::regex template_spaces_re(R"(<\s*([^<> ]+)\s*>)");
 			output = std::regex_replace(output, template_spaces_re, std::string("<$1>"));
@@ -1195,8 +1196,7 @@ namespace loguru
 				}
 				snprintf(buf, sizeof(buf), "%-3d %*p %s + %zd\n",
 						 i - skip, int(2 + sizeof(void*) * 2), callstack[i],
-						 status == 0 ? demangled :
-						 info.dli_sname == 0 ? symbols[i] : info.dli_sname,
+						 status == 0 ? demangled : info.dli_sname,
 						 static_cast<char*>(callstack[i]) - static_cast<char*>(info.dli_saddr));
 				free(demangled);
 			} else {
@@ -1245,7 +1245,7 @@ namespace loguru
 		if (out_buff_size == 0) { return; }
 		out_buff[0] = '\0';
 		long pos = 0;
-		if (g_preamble_date && pos < out_buff_size) {
+		if (g_preamble_date) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "date       ");
 		}
 		if (g_preamble_time && pos < out_buff_size) {
@@ -1264,7 +1264,7 @@ namespace loguru
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "   v");
 		}
 		if (g_preamble_pipe && pos < out_buff_size) {
-			pos += snprintf(out_buff + pos, out_buff_size - pos, "| ");
+			/* pos += */ snprintf(out_buff + pos, out_buff_size - pos, "| ");
 		}
 	}
 
@@ -1298,7 +1298,7 @@ namespace loguru
 
 		long pos = 0;
 
-		if (g_preamble_date && pos < out_buff_size) {
+		if (g_preamble_date) {
 			pos += snprintf(out_buff + pos, out_buff_size - pos, "%04d-%02d-%02d ",
 				             1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday);
 		}
@@ -1325,7 +1325,7 @@ namespace loguru
 			               level_buff);
 		}
 		if (g_preamble_pipe && pos < out_buff_size) {
-			pos += snprintf(out_buff + pos, out_buff_size - pos, "| ");
+			/* pos += */ snprintf(out_buff + pos, out_buff_size - pos, "| ");
 		}
 	}
 
@@ -1629,7 +1629,7 @@ namespace loguru
 
 	struct StringStream
 	{
-		std::string str;
+		std::string str{};
 	};
 
 	// Use this in your EcPrinter implementations.
@@ -1807,6 +1807,7 @@ namespace loguru
 		Text parent_ec = get_error_context_for(ec_handle);
 		size_t buffer_size = strlen(parent_ec.c_str()) + 2;
 		char* with_newline = reinterpret_cast<char*>(malloc(buffer_size));
+		CHECK_F(with_newline != nullptr, "Failed to allocate memory for error context.");
 		with_newline[0] = '\n';
 	#ifdef _WIN32
 		strncpy_s(with_newline + 1, buffer_size, parent_ec.c_str(), buffer_size - 2);
@@ -1857,7 +1858,10 @@ namespace loguru
 		memset(&sig_action, 0, sizeof(sig_action));
 		sigemptyset(&sig_action.sa_mask);
 		sig_action.sa_handler = SIG_DFL;
-		sigaction(signal_number, &sig_action, NULL);
+
+		// Note: Explicitly ignore sigaction's return value.
+		//       It's only used when setting up the signal handlers.
+		(void) sigaction(signal_number, &sig_action, NULL);
 		kill(getpid(), signal_number);
 	}
 
