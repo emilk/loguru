@@ -820,7 +820,7 @@ namespace loguru
 	{
 	public:
 		EcEntryBase(const char* file, unsigned line, const char* descr);
-		~EcEntryBase();
+		virtual ~EcEntryBase();
 		EcEntryBase(const EcEntryBase&) = delete;
 		EcEntryBase(EcEntryBase&&) = delete;
 		EcEntryBase& operator=(const EcEntryBase&) = delete;
