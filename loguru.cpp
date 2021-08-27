@@ -1,4 +1,4 @@
-#ifndef _WIN32
+#if defined(__GNUC__) || defined(__clang__)
 // Disable all warnings from gcc/clang:
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpragmas"
@@ -16,11 +16,9 @@
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
 #pragma GCC diagnostic ignored "-Wunused-macros"
 #pragma GCC diagnostic ignored "-Wzero-as-null-pointer-constant"
-#else
-#ifdef _MSC_VER
+#elif defined(_MSC_VER)
 #pragma warning(push)
 #pragma warning(disable:4018)
-#endif // _MSC_VER
 #endif
 
 #include "loguru.hpp"
@@ -1956,10 +1954,11 @@ namespace loguru
 
 #endif // _WIN32
 
-#ifdef _WIN32
-#ifdef _MSC_VER
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
 #pragma warning(pop)
-#endif // _MSC_VER
-#endif // _WIN32
+#endif
 
 #endif // LOGURU_IMPLEMENTATION
