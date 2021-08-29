@@ -1248,8 +1248,7 @@ namespace loguru
 		if (out_buff_size == 0) { return; }
 		out_buff[0] = '\0';
 		size_t pos = 0;
-		assert(pos < out_buff_size);
-		if (g_preamble_date) {
+		if (g_preamble_date && pos < out_buff_size) {
 			int bytes = snprintf(out_buff + pos, out_buff_size - pos, "date       ");
 			if (bytes > 0) {
 				pos += bytes;
@@ -1286,14 +1285,10 @@ namespace loguru
 			}
 		}
 		if (g_preamble_pipe && pos < out_buff_size) {
-			(void)snprintf(out_buff + pos, out_buff_size - pos, "| ");
-
-			// Because this is the last if-statement, we avoid incrementing the
-			//  position to clarify it's unused. If more cases are added, then:
-			// int bytes = snprintf(...)
-			// if (bytes > 0) {
-			// 	pos += bytes;
-			// }
+			int bytes = snprintf(out_buff + pos, out_buff_size - pos, "| ");
+			if (bytes > 0) {
+				pos += bytes;
+			}
 		}
 	}
 
@@ -1326,8 +1321,7 @@ namespace loguru
 		}
 
 		size_t pos = 0;
-		assert(pos < out_buff_size);
-		if (g_preamble_date) {
+		if (g_preamble_date && pos < out_buff_size) {
 			int bytes = snprintf(out_buff + pos, out_buff_size - pos, "%04d-%02d-%02d ",
 				                 1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday);
 			if (bytes > 0) {
@@ -1372,13 +1366,10 @@ namespace loguru
 			}
 		}
 		if (g_preamble_pipe && pos < out_buff_size) {
-			(void)snprintf(out_buff + pos, out_buff_size - pos, "| ");
-
-			// Avoid incrementing the position to clarify it's unused
-			// int bytes = snprintf(...)
-			// if (bytes > 0) {
-			// 	pos += bytes;
-			// }
+			int bytes = snprintf(out_buff + pos, out_buff_size - pos, "| ");
+			if (bytes > 0) {
+				pos += bytes;
+			}
 		}
 	}
 
