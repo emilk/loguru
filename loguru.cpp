@@ -1247,7 +1247,8 @@ namespace loguru
 		if (out_buff_size == 0) { return; }
 		out_buff[0] = '\0';
 		size_t pos = 0;
-		if (g_preamble_date && pos < out_buff_size) {
+		assert(pos < out_buff_size);
+		if (g_preamble_date) {
 			int bytes = snprintf(out_buff + pos, out_buff_size - pos, "date       ");
 			if (bytes > 0) {
 				pos += bytes;
@@ -1324,8 +1325,8 @@ namespace loguru
 		}
 
 		size_t pos = 0;
-
-		if (g_preamble_date && pos < out_buff_size) {
+		assert(pos < out_buff_size);
+		if (g_preamble_date) {
 			int bytes = snprintf(out_buff + pos, out_buff_size - pos, "%04d-%02d-%02d ",
 				                 1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday);
 			if (bytes > 0) {
