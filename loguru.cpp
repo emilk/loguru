@@ -40,6 +40,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <climits>
 #include <mutex>
 #include <regex>
 #include <string>
@@ -556,7 +557,11 @@ namespace loguru
 			else if (c == '\'') { out += "\\\'"; }
 			else if (c == '\"') { out += "\\\""; }
 			else if (c == ' ')  { out += "\\ ";  }
-			else if (0 <= c && c < 0x20) { // ASCI control character:
+#if (CHAR_MIN < 0) // char is signed
+			else if (0 <= c && c < 0x20) { // ASCI control character
+#else // char is unsigned
+			else if (c < 0x20) { // ASCI control character
+#endif
 			// else if (c < 0x20 || c != (c & 127)) { // ASCII control character or UTF-8:
 				out += "\\x";
 				write_hex_byte(out, static_cast<uint8_t>(c));
@@ -1773,7 +1778,11 @@ namespace loguru
 		else if (c == '\n') { str += "\\n";  }
 		else if (c == '\r') { str += "\\r";  }
 		else if (c == '\t') { str += "\\t";  }
+#if (CHAR_MIN < 0) // char is signed
 		else if (0 <= c && c < 0x20) {
+#else // char is unsigned
+		else if (c < 0x20) {
+#endif
 			str += "\\u";
 			write_hex_16(static_cast<uint16_t>(c));
 		} else { str += c; }
