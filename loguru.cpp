@@ -32,6 +32,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cassert>
 #include <chrono>
 #include <cstdarg>
 #include <cstdio>
