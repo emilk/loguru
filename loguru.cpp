@@ -1317,12 +1317,12 @@ namespace loguru
 			file = filename(file);
 		}
 
-		char level_buff[6];
+		char level_buff[7];
 		const char* custom_level_name = get_verbosity_name(verbosity);
 		if (custom_level_name) {
 			snprintf(level_buff, sizeof(level_buff) - 1, "%s", custom_level_name);
 		} else {
-			snprintf(level_buff, sizeof(level_buff) - 1, "% 4d", verbosity);
+			snprintf(level_buff, sizeof(level_buff) - 1, "%4d", static_cast<int>(verbosity) % 9999);
 		}
 
 		size_t pos = 0;
