@@ -1118,7 +1118,7 @@ namespace loguru
 				long thread_id;
 				(void)thr_self(&thread_id);
 			#elif LOGURU_PTHREADS
-				uint64_t thread_id = pthread_self();
+				const auto thread_id = reinterpret_cast<uintptr_t>(pthread_self());
 			#else
 				// This ID does not correllate to anything we can get from the OS,
 				// so this is the worst way to get the ID.
