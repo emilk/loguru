@@ -634,6 +634,9 @@ namespace loguru
 						pthread_set_name_np(this_thread, main_thread_name);
 					#elif defined(__linux__) || defined(__sun)
 						pthread_setname_np(this_thread, main_thread_name);
+					#else
+						// platforms that we don't know how to set the name on
+						(void)this_thread; // unused
 					#endif
 				}
 			#endif // LOGURU_PTHREADS
@@ -1049,6 +1052,9 @@ namespace loguru
 				pthread_set_name_np(pthread_self(), name);
 			#elif defined(__linux__) || defined(__sun)
 				pthread_setname_np(pthread_self(), name);
+			#else
+				// Platforms that may not support setting a thread name
+				(void)name; // unused
 			#endif
 		#elif LOGURU_WINTHREADS
 			// Store thread name in a thread-local storage:
@@ -1076,7 +1082,12 @@ namespace loguru
 			// Ask the OS about the thread name.
 			// This is what we *want* to do on all platforms, but
 			// only some platforms support it (currently).
-			pthread_getname_np(pthread_self(), buffer, length);
+			#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__linux__) || defined(__sun)
+				pthread_getname_np(pthread_self(), buffer, length);
+			#else
+				// Other platforms that don't support thread names
+				buffer[0] = 0;
+			#endif
 		#elif LOGURU_WINTHREADS
 			snprintf(buffer, static_cast<size_t>(length), "%s", thread_name_buffer());
 		#else
