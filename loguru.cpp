@@ -593,6 +593,7 @@ namespace loguru
 		return Text(STRDUP(buff));
 	#else
 		// Not thread-safe.
+		(void)buff; // unused parameter
 		return Text(STRDUP(strerror(errno)));
 	#endif
 	}
