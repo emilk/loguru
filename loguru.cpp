@@ -422,18 +422,27 @@ namespace loguru
 	LOGURU_PRINTF_LIKE(1, 0)
 	static Text vtextprintf(const char* format, va_list vlist)
 	{
-#ifdef _WIN32
-		int bytes_needed = _vscprintf(format, vlist);
+		// Determine the required length of the string
+		int bytes_needed = 0;
+
+		// Calling vsnprintf is assumed to 'consume' the vlist, therefore we need a copy
+		// of the args to avoid corrupting the stack in the second call to vsnprintf.
+		va_list argcopy;
+		va_copy(argcopy, vlist);
+		bytes_needed = vsnprintf(NULL, 0, format, argcopy);
+		va_end(argcopy);
 		CHECK_F(bytes_needed >= 0, "Bad string format: '%s'", format);
-		char* buff = (char*)malloc(bytes_needed+1);
-		vsnprintf(buff, bytes_needed+1, format, vlist);
+
+		// Allocate the string's buffer
+		++bytes_needed; // Add space for null terminator
+		auto buff = static_cast<char*>(malloc(bytes_needed));
+		CHECK_F(buff != nullptr, "Out of memory");
+
+		// Construct the string and check the result
+		const auto written = vsnprintf(buff, bytes_needed, format, vlist);
+		CHECK_F(written <= bytes_needed, "Bad string format: '%s'", format);
+
 		return Text(buff);
-#else
-		char* buff = nullptr;
-		int result = vasprintf(&buff, format, vlist);
-		CHECK_F(result >= 0, "Bad string format: '" LOGURU_FMT(s) "'", format);
-		return Text(buff);
-#endif
 	}
 
 	Text textprintf(const char* format, ...)
