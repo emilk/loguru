@@ -1092,7 +1092,7 @@ namespace loguru
 			// This is what we *want* to do on all platforms, but
 			// only some platforms support it (currently).
 
-			#ifdef __APPLE__ || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__linux__) || defined(__sun)
+			#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__linux__) || defined(__sun)
 				pthread_getname_np(pthread_self(), buffer, length);
 			#else
 				// Other platforms that don't support thread names
