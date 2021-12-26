@@ -104,6 +104,9 @@
 #endif // LOGURU_STACKTRACES
 
 #if LOGURU_PTHREADS
+	// for std::is_pointer<> to differentiate pthread_self() type variations
+	#include <type_traits>
+
 	#include <pthread.h>
 	#if defined(__FreeBSD__)
 		#include <pthread_np.h>
@@ -1118,7 +1121,15 @@ namespace loguru
 				long thread_id;
 				(void)thr_self(&thread_id);
 			#elif LOGURU_PTHREADS
-				const auto thread_id = reinterpret_cast<uintptr_t>(pthread_self());
+				const auto native_id = pthread_self();
+				// Warning, even within POSIX, return types and sizes vary:
+				//  - Haku GCC returns a pthread_t*
+				//  - ARM32 GCC returns an unsigned long long int
+				// So we bake the variations down to a common integer:
+				const auto pthread_self_is_pointer = std::is_pointer<decltype(native_id)>::value;
+				const auto thread_id = pthread_self_is_pointer
+				                           ? reinterpret_cast<uintptr_t>((void*)native_id)
+				                           : static_cast<uintptr_t>(native_id);
 			#else
 				// This ID does not correllate to anything we can get from the OS,
 				// so this is the worst way to get the ID.
