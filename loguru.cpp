@@ -498,7 +498,7 @@ namespace loguru
 				if (value_str[0] == '\0') {
 					// Value in separate argument
 					arg_it += 1;
-					CHECK_LT_F(arg_it, argc, "Missing verbosiy level after " LOGURU_FMT(s) "", verbosity_flag);
+					CHECK_LT_F(arg_it, argc, "Missing verbosity level after " LOGURU_FMT(s) "", verbosity_flag);
 					value_str = argv[arg_it];
 					out_argc -= 1;
 				}
