@@ -248,6 +248,8 @@ Website: www.ilikebigbits.com
 	#define STRDUP(str) strdup(str)
 #endif
 
+#include <stdarg.h>
+
 // --------------------------------------------------------------------
 
 namespace loguru
@@ -635,6 +637,10 @@ namespace loguru
 	LOGURU_EXPORT
 	void log(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(4, 5);
 
+	// Actual logging function.
+	LOGURU_EXPORT
+	void vlog(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, va_list) LOGURU_PRINTF_LIKE(4, 0);
+
 	// Log without any preamble or indentation.
 	LOGURU_EXPORT
 	void raw_log(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(4, 5);
@@ -645,8 +651,11 @@ namespace loguru
 	{
 	public:
 		LogScopeRAII() : _file(nullptr) {} // No logging
+		LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, va_list vlist) LOGURU_PRINTF_LIKE(5, 0);
 		LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, LOGURU_FORMAT_STRING_TYPE format, ...) LOGURU_PRINTF_LIKE(5, 6);
 		~LogScopeRAII();
+
+		void Init(LOGURU_FORMAT_STRING_TYPE format, va_list vlist) LOGURU_PRINTF_LIKE(2, 0);
 
 #if defined(_MSC_VER) && _MSC_VER > 1800
 		// older MSVC default move ctors close the scope on move. See

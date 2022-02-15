@@ -1498,9 +1498,14 @@ namespace loguru
 	{
 		va_list vlist;
 		va_start(vlist, format);
+		vlog(verbosity, file, line, format, vlist);
+		va_end(vlist);
+	}
+
+	void vlog(Verbosity verbosity, const char* file, unsigned line, const char* format, va_list vlist)
+	{
 		auto buff = vtextprintf(format, vlist);
 		log_to_everywhere(1, verbosity, file, line, "", buff.c_str());
-		va_end(vlist);
 	}
 
 	void raw_log(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
@@ -1527,31 +1532,19 @@ namespace loguru
 		s_needs_flushing = false;
 	}
 
-	LogScopeRAII::LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
-		: _verbosity(verbosity), _file(file), _line(line)
+	LogScopeRAII::LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, const char* format, va_list vlist) :
+		_verbosity(verbosity), _file(file), _line(line)
 	{
-		if (verbosity <= current_verbosity_cutoff()) {
-			std::lock_guard<std::recursive_mutex> lock(s_mutex);
-			_indent_stderr = (verbosity <= g_stderr_verbosity);
-			_start_time_ns = now_ns();
-			va_list vlist;
-			va_start(vlist, format);
-			vsnprintf(_name, sizeof(_name), format, vlist);
-			log_to_everywhere(1, _verbosity, file, line, "{ ", _name);
-			va_end(vlist);
+		this->Init(format, vlist);
+	}
 
-			if (_indent_stderr) {
-				++s_stderr_indentation;
-			}
-
-			for (auto& p : s_callbacks) {
-				if (verbosity <= p.verbosity) {
-					++p.indentation;
-				}
-			}
-		} else {
-			_file = nullptr;
-		}
+	LogScopeRAII::LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, const char* format, ...) :
+		_verbosity(verbosity), _file(file), _line(line)
+	{
+		va_list vlist;
+		va_start(vlist, format);
+		this->Init(format, vlist);
+		va_end(vlist);
 	}
 
 	LogScopeRAII::~LogScopeRAII()
@@ -1581,6 +1574,29 @@ namespace loguru
 #else
 			log_to_everywhere(1, _verbosity, _file, _line, "}", "");
 #endif
+		}
+	}
+
+	void LogScopeRAII::Init(const char* format, va_list vlist)
+	{
+		if (_verbosity <= current_verbosity_cutoff()) {
+			std::lock_guard<std::recursive_mutex> lock(s_mutex);
+			_indent_stderr = (_verbosity <= g_stderr_verbosity);
+			_start_time_ns = now_ns();
+			vsnprintf(_name, sizeof(_name), format, vlist);
+			log_to_everywhere(1, _verbosity, _file, _line, "{ ", _name);
+
+			if (_indent_stderr) {
+				++s_stderr_indentation;
+			}
+
+			for (auto& p : s_callbacks) {
+				if (_verbosity <= p.verbosity) {
+					++p.indentation;
+				}
+			}
+		} else {
+			_file = nullptr;
 		}
 	}
 
