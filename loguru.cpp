@@ -134,6 +134,7 @@
    #define LOGURU_PTLS_NAMES 0
 #endif
 
+LOGURU_ANONYMOUS_NAMESPACE_BEGIN
 
 namespace loguru
 {
@@ -2017,5 +2018,7 @@ namespace loguru
 #elif defined(_MSC_VER)
 #pragma warning(pop)
 #endif
+
+LOGURU_ANONYMOUS_NAMESPACE_END
 
 #endif // LOGURU_IMPLEMENTATION
