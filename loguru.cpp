@@ -1311,7 +1311,7 @@ namespace loguru
 		if (custom_level_name) {
 			snprintf(level_buff, sizeof(level_buff) - 1, "%s", custom_level_name);
 		} else {
-			snprintf(level_buff, sizeof(level_buff) - 1, "% 4d", (int8_t)verbosity);
+			snprintf(level_buff, sizeof(level_buff) - 1, "% 4d", static_cast<int8_t>(verbosity));
 		}
 
 		size_t pos = 0;
