@@ -1527,7 +1527,32 @@ namespace loguru
 		s_needs_flushing = false;
 	}
 
-	LogScopeRAII::LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
+#if LOGURU_USE_FMTLIB
+	LogScopeRAII::LogScopeRAII(DirtyHackForCtor, Verbosity verbosity, const char* file, unsigned line, const char* format, fmt::format_args args)
+		: _verbosity(verbosity), _file(file), _line(line)
+	{
+		if (verbosity <= current_verbosity_cutoff()) {
+			std::lock_guard<std::recursive_mutex> lock(s_mutex);
+			_indent_stderr = (verbosity <= g_stderr_verbosity);
+			_start_time_ns = now_ns();
+			strcpy(_name, fmt::vformat(format, args).c_str());
+			log_to_everywhere(1, _verbosity, file, line, "{ ", _name);
+
+			if (_indent_stderr) {
+				++s_stderr_indentation;
+			}
+
+			for (auto& p : s_callbacks) {
+				if (verbosity <= p.verbosity) {
+					++p.indentation;
+				}
+			}
+		} else {
+			_file = nullptr;
+		}
+	}
+#else
+    LogScopeRAII::LogScopeRAII(Verbosity verbosity, const char* file, unsigned line, const char* format, ...)
 		: _verbosity(verbosity), _file(file), _line(line)
 	{
 		if (verbosity <= current_verbosity_cutoff()) {
@@ -1553,6 +1578,7 @@ namespace loguru
 			_file = nullptr;
 		}
 	}
+#endif
 
 	LogScopeRAII::~LogScopeRAII()
 	{
