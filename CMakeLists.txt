@@ -45,6 +45,9 @@ endif()
 option(LOGURU_INSTALL        "Generate the install target(s)" ${PROJECT_IS_TOP_LEVEL})
 option(LOGURU_BUILD_EXAMPLES "Build the project examples"     ${PROJECT_IS_TOP_LEVEL})
 option(LOGURU_BUILD_TESTS    "Build the tests"                ${PROJECT_IS_TOP_LEVEL})
+if (LOGURU_INSTALL)
+  option(LOGURU_CPACK "Generate CPackConfig.cmake" ${PROJECT_IS_TOP_LEVEL})
+endif()
 
 # --- set global compile flags
 # ----------------------------------------------------------
@@ -182,7 +185,7 @@ if (LOGURU_INSTALL)
 
   # -- expose cache variables for users to customize install location
 
-  set(LOGURU_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/loguru" CACHE STRING
+  set(LOGURU_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}" CACHE STRING
       "Install directory for cmake files, relative to \${CMAKE_INSTALL_PREFIX} or an absolute path")
   set(LOGURU_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}" CACHE STRING
       "Install directory for libraries, relative to \${CMAKE_INSTALL_PREFIX} or an absolute path")
@@ -198,8 +201,6 @@ if (LOGURU_INSTALL)
 
   # -- setup install config files
 
-  set(LOGURU_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/loguru" CACHE STRING
-      "Install directory for cmake files, relative to \${CMAKE_INSTALL_PREFIX}")
   set(_project_config_file_in  ${PROJECT_SOURCE_DIR}/cmake/${PROJECT_NAME}-config.cmake.in)
   set(_project_config_file_out ${PROJECT_BINARY_DIR}/${PROJECT_NAME}-config.cmake)
   set(_version_config_file ${PROJECT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake)
@@ -264,12 +265,12 @@ endif() # LOGURU_INSTALL
 # -- Setup CPack
 # ----------------------------------------------------------
 
-if (LOGURU_INSTALL)
+if (LOGURU_INSTALL AND LOGURU_CPACK)
 
   message(STATUS "setting up cpack")
 
-# NOTE: this must be the very last instruction in this file
-# include(cmake/${PROJECT_NAME}CPackSetup.cmake)
+  # NOTE: this must be the very last instruction in this file
+  include(cmake/${PROJECT_NAME}-cpack.cmake)
 
   message(STATUS "setting up cpack - done")
 
