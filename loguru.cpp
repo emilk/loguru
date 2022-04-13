@@ -75,23 +75,24 @@
 
 // TODO: use defined(_POSIX_VERSION) for some of these things?
 
+
 #if defined(_WIN32) || defined(__CYGWIN__)
 	#define LOGURU_PTHREADS    0
 	#define LOGURU_WINTHREADS  1
 	#ifndef LOGURU_STACKTRACES
 		#define LOGURU_STACKTRACES 0
 	#endif
-#elif defined(__rtems__) || defined(__ANDROID__) || defined(__FreeBSD__)
-	#define LOGURU_PTHREADS    1
-	#define LOGURU_WINTHREADS  0
-	#ifndef LOGURU_STACKTRACES
-		#define LOGURU_STACKTRACES 0
-	#endif
 #else
 	#define LOGURU_PTHREADS    1
 	#define LOGURU_WINTHREADS  0
-	#ifndef LOGURU_STACKTRACES
-		#define LOGURU_STACKTRACES 1
+	#ifdef __GLIBC__
+		#ifndef LOGURU_STACKTRACES
+			#define LOGURU_STACKTRACES 1
+		#endif
+	#else
+		#ifndef LOGURU_STACKTRACES
+			#define LOGURU_STACKTRACES 0
+		#endif
 	#endif
 #endif
 
