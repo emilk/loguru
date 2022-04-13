@@ -251,8 +251,9 @@ if (LOGURU_INSTALL)
 
   # -- Install .pdb file (if exists)
 
-  if (MSVC)
+  if (MSVC AND BUILD_SHARED_LIBS)
     install(FILES $<TARGET_PDB_FILE:loguru>
+      CONFIGURATIONS "Debug"
       DESTINATION ${LOGURU_INSTALL_LIBDIR} OPTIONAL
     )
   endif()
