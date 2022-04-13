@@ -1,0 +1,13 @@
+@PACKAGE_INIT@
+
+include(${CMAKE_CURRENT_LIST_DIR}/@_targets_export_name@.cmake)
+check_required_components(loguru)
+
+if (NOT TARGET Threads::Threads)
+  find_package(Threads REQUIRED)
+endif()
+
+# LOGURU_USE_FMTLIB
+if ( "@LOGURU_USE_FMTLIB@" AND NOT TARGET fmt::fmt )
+  find_package(fmt CONFIG REQUIRED)
+endif()
