@@ -175,6 +175,10 @@ Website: www.ilikebigbits.com
 	#define LOGURU_USE_FMTLIB 0
 #endif
 
+#ifndef LOGURU_USE_LOCALE
+        #define LOGURU_USE_LOCALE 0
+#endif
+
 #ifndef LOGURU_WITH_FILEABS
 	#define LOGURU_WITH_FILEABS 0
 #endif
