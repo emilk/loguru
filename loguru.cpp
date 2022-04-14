@@ -32,11 +32,13 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cassert>
 #include <chrono>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <climits>
 #include <mutex>
 #include <regex>
 #include <string>
@@ -127,7 +129,9 @@
 		#define _WIN32_WINNT 0x0502
 	#endif
 	#define WIN32_LEAN_AND_MEAN
-	#define NOMINMAX
+	#ifndef NOMINMAX
+		#define NOMINMAX
+	#endif
 	#include <windows.h>
 #endif
 
@@ -555,7 +559,11 @@ namespace loguru
 			else if (c == '\'') { out += "\\\'"; }
 			else if (c == '\"') { out += "\\\""; }
 			else if (c == ' ')  { out += "\\ ";  }
-			else if (0 <= c && c < 0x20) { // ASCI control character:
+#if (CHAR_MIN < 0) // char is signed
+			else if (0 <= c && c < 0x20) { // ASCI control character
+#else // char is unsigned
+			else if (c < 0x20) { // ASCI control character
+#endif
 			// else if (c < 0x20 || c != (c & 127)) { // ASCII control character or UTF-8:
 				out += "\\x";
 				write_hex_byte(out, static_cast<uint8_t>(c));
@@ -598,7 +606,7 @@ namespace loguru
 			LOG_F(WARNING, "Failed to get current working directory: " LOGURU_FMT(s) "", error_text.c_str());
 		}
 
-		s_arguments = "";
+		s_arguments.clear();
 		for (int i = 0; i < argc; ++i) {
 			escape(s_arguments, argv[i]);
 			if (i + 1 < argc) {
@@ -644,7 +652,7 @@ namespace loguru
 			fflush(stderr);
 		}
 		VLOG_F(g_internal_verbosity, "arguments: " LOGURU_FMT(s) "", s_arguments.c_str());
-		if (strlen(s_current_dir) != 0)
+		if (s_current_dir[0] != '\0')
 		{
 			VLOG_F(g_internal_verbosity, "Current dir: " LOGURU_FMT(s) "", s_current_dir);
 		}
@@ -746,6 +754,7 @@ namespace loguru
 	{
 		CHECK_F(file_path_const && *file_path_const);
 		char* file_path = STRDUP(file_path_const);
+		CHECK_F(file_path != nullptr, "Failed to allocate memory");
 		for (char* p = strchr(file_path + 1, '/'); p; p = strchr(p + 1, '/')) {
 			*p = '\0';
 
@@ -815,7 +824,7 @@ namespace loguru
 		if (!s_arguments.empty()) {
 			fprintf(file, "arguments: %s\n", s_arguments.c_str());
 		}
-		if (strlen(s_current_dir) != 0) {
+		if (s_current_dir[0] != '\0') {
 			fprintf(file, "Current dir: %s\n", s_current_dir);
 		}
 		fprintf(file, "File verbosity level: %d\n", verbosity);
@@ -896,7 +905,7 @@ namespace loguru
 			return;
 		}
 
-		s_user_stack_cleanups.push_back(StringPair(find_this, replace_with_this));
+		s_user_stack_cleanups.emplace_back(StringPair(find_this, replace_with_this));
 	}
 
 	static void on_callback_change()
@@ -1022,7 +1031,7 @@ namespace loguru
 	// Where we store the custom thread name set by `set_thread_name`
 	char* thread_name_buffer()
 	{
-		__declspec( thread ) static char thread_name[LOGURU_THREADNAME_WIDTH + 1] = {0};
+		static char thread_name[LOGURU_THREADNAME_WIDTH + 1] = {0};
 		return &thread_name[0];
 	}
 #endif // LOGURU_WINTHREADS
@@ -1161,7 +1170,7 @@ namespace loguru
 
 		try {
 			std::regex std_allocator_re(R"(,\s*std::allocator<[^<>]+>)");
-			output = std::regex_replace(output, std_allocator_re, std::string(""));
+			output = std::regex_replace(output, std_allocator_re, std::string());
 
 			std::regex template_spaces_re(R"(<\s*([^<> ]+)\s*>)");
 			output = std::regex_replace(output, template_spaces_re, std::string("<$1>"));
@@ -1194,8 +1203,7 @@ namespace loguru
 				}
 				snprintf(buf, sizeof(buf), "%-3d %*p %s + %zd\n",
 						 i - skip, int(2 + sizeof(void*) * 2), callstack[i],
-						 status == 0 ? demangled :
-						 info.dli_sname == 0 ? symbols[i] : info.dli_sname,
+						 status == 0 ? demangled : info.dli_sname,
 						 static_cast<char*>(callstack[i]) - static_cast<char*>(info.dli_saddr));
 				free(demangled);
 			} else {
@@ -1244,7 +1252,8 @@ namespace loguru
 		if (out_buff_size == 0) { return; }
 		out_buff[0] = '\0';
 		size_t pos = 0;
-		if (g_preamble_date && pos < out_buff_size) {
+		assert(pos < out_buff_size);
+		if (g_preamble_date) {
 			int bytes = snprintf(out_buff + pos, out_buff_size - pos, "date       ");
 			if (bytes > 0) {
 				pos += bytes;
@@ -1281,10 +1290,9 @@ namespace loguru
 			}
 		}
 		if (g_preamble_pipe && pos < out_buff_size) {
-			int bytes = snprintf(out_buff + pos, out_buff_size - pos, "| ");
-			if (bytes > 0) {
-				pos += bytes;
-			}
+			// Because this is the last if-statement, we avoid incrementing the
+			// position to clarify it's unused.
+			(void)snprintf(out_buff + pos, out_buff_size - pos, "| ");
 		}
 	}
 
@@ -1308,7 +1316,7 @@ namespace loguru
 			file = filename(file);
 		}
 
-		char level_buff[6];
+		char level_buff[7];
 		const char* custom_level_name = get_verbosity_name(verbosity);
 		if (custom_level_name) {
 			snprintf(level_buff, sizeof(level_buff) - 1, "%s", custom_level_name);
@@ -1317,8 +1325,8 @@ namespace loguru
 		}
 
 		size_t pos = 0;
-
-		if (g_preamble_date && pos < out_buff_size) {
+		assert(pos < out_buff_size);
+		if (g_preamble_date) {
 			int bytes = snprintf(out_buff + pos, out_buff_size - pos, "%04d-%02d-%02d ",
 				                 1900 + time_info.tm_year, 1 + time_info.tm_mon, time_info.tm_mday);
 			if (bytes > 0) {
@@ -1363,10 +1371,8 @@ namespace loguru
 			}
 		}
 		if (g_preamble_pipe && pos < out_buff_size) {
-			int bytes = snprintf(out_buff + pos, out_buff_size - pos, "| ");
-			if (bytes > 0) {
-				pos += bytes;
-			}
+			// Avoid incrementing the position to clarify it's unused
+			(void)snprintf(out_buff + pos, out_buff_size - pos, "| ");
 		}
 	}
 
@@ -1686,7 +1692,7 @@ namespace loguru
 
 	struct StringStream
 	{
-		std::string str;
+		std::string str{};
 	};
 
 	// Use this in your EcPrinter implementations.
@@ -1830,7 +1836,11 @@ namespace loguru
 		else if (c == '\n') { str += "\\n";  }
 		else if (c == '\r') { str += "\\r";  }
 		else if (c == '\t') { str += "\\t";  }
+#if (CHAR_MIN < 0) // char is signed
 		else if (0 <= c && c < 0x20) {
+#else // char is unsigned
+		else if (c < 0x20) {
+#endif
 			str += "\\u";
 			write_hex_16(static_cast<uint16_t>(c));
 		} else { str += c; }
@@ -1864,6 +1874,7 @@ namespace loguru
 		Text parent_ec = get_error_context_for(ec_handle);
 		size_t buffer_size = strlen(parent_ec.c_str()) + 2;
 		char* with_newline = reinterpret_cast<char*>(malloc(buffer_size));
+		CHECK_F(with_newline != nullptr, "Failed to allocate memory for error context.");
 		with_newline[0] = '\n';
 	#ifdef _WIN32
 		strncpy_s(with_newline + 1, buffer_size, parent_ec.c_str(), buffer_size - 2);
@@ -1914,7 +1925,10 @@ namespace loguru
 		memset(&sig_action, 0, sizeof(sig_action));
 		sigemptyset(&sig_action.sa_mask);
 		sig_action.sa_handler = SIG_DFL;
-		sigaction(signal_number, &sig_action, NULL);
+
+		// Note: Explicitly ignore sigaction's return value.
+		//       It's only used when setting up the signal handlers.
+		(void) sigaction(signal_number, &sig_action, NULL);
 		kill(getpid(), signal_number);
 	}
 
