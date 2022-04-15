@@ -78,7 +78,7 @@
 // TODO: use defined(_POSIX_VERSION) for some of these things?
 
 #ifndef LOGURU_USE_LOCALE
-	#define LOGURU_USE_LOCALE 1
+	#define LOGURU_USE_LOCALE 0
 #endif
 
 #if defined(_WIN32) || defined(__CYGWIN__)
