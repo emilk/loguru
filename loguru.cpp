@@ -32,6 +32,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <cstdarg>
 #include <cstdio>
@@ -74,7 +75,6 @@
 #endif
 
 // TODO: use defined(_POSIX_VERSION) for some of these things?
-
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 	#define LOGURU_PTHREADS    0
@@ -472,7 +472,20 @@ namespace loguru
 		for (int arg_it = 1; arg_it < argc; ++arg_it) {
 			auto cmd = argv[arg_it];
 			auto arg_len = strlen(verbosity_flag);
-			if (strncmp(cmd, verbosity_flag, arg_len) == 0 && !std::isalpha(cmd[arg_len], std::locale(""))) {
+
+			bool last_is_alpha = false;
+			#if LOGURU_USE_LOCALE
+			try {  // locale variant of isalpha will throw on error
+				last_is_alpha = std::isalpha(cmd[arg_len], std::locale(""));
+			}
+			catch (...) {
+				last_is_alpha = std::isalpha(static_cast<int>(cmd[arg_len]));
+			}
+			#else
+			last_is_alpha = std::isalpha(static_cast<int>(cmd[arg_len]));
+			#endif
+
+			if (strncmp(cmd, verbosity_flag, arg_len) == 0 && !last_is_alpha) {
 				out_argc -= 1;
 				auto value_str = cmd + arg_len;
 				if (value_str[0] == '\0') {
