@@ -678,7 +678,7 @@ namespace loguru
 		set_name_to_verbosity_callback(nullptr);
 	}
 
-	void write_date_time(char* buff, size_t buff_size)
+	void write_date_time(char* buff, unsigned long long buff_size)
 	{
 		auto now = system_clock::now();
 		long long ms_since_epoch = duration_cast<milliseconds>(now.time_since_epoch()).count();
@@ -724,7 +724,7 @@ namespace loguru
 		#endif // _WIN32
 	}
 
-	void suggest_log_path(const char* prefix, char* buff, unsigned buff_size)
+	void suggest_log_path(const char* prefix, char* buff, unsigned long long buff_size)
 	{
 		if (prefix[0] == '~') {
 			snprintf(buff, buff_size - 1, "%s%s", home_dir(), prefix + 1);

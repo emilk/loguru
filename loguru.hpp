@@ -533,7 +533,7 @@ namespace loguru
 
 	// Writes date and time with millisecond precision, e.g. "20151017_161503.123"
 	LOGURU_EXPORT
-	void write_date_time(char* buff, unsigned buff_size);
+	void write_date_time(char* buff, unsigned long long buff_size);
 
 	// Helper: thread-safe version strerror
 	LOGURU_EXPORT
@@ -545,7 +545,7 @@ namespace loguru
 	   where "app_name" is a sanitized version of argv[0].
 	*/
 	LOGURU_EXPORT
-	void suggest_log_path(const char* prefix, char* buff, unsigned buff_size);
+	void suggest_log_path(const char* prefix, char* buff, unsigned long long buff_size);
 
 	enum FileMode { Truncate, Append };
 
