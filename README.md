@@ -12,6 +12,8 @@ Documentation can be found at https://emilk.github.io/loguru/index.html.
 ## License
 This software is in the public domain. Where that dedication is not recognized, you are granted a perpetual, irrevocable license to copy, modify and distribute it as you see fit.
 
+Loguru is also available under [The Unlicense](https://choosealicense.com/licenses/unlicense/).
+
 That being said, I would appreciate credit!
 If you find Loguru useful, tweet me at @ernerfeldt mail me at emil.ernerfeldt@gmail.com.
 
