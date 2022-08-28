@@ -16,6 +16,12 @@ loguru_get_version_from_header() # defines LOGURU_VERSION
 set(_namespace loguru)
 project(loguru VERSION "${LOGURU_VERSION}" LANGUAGES CXX)
 
+set(LOGURU_PACKAGE_URL     "https://github.com/emilk/loguru"               CACHE STRING "")
+set(LOGURU_PACKAGE_VENDOR  "Emil Ernerfeldt"                               CACHE STRING "")
+set(LOGURU_PACKAGE_CONTACT "Emil Ernerfeldt <emil.ernerfeldt@gmail.com>"   CACHE STRING "")
+set(LOGURU_PACKAGE_DESCRIPTION_SUMMARY "A lightweight C++ logging library" CACHE STRING "")
+set(LOGURU_PACKAGE_DESCRIPTION_FILE    "${PROJECT_SOURCE_DIR}/README.md"   CACHE STRING "")
+
 # --- check if toplevel or subdirectory
 # ----------------------------------------------------------
 
