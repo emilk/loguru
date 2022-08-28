@@ -76,6 +76,23 @@ if (NOT PROJECT_IS_TOP_LEVEL)
   add_library(${_namespace}::loguru ALIAS loguru)
 endif()
 
+# --- determine if linking 'dl' is required
+# ----------------------------------------------------------
+
+if (LOGURU_STACKTRACES AND (NOT CMAKE_DL_LIBS))
+  message(WARNING
+    "Stack traces requested but the required 'dl' library was not found. "
+    "LOGURU_STACKTRACES has been automatically disabled (set to 0)"
+  )
+  set(LOGURU_STACKTRACES 0)
+endif()
+
+if (LOGURU_STACKTRACES)
+  set(_lib_dl_linkflag "-l${CMAKE_DL_LIBS}")
+else()
+  set(_lib_dl_linkflag) # dl dependency is not needed if STACKTRACES=0
+endif()
+
 # --- set loguru target properties
 # ----------------------------------------------------------
 
@@ -89,8 +106,8 @@ target_compile_features(loguru PUBLIC cxx_std_11)
 find_package(Threads REQUIRED) # defines IMPORTED target Threads::Threads
 target_link_libraries(loguru
   PUBLIC
-    Threads::Threads   # pthreads (or equivalent)
-    "${CMAKE_DL_LIBS}" # dl       (or equivalent)
+    Threads::Threads    # pthreads (or equivalent)
+    ${_lib_dl_linkflag} # dl (or equivalent)
 )
 
 set_target_properties(loguru
@@ -197,6 +214,8 @@ if (LOGURU_INSTALL)
       "Install directory for libraries, relative to \${CMAKE_INSTALL_PREFIX} or an absolute path")
   set(LOGURU_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}" CACHE STRING
       "Install directory for include files, relative to \${CMAKE_INSTALL_PREFIX} or an absolute path")
+  set(LOGURU_INSTALL_PKGCONFIGDIR "${CMAKE_INSTALL_LIBDIR}/pkgconfig" CACHE STRING
+      "Install directory for pkgconfig (.pc) files, relative to \${CMAKE_INSTALL_PREFIX} or an absolute path")
 
   # -- set additional target properties relevant to install dir
 
@@ -211,6 +230,28 @@ if (LOGURU_INSTALL)
   set(_project_config_file_out ${PROJECT_BINARY_DIR}/${PROJECT_NAME}-config.cmake)
   set(_version_config_file ${PROJECT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake)
   set(_targets_export_name ${PROJECT_NAME}-targets)
+  set(_pkgconfig_file_in   ${PROJECT_SOURCE_DIR}/cmake/${PROJECT_NAME}.pc.in)
+  set(_pkgconfig_file_out  ${PROJECT_BINARY_DIR}/${PROJECT_NAME}.pc)
+
+  # -- Configure pkg-config template
+
+  set(_pkgconfig_libdir     "\${exec_prefix}/${LOGURU_INSTALL_LIBDIR}")
+  set(_pkgconfig_includedir "\${prefix}/${LOGURU_INSTALL_INCLUDEDIR}")
+
+  # if the user chose absolute paths, strip the ${prefix} and/or ${exec_prefix}
+  if (IS_ABSOLUTE "${LOGURU_INSTALL_LIBDIR}")
+    set(_pkgconfig_libdir "${LOGURU_INSTALL_LIBDIR}")
+  endif()
+
+  if (IS_ABSOLUTE "${LOGURU_INSTALL_INCLUDEDIR}")
+    set(_pkgconfig_includedir "${LOGURU_INSTALL_INCLUDEDIR}")
+  endif()
+
+  configure_file(
+    ${_pkgconfig_file_in}
+    ${_pkgconfig_file_out}
+    @ONLY
+  )
 
   # -- Generate the version file in the build directory
 
@@ -246,6 +287,12 @@ if (LOGURU_INSTALL)
 
   install(FILES  ${_project_config_file_out}  ${_version_config_file}
     DESTINATION ${LOGURU_INSTALL_CMAKEDIR}
+  )
+
+  # -- Install pkgconfig file
+
+  install(FILES ${_pkgconfig_file_out}
+    DESTINATION ${LOGURU_INSTALL_PKGCONFIGDIR}
   )
 
   # -- Install target exports file
