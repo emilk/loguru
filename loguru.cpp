@@ -52,6 +52,7 @@
 
 #ifdef _WIN32
 	#include <direct.h>
+	#include <share.h>
 
 	#define localtime_r(a, b) localtime_s(b, a) // No localtime_r with MSVC, but arguments are swapped for localtime_s
 #else
@@ -127,7 +128,9 @@
 		#define _WIN32_WINNT 0x0502
 	#endif
 	#define WIN32_LEAN_AND_MEAN
-	#define NOMINMAX
+	#ifndef NOMINMAX
+		#define NOMINMAX
+	#endif
 	#include <windows.h>
 #endif
 
@@ -1034,7 +1037,7 @@ namespace loguru
 	// Where we store the custom thread name set by `set_thread_name`
 	char* thread_name_buffer()
 	{
-		__declspec( thread ) static char thread_name[LOGURU_THREADNAME_WIDTH + 1] = {0};
+		thread_local static char thread_name[LOGURU_THREADNAME_WIDTH + 1] = {0};
 		return &thread_name[0];
 	}
 #endif // LOGURU_WINTHREADS
