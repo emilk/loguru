@@ -1,0 +1,12 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=@_pkgconfig_libdir@
+includedir=@_pkgconfig_includedir@
+
+Name: @PROJECT_NAME@
+Description: @LOGURU_PACKAGE_DESCRIPTION_SUMMARY@
+URL: @LOGURU_PACKAGE_URL@
+Version: @LOGURU_VERSION@
+Libs: -L${libdir} -lloguru
+Libs.private: @CMAKE_THREAD_LIBS_INIT@ @_lib_dl_linkflag@
+Cflags: -I${includedir}

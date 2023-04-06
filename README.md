@@ -82,11 +82,22 @@ In particular, I want logging that produces logs that are both human-readable an
 	* Each line has all the info you need (e.g. date).
 	* You can easily filter out high verbosity levels after the fact.
 
+
 ## Compiling
 
 Just include <loguru.hpp> where you want to use Loguru.
 Then either compile and link with `loguru.cpp` or in one .cpp file: `#include <loguru.cpp>`
 Make sure you compile with `-std=c++11 -lpthread -ldl` on relevant environments.
+
+## CMake Instructions
+
+Loguru can be added to an existing CMake project in three ways
+
+1. `add_subdirectory()`
+2. `FetchContent()`
+3. `find_package()`
+
+See [CMake example](./loguru_cmake_example/CMakeLists.txt) for a demonstration.
 
 ## Usage
 
