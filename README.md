@@ -157,6 +157,20 @@ CHECK_EQ_S(pi, 3.14) << "Maybe it is closer to " << M_PI;
 
 For more info, see [the official documentation](https://emilk.github.io/loguru/index.html).
 
+## Installing loguru (vcpkg)
+
+Alternatively, you can build and install loguru using [vcpkg](https://github.com/Microsoft/vcpkg/) dependency manager:
+
+``` bash or powershell
+git clone https://github.com/Microsoft/vcpkg.git
+cd vcpkg
+./bootstrap-vcpkg.sh
+./vcpkg integrate install
+./vcpkg install loguru
+```
+
+The loguru port in vcpkg is kept up to date by Microsoft team members and community contributors. If the version is out of date, please [create an issue or pull request](https://github.com/Microsoft/vcpkg) on the vcpkg repository.
+
 ## Grep:able logs
 ``` bash
 # Only show warnings, errors and fatal messages:
