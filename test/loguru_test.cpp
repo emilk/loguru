@@ -140,6 +140,53 @@ int main_test(int argc, char* argv[])
 	return 0;
 }
 
+int log_rotate_test(int argc, char* argv[])
+{
+	loguru::init(argc, argv);
+
+	loguru::add_file("info.log", loguru::Append, loguru::Verbosity_INFO, 1, 10);
+	loguru::add_file("max.log", loguru::Truncate,   loguru::Verbosity_MAX);
+
+	auto a = std::thread([]() {
+		static int cnt = 0;
+		loguru::set_thread_name("thread a");
+		while (cnt < 50000) {
+			cnt++;
+			LOG_F(INFO, "a_info_cnt = %d", cnt);
+			LOG_F(1, "a_1_cnt = %d", cnt);
+		}
+	});
+
+	auto b = std::thread([]() {
+		static int cnt = 0;
+		loguru::set_thread_name("thread b");
+		while (cnt < 50000) {
+			cnt++;
+			LOG_F(INFO, "b_info_cnt = %d", cnt);
+			LOG_F(1, "b_1_cnt = %d", cnt);
+		}
+	});
+
+	auto c = std::thread([]() {
+		static int cnt = 0;
+		loguru::set_thread_name("thread c");
+		while (cnt < 50000) {
+			cnt++;
+			LOG_F(INFO, "c_info_cnt = %d", cnt);
+			LOG_F(1, "c_1_cnt = %d", cnt);
+		}
+	});
+
+	a.join();
+	b.join();
+	c.join();
+
+	loguru::shutdown();
+
+	return 0;
+}
+
+
 void test_SIGSEGV_0()
 {
 	LOG_F(INFO, "Intentionally writing to nullptr:");
@@ -332,6 +379,11 @@ int main(int argc, char* argv[])
 		return main_test(argc, argv);
 	}
 
+	if (argc > 2 && argv[2] == std::string("rotate"))
+	{
+		return log_rotate_test(argc, argv);
+	}
+
 	loguru::init(argc, argv);
 
 	// auto verbose_type_name = loguru::demangle(typeid(std::ofstream).name());
@@ -341,8 +393,8 @@ int main(int argc, char* argv[])
 
 	if (argc == 1)
 	{
-		loguru::add_file("latest_readable.log", loguru::Truncate, loguru::Verbosity_INFO);
-		loguru::add_file("everything.log",      loguru::Append,   loguru::Verbosity_MAX);
+		loguru::add_file("latest_readable.log", loguru::Truncate, loguru::Verbosity_INFO, 2, 3);
+		loguru::add_file("everything.log",      loguru::Append,   loguru::Verbosity_MAX, 2, 3);
 #ifdef LOGURU_SYSLOG
 		loguru::add_syslog("loguru_test",       loguru::Verbosity_MAX);
 #endif
@@ -423,7 +475,7 @@ int main(int argc, char* argv[])
 		} else if (test == "callback") {
 			test_log_callback();
 		} else if (test == "hang") {
-			loguru::add_file("hang.log", loguru::Truncate, loguru::Verbosity_INFO);
+			loguru::add_file("hang.log", loguru::Truncate, loguru::Verbosity_INFO, 2, 3);
 			test_hang_2();
 		} else {
 			LOG_F(ERROR, "Unknown test: '%s'", test.c_str());
