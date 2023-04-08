@@ -1080,7 +1080,11 @@ namespace loguru
 			// Ask the OS about the thread name.
 			// This is what we *want* to do on all platforms, but
 			// only some platforms support it (currently).
-			pthread_getname_np(pthread_self(), buffer, length);
+			#ifdef __OpenBSD__
+				pthread_get_name_np(pthread_self(), buffer, length);
+			#else
+				pthread_getname_np(pthread_self(), buffer, length);
+			#endif
 		#elif LOGURU_WINTHREADS
 			snprintf(buffer, static_cast<size_t>(length), "%s", thread_name_buffer());
 		#else
@@ -1101,7 +1105,11 @@ namespace loguru
 				long thread_id;
 				(void)thr_self(&thread_id);
 			#elif LOGURU_PTHREADS
-				uint64_t thread_id = pthread_self();
+				#ifdef __OpenBSD__
+					uintptr_t thread_id = reinterpret_cast<uintptr_t>(pthread_self());
+				#else
+					uint64_t thread_id = pthread_self();
+				#endif
 			#else
 				// This ID does not correllate to anything we can get from the OS,
 				// so this is the worst way to get the ID.
