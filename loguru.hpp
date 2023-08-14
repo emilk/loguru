@@ -57,6 +57,7 @@ Website: www.ilikebigbits.com
 	* Version 2.0.0 - 2018-09-22 - Split loguru.hpp into loguru.hpp and loguru.cpp
 	* Version 2.1.0 - 2019-09-23 - Update fmtlib + add option to loguru::init to NOT set main thread name.
 	* Version 2.2.0 - 2020-07-31 - Replace LOGURU_CATCH_SIGABRT with struct SignalOptions
+	*                 2023-08-13 - fix PVS Studio warnings (change by DOSBox Staging Team)
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -727,16 +728,16 @@ namespace loguru
 	LOGURU_EXPORT
 	void flush();
 
-	template<class T> inline Text format_value(const T&)                    { return textprintf("N/A");     }
-	template<>        inline Text format_value(const char& v)               { return textprintf(LOGURU_FMT(c),   v); }
-	template<>        inline Text format_value(const int& v)                { return textprintf(LOGURU_FMT(d),   v); }
-	template<>        inline Text format_value(const unsigned int& v)       { return textprintf(LOGURU_FMT(u),   v); }
-	template<>        inline Text format_value(const long& v)               { return textprintf(LOGURU_FMT(lu),  v); }
-	template<>        inline Text format_value(const unsigned long& v)      { return textprintf(LOGURU_FMT(ld),  v); }
-	template<>        inline Text format_value(const long long& v)          { return textprintf(LOGURU_FMT(llu), v); }
-	template<>        inline Text format_value(const unsigned long long& v) { return textprintf(LOGURU_FMT(lld), v); }
-	template<>        inline Text format_value(const float& v)              { return textprintf(LOGURU_FMT(f),   v); }
-	template<>        inline Text format_value(const double& v)             { return textprintf(LOGURU_FMT(f),   v); }
+	template<class T> inline Text format_value(const T)                     { return textprintf("N/A");     }
+	template<>        inline Text format_value(const char v)                { return textprintf(LOGURU_FMT(c),   v); }
+	template<>        inline Text format_value(const int v)                 { return textprintf(LOGURU_FMT(d),   v); }
+	template<>        inline Text format_value(const unsigned int v)        { return textprintf(LOGURU_FMT(u),   v); }
+	template<>        inline Text format_value(const long v)                { return textprintf(LOGURU_FMT(lu),  v); }
+	template<>        inline Text format_value(const unsigned long v)       { return textprintf(LOGURU_FMT(ld),  v); }
+	template<>        inline Text format_value(const long long v)           { return textprintf(LOGURU_FMT(llu), v); }
+	template<>        inline Text format_value(const unsigned long long v)  { return textprintf(LOGURU_FMT(lld), v); }
+	template<>        inline Text format_value(const float v)               { return textprintf(LOGURU_FMT(f),   v); }
+	template<>        inline Text format_value(const double v)              { return textprintf(LOGURU_FMT(f),   v); }
 
 	/* Thread names can be set for the benefit of readable logs.
 	   If you do not set the thread name, a hex id will be shown instead.
