@@ -270,7 +270,7 @@ Here are all the stream logging functions:
 ```
 
 ## Notes
-	* Any arguments to LOG functions or LOG_SCOPE are only evaluated iff the verbosity test passes.
+	* Any arguments to LOG functions or LOG_SCOPE are only evaluated if the verbosity test passes.
 	* Any arguments to LOG_IF functions are only evaluated if the test passes.
 
 
@@ -597,7 +597,7 @@ Here's the relevant excerpt from `Loguru.hpp`:
 		close_handler_t on_close = nullptr,
 		flush_handler_t on_flush = nullptr);
 
-	// Returns true iff the callback was found (and removed).
+	// Returns true if the callback was found (and removed).
 	bool remove_callback(const char* id);
 ```
 
