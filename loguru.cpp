@@ -34,7 +34,9 @@
 #include <atomic>
 #include <cctype>
 #include <chrono>
+#include <cinttypes>
 #include <cstdarg>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -1105,7 +1107,8 @@ namespace loguru
 			#elif defined(__OpenBSD__)
 				pid_t thread_id = getthrid();
 			#elif LOGURU_PTHREADS
-				uint64_t thread_id = pthread_self();
+				// Here we rely on the opaque pthread_t being of integer type, which is the case on linux, but not other platforms.
+				uint64_t thread_id = static_cast<uint64_t>(pthread_self());
 			#else
 				// This ID does not correllate to anything we can get from the OS,
 				// so this is the worst way to get the ID.
@@ -1113,9 +1116,9 @@ namespace loguru
 			#endif
 
 			if (right_align_hex_id) {
-				snprintf(buffer, static_cast<size_t>(length), "%*X", static_cast<int>(length - 1), static_cast<unsigned>(thread_id));
+				snprintf(buffer, static_cast<size_t>(length), "%*" PRIX64, static_cast<int>(length - 1), static_cast<uint64_t>(thread_id));
 			} else {
-				snprintf(buffer, static_cast<size_t>(length), "%X", static_cast<unsigned>(thread_id));
+				snprintf(buffer, static_cast<size_t>(length), "%" PRIX64, static_cast<uint64_t>(thread_id));
 			}
 		}
 	}
