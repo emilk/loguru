@@ -578,15 +578,17 @@ namespace loguru
 
 	Text errno_as_text()
 	{
-		char buff[256];
 	#if defined(__GLIBC__) && defined(_GNU_SOURCE)
 		// GNU Version
+		char buff[256];
 		return Text(STRDUP(strerror_r(errno, buff, sizeof(buff))));
 	#elif defined(__APPLE__) || _POSIX_C_SOURCE >= 200112L
 		// XSI Version
+		char buff[256];
 		strerror_r(errno, buff, sizeof(buff));
 		return Text(strdup(buff));
 	#elif defined(_WIN32)
+		char buff[256];
 		strerror_s(buff, sizeof(buff), errno);
 		return Text(STRDUP(buff));
 	#else
