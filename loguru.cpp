@@ -584,7 +584,7 @@ namespace loguru
 		// GNU Version
 		char buff[256];
 		return Text(STRDUP(strerror_r(errno, buff, sizeof(buff))));
-	#elif defined(__APPLE__) || _POSIX_C_SOURCE >= 200112L
+	#elif defined(__APPLE__) || (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L)
 		// XSI Version
 		char buff[256];
 		strerror_r(errno, buff, sizeof(buff));
