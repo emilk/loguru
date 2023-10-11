@@ -1080,6 +1080,8 @@ namespace loguru
 			} else {
 				buffer[0] = 0;
 			}
+		#elif defined(__FreeBSD__) || defined(__OpenBSD__)
+			pthread_get_name_np(pthread_self(), buffer, length);
 		#elif LOGURU_PTHREADS
 			// Ask the OS about the thread name.
 			// This is what we *want* to do on all platforms, but
