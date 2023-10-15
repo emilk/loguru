@@ -52,6 +52,7 @@
 
 #ifdef _WIN32
 	#include <direct.h>
+	#include <share.h> //_SH_DENYNO
 
 	#define localtime_r(a, b) localtime_s(b, a) // No localtime_r with MSVC, but arguments are swapped for localtime_s
 #else
