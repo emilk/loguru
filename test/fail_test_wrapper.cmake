@@ -1,5 +1,5 @@
 #!/usr/bin/env cmake -P
-cmake_minimum_required(VERSION 2.8.7)
+cmake_minimum_required(VERSION 3.12)
 
 get_filename_component(CurrentFile ${CMAKE_CURRENT_LIST_FILE} NAME)
 
