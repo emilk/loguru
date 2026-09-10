@@ -696,12 +696,12 @@ namespace loguru
 		LogScopeRAII& operator=(const LogScopeRAII&) = delete;
 		void operator=(LogScopeRAII&&) = delete;
 
-		Verbosity   _verbosity;
-		const char* _file; // Set to null if we are disabled due to verbosity
-		unsigned    _line;
-		bool        _indent_stderr; // Did we?
-		long long   _start_time_ns;
-		char        _name[LOGURU_SCOPE_TEXT_SIZE];
+		Verbosity   _verbosity = Verbosity_INVALID;
+		const char* _file = nullptr; // Set to null if we are disabled due to verbosity
+		unsigned    _line = 0;
+		bool        _indent_stderr = false; // Did we?
+		long long   _start_time_ns = 0;
+		char        _name[LOGURU_SCOPE_TEXT_SIZE] = {};
 	};
 
 	// Marked as 'noreturn' for the benefit of the static analyzer and optimizer.
@@ -865,7 +865,7 @@ namespace loguru
 		const char*  _file;
 		unsigned     _line;
 		const char*  _descr;
-		EcEntryBase* _previous;
+		EcEntryBase* _previous = nullptr;
 	};
 
 	template<typename T>
