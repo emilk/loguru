@@ -79,6 +79,36 @@ endif()
 # --- determine if linking 'dl' is required
 # ----------------------------------------------------------
 
+# loguru.cpp implicitly enables stacktraces on non-windows systems w/ glibc
+# so the following checks are needed to establish the CMake vars default value
+if((NOT DEFINED LOGURU_STACKTRACES) AND (NOT WIN32 AND NOT CYGWIN))
+  message(STATUS "checking for glibc")
+  # Create temp file for testing if the current compiler uses glibc
+  file(WRITE "${PROJECT_BINARY_DIR}/test_for_glibc.cpp" [[
+    #include <cstdio>
+    #define RESULT 1
+    #ifdef __GLIBC__
+      #define RESULT 0
+    #endif
+    int main() { return RESULT; }
+  ]])
+  # Attempt to compile and run the glibc tester program
+  try_run(_try_run_result _try_run_compile_result
+    ${PROJECT_BINARY_DIR}
+    ${PROJECT_BINARY_DIR}/test_for_glibc.cpp
+  )
+  if (_try_run_result EQUAL 0)
+    message(STATUS "checking for glibc - found")
+    message(STATUS
+      "glibc was found on a non-Windows system, LOGURU_STACKTRACES will be "
+      "enabled by default. "
+      "Set -DLOGURU_STACKTRACES=FALSE to explicitly disable stacktraces")
+    set(LOGURU_STACKTRACES 1)
+  else()
+    message(STATUS "checking for glibc - not found")
+  endif()
+endif()
+
 if (LOGURU_STACKTRACES AND (NOT CMAKE_DL_LIBS))
   message(WARNING
     "Stack traces requested but the required 'dl' library was not found. "
