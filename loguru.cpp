@@ -1944,7 +1944,7 @@ namespace loguru
 		memset(&sig_action, 0, sizeof(sig_action));
 		sigemptyset(&sig_action.sa_mask);
 		sig_action.sa_handler = SIG_DFL;
-		sigaction(signal_number, &sig_action, NULL);
+		(void)sigaction(signal_number, &sig_action, NULL); // Restoring the default handler; failure is not actionable here.
 		kill(getpid(), signal_number);
 	}
 
