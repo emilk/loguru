@@ -601,6 +601,59 @@ Here's the relevant excerpt from `Loguru.hpp`:
 	bool remove_callback(const char* id);
 ```
 
+### Android logcat
+You can connect loguru to Android's logcat utility for forwarding logs from an application's C++ code. 
+	
+``` C++
+	#include <loguru.hpp>
+	#include <android/log.h>
+	
+	void android_log(void* user_data, const loguru::Message& message)
+	{
+		const char* TAG { "TagOfYourApplication" };
+
+		switch (message.verbosity)
+		{
+			case loguru::Verbosity_ERROR:
+				__android_log_print(ANDROID_LOG_ERROR, TAG, "%s%s%s", message.preamble, message.prefix, message.message);
+				break;
+			case loguru::Verbosity_WARNING:
+				__android_log_print(ANDROID_LOG_WARN, TAG, "%s%s%s", message.preamble, message.prefix, message.message);
+				break;
+			case loguru::Verbosity_INFO:
+				__android_log_print(ANDROID_LOG_INFO, TAG, "%s%s%s", message.preamble, message.prefix, message.message);
+				break;
+			case loguru::Verbosity_MAX:
+				__android_log_print(ANDROID_LOG_VERBOSE, TAG, "%s%s%s", message.preamble, message.prefix, message.message);
+				break;
+			default:
+				__android_log_print(ANDROID_LOG_DEBUG, TAG, "%s%s%s", message.preamble, message.prefix, message.message);
+				break;
+		}
+	}
+```
+	
+Register a callback like the example above with logcat in your application's native code.
+	
+```C++
+	#include <loguru.hpp>
+	
+	...
+	// this block is optional, it allows you to configure the message preamble
+	loguru::g_preamble_header  = false;
+	loguru::g_preamble_date    = false;
+	loguru::g_preamble_time    = false;
+	loguru::g_preamble_uptime  = false;
+	loguru::g_preamble_thread  = true;
+	loguru::g_preamble_file    = true;
+	loguru::g_preamble_verbose = false;
+	loguru::g_preamble_pipe    = false;
+
+	// register your callback function
+	loguru::add_callback("android_logger", android_log, nullptr, loguru::Verbosity_MAX);
+	...
+```
+
 ## Fatal handler
 You can install a callback to be called when your program is about to crash (a CHECK failed, a signal was caught, or somebody called `ABORT_F`).
 
