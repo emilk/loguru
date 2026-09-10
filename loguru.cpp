@@ -229,7 +229,8 @@ namespace loguru
 				return false;
 			}
 			if (const char* term = getenv("TERM")) {
-				return 0 == strcmp(term, "cygwin")
+				return 0 == strcmp(term, "alacritty")
+					|| 0 == strcmp(term, "cygwin")
 					|| 0 == strcmp(term, "linux")
 					|| 0 == strcmp(term, "rxvt-unicode-256color")
 					|| 0 == strcmp(term, "screen")
