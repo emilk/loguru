@@ -56,7 +56,7 @@ Website: www.ilikebigbits.com
 	* Version 1.9.0 - 2018-09-22 - Adjust terminal colors, add LOGURU_VERBOSE_SCOPE_ENDINGS, add LOGURU_SCOPE_TIME_PRECISION, add named log levels
 	* Version 2.0.0 - 2018-09-22 - Split loguru.hpp into loguru.hpp and loguru.cpp
 	* Version 2.1.0 - 2019-09-23 - Update fmtlib + add option to loguru::init to NOT set main thread name.
-	* Version 2.2.0 - 2020-07-31 - Replace LOGURU_CATCH_SIGABRT with struct SignalOptions
+	* Version 2.2.0 - 2026-09-10 - Replace LOGURU_CATCH_SIGABRT with struct SignalOptions, add CMake support, syslog support, va_list API, LOGURU_USE_LOCALE, DLOG_SCOPE_F, and many platform fixes
 
 # Compiling
 	Just include <loguru.hpp> where you want to use Loguru.
@@ -95,7 +95,7 @@ Website: www.ilikebigbits.com
 
 // Semantic versioning. Loguru version can be printed with printf("%d.%d.%d", LOGURU_VERSION_MAJOR, LOGURU_VERSION_MINOR, LOGURU_VERSION_PATCH);
 #define LOGURU_VERSION_MAJOR 2
-#define LOGURU_VERSION_MINOR 1
+#define LOGURU_VERSION_MINOR 2
 #define LOGURU_VERSION_PATCH 0
 
 #if defined(_MSC_VER)
