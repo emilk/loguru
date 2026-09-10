@@ -211,8 +211,9 @@ namespace loguru
 	static std::atomic<unsigned> s_stderr_indentation { 0 };
 
 	// For periodic flushing:
-	static std::thread* s_flush_thread   = nullptr;
-	static bool         s_needs_flushing = false;
+	static std::thread*      s_flush_thread    = nullptr;
+	static bool              s_needs_flushing  = false;
+	static std::atomic<bool> s_flush_thread_should_exit{false};
 
 	static SignalOptions s_signal_options = SignalOptions::none();
 
@@ -678,9 +679,22 @@ namespace loguru
 		atexit(on_atexit);
 	}
 
+	static void stop_flush_thread()
+	{
+		if (s_flush_thread) {
+			s_flush_thread_should_exit = true;
+			s_flush_thread->join();
+			delete s_flush_thread;
+			s_flush_thread = nullptr;
+			s_flush_thread_should_exit = false;
+		}
+	}
+
 	void shutdown()
 	{
 		VLOG_F(g_internal_verbosity, "loguru::shutdown()");
+		stop_flush_thread();
+		flush();
 		remove_all_callbacks();
 		set_fatal_handler(nullptr);
 		set_verbosity_to_name_callback(nullptr);
@@ -1472,7 +1486,7 @@ namespace loguru
 
 		if (g_flush_interval_ms > 0 && !s_flush_thread) {
 			s_flush_thread = new std::thread([](){
-				for (;;) {
+				while (!s_flush_thread_should_exit) {
 					if (s_needs_flushing) {
 						flush();
 					}
