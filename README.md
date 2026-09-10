@@ -150,7 +150,7 @@ For more info, see [the official documentation](https://emilk.github.io/loguru/i
 
 Alternatively, you can build and install loguru using [vcpkg](https://github.com/Microsoft/vcpkg/) dependency manager:
 
-``` bash or powershell
+```bash
 git clone https://github.com/Microsoft/vcpkg.git
 cd vcpkg
 ./bootstrap-vcpkg.sh
