@@ -13,6 +13,10 @@ loguru_get_version_from_header() # defines LOGURU_VERSION
 # --- define project and policies
 # ----------------------------------------------------------
 
+if(POLICY CMP0077) # https://cmake.org/cmake/help/latest/policy/CMP0077.html
+  cmake_policy(SET CMP0077 NEW) # allow non-cache variables to set options()
+endif()
+
 set(_namespace loguru)
 project(loguru VERSION "${LOGURU_VERSION}" LANGUAGES CXX)
 
@@ -48,6 +52,12 @@ endif()
 # --- expose cmake-specific user options
 # ----------------------------------------------------------
 
+include(CMakeDependentOption)
+
+option(LOGURU_ENABLE_COMPILER_WARNINGS "Enable compiler warnings for loguru" ${PROJECT_IS_TOP_LEVEL})
+cmake_dependent_option(LOGURU_WARNINGS_AS_ERRORS
+  "Treat compile warnings as errors (gcc/clang -Werror, msvc /WX)" OFF
+  "LOGURU_ENABLE_COMPILER_WARNINGS" OFF)
 option(LOGURU_INSTALL        "Generate the install target(s)" ${PROJECT_IS_TOP_LEVEL})
 option(LOGURU_BUILD_EXAMPLES "Build the project examples"     ${PROJECT_IS_TOP_LEVEL})
 option(LOGURU_BUILD_TESTS    "Build the tests"                ${PROJECT_IS_TOP_LEVEL})
@@ -58,13 +68,21 @@ endif()
 # --- set global compile flags
 # ----------------------------------------------------------
 
-if (PROJECT_IS_TOP_LEVEL)
-  # enable ALL warnings for all subsequently defined targets
+if (LOGURU_ENABLE_COMPILER_WARNINGS)
+  # enable strict compiler warnings for all subsequently defined targets
   add_compile_options(
-    "$<$<CXX_COMPILER_ID:GNU>:-Wall;-Wextra;-Werror;-pedantic>"
+    "$<$<CXX_COMPILER_ID:GNU>:-Wall;-Wextra;-pedantic>"
     "$<$<CXX_COMPILER_ID:Clang>:-Weverything;-Wno-c++98-compat;-Wno-c++98-compat-pedantic>"
     "$<$<CXX_COMPILER_ID:MSVC>:/W4>"
   )
+  if (LOGURU_WARNINGS_AS_ERRORS)
+    message(STATUS "Treating loguru compile warnings as errors")
+    add_compile_options(
+      "$<$<CXX_COMPILER_ID:GNU>:-Werror>"
+      "$<$<CXX_COMPILER_ID:Clang>:-Werror>"
+      "$<$<CXX_COMPILER_ID:MSVC>:/WX>"
+    )
+  endif()
 endif()
 
 # --- add loguru target
