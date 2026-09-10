@@ -1139,8 +1139,8 @@ LOGURU_ANONYMOUS_NAMESPACE_END
 	// Debug logging enabled:
 	#define DLOG_F(verbosity_name, ...)     LOG_F(verbosity_name, __VA_ARGS__)
 	#define DVLOG_F(verbosity, ...)         VLOG_F(verbosity, __VA_ARGS__)
-	#define DLOG_IF_F(verbosity_name, ...)  LOG_IF_F(verbosity_name, __VA_ARGS__)
-	#define DVLOG_IF_F(verbosity, ...)      VLOG_IF_F(verbosity, __VA_ARGS__)
+	#define DLOG_IF_F(verbosity_name, cond, ...)  LOG_IF_F(verbosity_name, cond, __VA_ARGS__)
+	#define DVLOG_IF_F(verbosity, cond, ...)      VLOG_IF_F(verbosity, cond, __VA_ARGS__)
 	#define DRAW_LOG_F(verbosity_name, ...) RAW_LOG_F(verbosity_name, __VA_ARGS__)
 	#define DRAW_VLOG_F(verbosity, ...)     RAW_VLOG_F(verbosity, __VA_ARGS__)
 #else
