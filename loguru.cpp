@@ -483,12 +483,16 @@ namespace loguru
 
 			bool last_is_alpha = false;
 			#if LOGURU_USE_LOCALE
+#if defined(__EXCEPTIONS) || defined(_CPPUNWIND) || defined(__cpp_exceptions)
 			try {  // locale variant of isalpha will throw on error
+#endif	// defined  defined(__EXCEPTIONS) || defined(_CPPUNWIND) || defined(__cpp_exceptions)
 				last_is_alpha = std::isalpha(cmd[arg_len], std::locale(""));
+#if defined(__EXCEPTIONS) || defined(_CPPUNWIND) || defined(__cpp_exceptions)
 			}
 			catch (...) {
 				last_is_alpha = std::isalpha(static_cast<int>(cmd[arg_len]));
 			}
+#endif	// defined  defined(__EXCEPTIONS) || defined(_CPPUNWIND) || defined(__cpp_exceptions)
 			#else
 			last_is_alpha = std::isalpha(static_cast<int>(cmd[arg_len]));
 			#endif
@@ -1204,15 +1208,19 @@ namespace loguru
 		do_replacements(s_user_stack_cleanups, output);
 		do_replacements(REPLACE_LIST, output);
 
+#if defined(__EXCEPTIONS) || defined(_CPPUNWIND) || defined(__cpp_exceptions)
 		try {
+#endif	// defined  defined(__EXCEPTIONS) || defined(_CPPUNWIND) || defined(__cpp_exceptions)
 			std::regex std_allocator_re(R"(,\s*std::allocator<[^<>]+>)");
 			output = std::regex_replace(output, std_allocator_re, std::string(""));
 
 			std::regex template_spaces_re(R"(<\s*([^<> ]+)\s*>)");
 			output = std::regex_replace(output, template_spaces_re, std::string("<$1>"));
+#if defined(__EXCEPTIONS) || defined(_CPPUNWIND) || defined(__cpp_exceptions)
 		} catch (std::regex_error&) {
 			// Probably old GCC.
 		}
+#endif	// defined  defined(__EXCEPTIONS) || defined(_CPPUNWIND) || defined(__cpp_exceptions)
 
 		return output;
 	}
@@ -2019,12 +2027,16 @@ namespace loguru
 			char preamble_buff[LOGURU_PREAMBLE_WIDTH];
 			print_preamble(preamble_buff, sizeof(preamble_buff), Verbosity_FATAL, "", 0);
 			auto message = Message{Verbosity_FATAL, "", 0, preamble_buff, "", "Signal: ", signal_name};
+#if defined(__EXCEPTIONS) || defined(_CPPUNWIND) || defined(__cpp_exceptions)
 			try {
+#endif /* defined  defined(__EXCEPTIONS) || defined(_CPPUNWIND) || defined(__cpp_exceptions) */
 				log_message(1, message, false, false);
+#if defined(__EXCEPTIONS) || defined(_CPPUNWIND) || defined(__cpp_exceptions)
 			} catch (...) {
 				// This can happed due to s_fatal_handler.
 				write_to_stderr("Exception caught and ignored by Loguru signal handler.\n");
 			}
+#endif /* defined  defined(__EXCEPTIONS) || defined(_CPPUNWIND) || defined(__cpp_exceptions) */
 			flush();
 
 			// --------------------------------------------------------------------
