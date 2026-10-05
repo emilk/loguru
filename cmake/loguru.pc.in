@@ -9,4 +9,4 @@ URL: @LOGURU_PACKAGE_URL@
 Version: @LOGURU_VERSION@
 Libs: -L${libdir} -lloguru
 Libs.private: @CMAKE_THREAD_LIBS_INIT@ @_lib_dl_linkflag@
-Cflags: -I${includedir}
+Cflags: -I${includedir} -I${includedir}/loguru
